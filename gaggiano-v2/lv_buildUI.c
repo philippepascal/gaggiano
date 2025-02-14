@@ -99,7 +99,6 @@ void my_log_cb(const char* buf) {
 
 void lv_demo_widgets(void) {
   lv_log_register_print_cb(my_log_cb);
-  my_log("does log work?");
 
   LV_LOG_ERROR("logging works!!");
 
@@ -179,22 +178,22 @@ void lv_demo_widgets(void) {
  **********************/
 
 static void basic_create(lv_obj_t* parent) {
-  // lv_obj_t* panel1 = lv_obj_create(parent);
-  // lv_obj_set_height(panel1, LV_SIZE_CONTENT);
 
   lv_obj_t* boilerBtn = lv_btn_create(parent);
   //lv_obj_add_event_cb(boilerBtn, event_handler, LV_EVENT_ALL, NULL);
   lv_obj_add_flag(boilerBtn, LV_OBJ_FLAG_CHECKABLE);
-  lv_obj_set_height(boilerBtn, LV_SIZE_CONTENT);
+  lv_obj_set_height(boilerBtn, 100);
+  lv_obj_set_width(boilerBtn, 100);
 
   lv_obj_t* boilerBtnLabel = lv_label_create(boilerBtn);
-  lv_label_set_text(boilerBtnLabel, "Start Boiler");
+  lv_label_set_text(boilerBtnLabel, "Boiler");
   lv_obj_center(boilerBtnLabel);
 
   lv_obj_t* brewBtn = lv_btn_create(parent);
   //lv_obj_add_event_cb(boilerBtn, event_handler, LV_EVENT_ALL, NULL);
   lv_obj_add_flag(brewBtn, LV_OBJ_FLAG_CHECKABLE);
-  lv_obj_set_height(brewBtn, LV_SIZE_CONTENT);
+  lv_obj_set_height(brewBtn, 100);
+  lv_obj_set_width(brewBtn, 100);
 
   lv_obj_t* brewBtnLabel = lv_label_create(brewBtn);
   lv_label_set_text(brewBtnLabel, "Brew");
@@ -203,21 +202,66 @@ static void basic_create(lv_obj_t* parent) {
   lv_obj_t* steamBtn = lv_btn_create(parent);
   //lv_obj_add_event_cb(boilerBtn, event_handler, LV_EVENT_ALL, NULL);
   lv_obj_add_flag(steamBtn, LV_OBJ_FLAG_CHECKABLE);
-  lv_obj_set_height(steamBtn, LV_SIZE_CONTENT);
+  lv_obj_set_height(steamBtn, 100);
+  lv_obj_set_width(steamBtn, 100);
 
   lv_obj_t* steamBtnLabel = lv_label_create(steamBtn);
   lv_label_set_text(steamBtnLabel, "Steam");
   lv_obj_center(steamBtnLabel);
 
 
-  static lv_coord_t grid_main_col_dsc[] = { LV_GRID_CONTENT,10, LV_GRID_CONTENT,10, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
-  static lv_coord_t grid_main_row_dsc[] = { LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
+  lv_obj_t* panel1 = lv_obj_create(parent);
+  lv_obj_set_height(panel1, LV_SIZE_CONTENT);
+
+  lv_obj_t* tempSet1Label = lv_label_create(panel1);
+  lv_label_set_text(tempSet1Label, "Temp Set:");
+
+  lv_obj_t* tempSet2Label = lv_label_create(panel1);
+  lv_label_set_text(tempSet2Label, "N/A");
+
+  lv_obj_t* tempRead1Label = lv_label_create(panel1);
+  lv_label_set_text(tempRead1Label, "Temp Read:");
+
+  lv_obj_t* tempRead2Label = lv_label_create(panel1);
+  lv_label_set_text(tempRead2Label, "N/A");
+
+  lv_obj_t* pressureSet1Label = lv_label_create(panel1);
+  lv_label_set_text(pressureSet1Label, "Pressure Set:");
+
+  lv_obj_t* pressureSet2Label = lv_label_create(panel1);
+  lv_label_set_text(pressureSet2Label, "N/A");
+
+  lv_obj_t* pressureRead1Label = lv_label_create(panel1);
+  lv_label_set_text(pressureRead1Label, "Pressure Read:");
+
+  lv_obj_t* pressureRead2Label = lv_label_create(panel1);
+  lv_label_set_text(pressureRead2Label, "N/A");
+
+  static lv_coord_t grid_panel1_col_dsc[] = { LV_GRID_CONTENT,5,LV_GRID_CONTENT,20,LV_GRID_CONTENT,5,LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t grid_panel1_row_dsc[] = { LV_GRID_CONTENT,5,LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
+
+lv_obj_set_grid_dsc_array(panel1, grid_panel1_col_dsc, grid_panel1_row_dsc);
+
+  lv_obj_set_grid_cell(tempSet1Label, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_grid_cell(tempSet2Label, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_grid_cell(tempRead1Label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_grid_cell(tempRead2Label, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_grid_cell(pressureSet1Label, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 1, 1);
+  lv_obj_set_grid_cell(pressureSet2Label, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 1, 1);
+  lv_obj_set_grid_cell(pressureRead1Label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 1, 1);
+  lv_obj_set_grid_cell(pressureRead2Label, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 1, 1);
+
+
+
+  static lv_coord_t grid_main_col_dsc[] = { LV_GRID_FR(1),10, LV_GRID_FR(1),10, LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t grid_main_row_dsc[] = { LV_GRID_FR(1), LV_GRID_CONTENT,LV_GRID_TEMPLATE_LAST };
 
   lv_obj_set_grid_dsc_array(parent, grid_main_col_dsc, grid_main_row_dsc);
 
   lv_obj_set_grid_cell(boilerBtn, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
-  lv_obj_set_grid_cell(brewBtnLabel, LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
-  lv_obj_set_grid_cell(steamBtnLabel, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+  lv_obj_set_grid_cell(brewBtn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+  lv_obj_set_grid_cell(steamBtn, LV_GRID_ALIGN_STRETCH, 4, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+  lv_obj_set_grid_cell(panel1, LV_GRID_ALIGN_STRETCH, 0, 5, LV_GRID_ALIGN_STRETCH, 1, 1);
 
 
 }
