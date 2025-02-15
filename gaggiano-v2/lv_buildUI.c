@@ -9,8 +9,6 @@
 #include "lv_buildUI.h"
 #include "my_logging.h"
 
-// #if LV_USE_DEMO_WIDGETS
-
 #if LV_MEM_CUSTOM == 0 && LV_MEM_SIZE < (38ul * 1024ul)
 #error Insufficient memory for lv_demo_widgets. Please set LV_MEM_SIZE to at least 38KB (38ul * 1024ul).  48KB is recommended.
 #endif
@@ -58,6 +56,11 @@ static void meter3_anim_cb(void* var, int32_t v);
  *  STATIC VARIABLES
  **********************/
 
+static GaggiaStateT* state;
+static lv_obj_t* tempSet2Label;
+static lv_obj_t* tempRead2Label;
+static lv_obj_t* pressureSet2Label;
+static lv_obj_t* pressureRead2Label;
 
 static lv_obj_t* tv;
 static lv_obj_t* calendar;
@@ -94,11 +97,18 @@ static uint32_t session_mobile = 1000;
  *   GLOBAL FUNCTIONS
  **********************/
 void my_log_cb(const char* buf) {
-  //void my_log_cb(lv_log_level_t level, const char* buf) {
   my_log(buf);
 }
 
-void lv_demo_widgets(void) {
+void updateUI() {
+  lv_label_set_text_fmt(tempSet2Label, "%.2f", state->boilerSetPoint);
+  lv_label_set_text_fmt(tempRead2Label, "%.2f", state->tempRead);
+  lv_label_set_text_fmt(pressureSet2Label, "%.2f", state->pressureSetPoint);
+  lv_label_set_text_fmt(pressureRead2Label, "%.2f", state->pressureRead);
+}
+
+void instantiateUI(GaggiaStateT* s) {
+  state = s;
   lv_log_register_print_cb(my_log_cb);
 
   LV_LOG_ERROR("logging works!!");
@@ -212,38 +222,37 @@ static void basic_create(lv_obj_t* parent) {
   lv_label_set_text(steamBtnLabel, "Steam");
   lv_obj_center(steamBtnLabel);
 
-
   lv_obj_t* panel1 = lv_obj_create(parent);
   lv_obj_set_height(panel1, LV_SIZE_CONTENT);
 
   lv_obj_t* tempSet1Label = lv_label_create(panel1);
   lv_label_set_text(tempSet1Label, "Temp Set:");
 
-  lv_obj_t* tempSet2Label = lv_label_create(panel1);
-  lv_label_set_text(tempSet2Label, "N/A");
+  tempSet2Label = lv_label_create(panel1);
+  lv_label_set_text_fmt(tempSet2Label, "%.2f", state->boilerSetPoint);
 
   lv_obj_t* tempRead1Label = lv_label_create(panel1);
   lv_label_set_text(tempRead1Label, "Temp Read:");
 
-  lv_obj_t* tempRead2Label = lv_label_create(panel1);
-  lv_label_set_text(tempRead2Label, "N/A");
+  tempRead2Label = lv_label_create(panel1);
+  lv_label_set_text_fmt(tempRead2Label, "%.2f", state->tempRead);
 
   lv_obj_t* pressureSet1Label = lv_label_create(panel1);
   lv_label_set_text(pressureSet1Label, "Pressure Set:");
 
-  lv_obj_t* pressureSet2Label = lv_label_create(panel1);
-  lv_label_set_text(pressureSet2Label, "N/A");
+  pressureSet2Label = lv_label_create(panel1);
+  lv_label_set_text_fmt(pressureSet2Label, "%.2f", state->pressureSetPoint);
 
   lv_obj_t* pressureRead1Label = lv_label_create(panel1);
   lv_label_set_text(pressureRead1Label, "Pressure Read:");
 
-  lv_obj_t* pressureRead2Label = lv_label_create(panel1);
-  lv_label_set_text(pressureRead2Label, "N/A");
+  pressureRead2Label = lv_label_create(panel1);
+  lv_label_set_text_fmt(pressureRead2Label, "%.2f", state->pressureRead);
 
-  static lv_coord_t grid_panel1_col_dsc[] = { LV_GRID_CONTENT,5,LV_GRID_CONTENT,20,LV_GRID_CONTENT,5,LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
-  static lv_coord_t grid_panel1_row_dsc[] = { LV_GRID_CONTENT,5,LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t grid_panel1_col_dsc[] = { LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 20, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t grid_panel1_row_dsc[] = { LV_GRID_CONTENT, 5, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
 
-lv_obj_set_grid_dsc_array(panel1, grid_panel1_col_dsc, grid_panel1_row_dsc);
+  lv_obj_set_grid_dsc_array(panel1, grid_panel1_col_dsc, grid_panel1_row_dsc);
 
   lv_obj_set_grid_cell(tempSet1Label, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 0, 1);
   lv_obj_set_grid_cell(tempSet2Label, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 0, 1);
@@ -254,10 +263,8 @@ lv_obj_set_grid_dsc_array(panel1, grid_panel1_col_dsc, grid_panel1_row_dsc);
   lv_obj_set_grid_cell(pressureRead1Label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 1, 1);
   lv_obj_set_grid_cell(pressureRead2Label, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 1, 1);
 
-
-
-  static lv_coord_t grid_main_col_dsc[] = { LV_GRID_FR(1),10, LV_GRID_FR(1),10, LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
-  static lv_coord_t grid_main_row_dsc[] = { LV_GRID_FR(1), LV_GRID_CONTENT,LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t grid_main_col_dsc[] = { LV_GRID_FR(1), 10, LV_GRID_FR(1), 10, LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t grid_main_row_dsc[] = { LV_GRID_FR(1), LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
 
   lv_obj_set_grid_dsc_array(parent, grid_main_col_dsc, grid_main_row_dsc);
 
@@ -265,8 +272,6 @@ lv_obj_set_grid_dsc_array(panel1, grid_panel1_col_dsc, grid_panel1_row_dsc);
   lv_obj_set_grid_cell(brewBtn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
   lv_obj_set_grid_cell(steamBtn, LV_GRID_ALIGN_STRETCH, 4, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
   lv_obj_set_grid_cell(panel1, LV_GRID_ALIGN_STRETCH, 0, 5, LV_GRID_ALIGN_STRETCH, 1, 1);
-
-
 }
 
 static void settings_create(lv_obj_t* parent) {
@@ -286,7 +291,9 @@ static void settings_create(lv_obj_t* parent) {
 
   lv_obj_t* brew_temp_tf = lv_textarea_create(panel1);
   lv_textarea_set_one_line(brew_temp_tf, true);
-  lv_textarea_set_placeholder_text(brew_temp_tf, "98");
+  char t[6];
+  sprintf(t,"%.2f",state->boilerSetPoint);
+  lv_textarea_set_text(brew_temp_tf, t);
   lv_obj_add_event_cb(brew_temp_tf, ta_event_cb, LV_EVENT_ALL, kb);
 
   lv_obj_t* brew_pressure_label = lv_label_create(panel1);
@@ -294,7 +301,8 @@ static void settings_create(lv_obj_t* parent) {
 
   lv_obj_t* brew_pressure_tf = lv_textarea_create(panel1);
   lv_textarea_set_one_line(brew_pressure_tf, true);
-  lv_textarea_set_placeholder_text(brew_pressure_tf, "8.0");
+  sprintf(t,"%.2f",state->pressureSetPoint);
+  lv_textarea_set_text(brew_pressure_tf, t);
   lv_obj_add_event_cb(brew_pressure_tf, ta_event_cb, LV_EVENT_ALL, kb);
 
   lv_obj_t* steam_temp_label = lv_label_create(panel1);
@@ -313,8 +321,8 @@ static void settings_create(lv_obj_t* parent) {
   lv_obj_t* cancelBtn_Label = lv_label_create(cancelBtn);
   lv_label_set_text(cancelBtn_Label, "Cancel");
 
-  static lv_coord_t grid_panel1_col_dsc[] = { LV_GRID_CONTENT,5,LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
-  static lv_coord_t grid_panel1_row_dsc[] = { LV_GRID_CONTENT,5,LV_GRID_CONTENT,5,LV_GRID_CONTENT,5,LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t grid_panel1_col_dsc[] = { LV_GRID_CONTENT, 5, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t grid_panel1_row_dsc[] = { LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
 
   lv_obj_set_grid_dsc_array(panel1, grid_panel1_col_dsc, grid_panel1_row_dsc);
 
