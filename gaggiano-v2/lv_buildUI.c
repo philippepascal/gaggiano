@@ -29,6 +29,7 @@
  **********************/
 
 static void basic_create(lv_obj_t* parent);
+static void settings_create(lv_obj_t* parent);
 static void profile_create(lv_obj_t* parent);
 static void analytics_create(lv_obj_t* parent);
 static void shop_create(lv_obj_t* parent);
@@ -162,13 +163,15 @@ void lv_demo_widgets(void) {
   lv_obj_align_to(label, logo, LV_ALIGN_OUT_RIGHT_BOTTOM, 10, 0);
 
   lv_obj_t* t1 = lv_tabview_add_tab(tv, "Gaggia Basic");
-  lv_obj_t* t2 = lv_tabview_add_tab(tv, "Profile");
-  lv_obj_t* t3 = lv_tabview_add_tab(tv, "Analytics");
-  lv_obj_t* t4 = lv_tabview_add_tab(tv, "Shop");
+  lv_obj_t* t2 = lv_tabview_add_tab(tv, "Settings");
+  lv_obj_t* t3 = lv_tabview_add_tab(tv, "Profile");
+  // lv_obj_t* t3 = lv_tabview_add_tab(tv, "Analytics");
+  // lv_obj_t* t4 = lv_tabview_add_tab(tv, "Shop");
   basic_create(t1);
-  profile_create(t2);
-  analytics_create(t3);
-  shop_create(t4);
+  settings_create(t2);
+  profile_create(t3);
+  // analytics_create(t3);
+  // shop_create(t4);
 
   color_changer_create(tv);
 }
@@ -264,6 +267,55 @@ lv_obj_set_grid_dsc_array(panel1, grid_panel1_col_dsc, grid_panel1_row_dsc);
   lv_obj_set_grid_cell(panel1, LV_GRID_ALIGN_STRETCH, 0, 5, LV_GRID_ALIGN_STRETCH, 1, 1);
 
 
+}
+
+static void settings_create(lv_obj_t* parent) {
+  lv_obj_t* panel1 = lv_obj_create(parent);
+
+  static lv_coord_t grid_main_col_dsc[] = { LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t grid_main_row_dsc[] = { LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
+
+  lv_obj_set_grid_dsc_array(parent, grid_main_col_dsc, grid_main_row_dsc);
+  lv_obj_set_grid_cell(panel1, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+
+  lv_obj_t* brew_temp_label = lv_label_create(panel1);
+  lv_label_set_text(brew_temp_label, "Brew Temperature:");
+
+  lv_obj_t* kb = lv_keyboard_create(lv_scr_act());
+  lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
+
+  lv_obj_t* brew_temp_tf = lv_textarea_create(panel1);
+  lv_textarea_set_one_line(brew_temp_tf, true);
+  lv_textarea_set_placeholder_text(brew_temp_tf, "98");
+  lv_obj_add_event_cb(brew_temp_tf, ta_event_cb, LV_EVENT_ALL, kb);
+
+  lv_obj_t* brew_pressure_label = lv_label_create(panel1);
+  lv_label_set_text(brew_pressure_label, "Brew Pressure:");
+
+  lv_obj_t* brew_pressure_tf = lv_textarea_create(panel1);
+  lv_textarea_set_one_line(brew_pressure_tf, true);
+  lv_textarea_set_placeholder_text(brew_pressure_tf, "8.0");
+  lv_obj_add_event_cb(brew_pressure_tf, ta_event_cb, LV_EVENT_ALL, kb);
+
+  lv_obj_t* steam_temp_label = lv_label_create(panel1);
+  lv_label_set_text(steam_temp_label, "Steam Temperature:");
+
+  lv_obj_t* steam_temp_tf = lv_textarea_create(panel1);
+  lv_textarea_set_one_line(steam_temp_tf, true);
+  lv_textarea_set_placeholder_text(steam_temp_tf, "135");
+  lv_obj_add_event_cb(steam_temp_tf, ta_event_cb, LV_EVENT_ALL, kb);
+
+  static lv_coord_t grid_panel1_col_dsc[] = { LV_GRID_CONTENT,5,LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t grid_panel1_row_dsc[] = { LV_GRID_CONTENT,5,LV_GRID_CONTENT,5,LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
+
+  lv_obj_set_grid_dsc_array(panel1, grid_panel1_col_dsc, grid_panel1_row_dsc);
+
+  lv_obj_set_grid_cell(brew_temp_label, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_grid_cell(brew_temp_tf, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_grid_cell(brew_pressure_label, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 2, 1);
+  lv_obj_set_grid_cell(brew_pressure_tf, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 2, 1);
+  lv_obj_set_grid_cell(steam_temp_label, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 4, 1);
+  lv_obj_set_grid_cell(steam_temp_tf, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 4, 1);
 }
 
 static void profile_create(lv_obj_t* parent) {
