@@ -305,8 +305,16 @@ static void settings_create(lv_obj_t* parent) {
   lv_textarea_set_placeholder_text(steam_temp_tf, "135");
   lv_obj_add_event_cb(steam_temp_tf, ta_event_cb, LV_EVENT_ALL, kb);
 
+  lv_obj_t* setBtn = lv_btn_create(panel1);
+  lv_obj_t* setBtn_label = lv_label_create(setBtn);
+  lv_label_set_text(setBtn_label, "Set");
+
+  lv_obj_t* cancelBtn = lv_btn_create(panel1);
+  lv_obj_t* cancelBtn_Label = lv_label_create(cancelBtn);
+  lv_label_set_text(cancelBtn_Label, "Cancel");
+
   static lv_coord_t grid_panel1_col_dsc[] = { LV_GRID_CONTENT,5,LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
-  static lv_coord_t grid_panel1_row_dsc[] = { LV_GRID_CONTENT,5,LV_GRID_CONTENT,5,LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t grid_panel1_row_dsc[] = { LV_GRID_CONTENT,5,LV_GRID_CONTENT,5,LV_GRID_CONTENT,5,LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
 
   lv_obj_set_grid_dsc_array(panel1, grid_panel1_col_dsc, grid_panel1_row_dsc);
 
@@ -316,6 +324,8 @@ static void settings_create(lv_obj_t* parent) {
   lv_obj_set_grid_cell(brew_pressure_tf, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 2, 1);
   lv_obj_set_grid_cell(steam_temp_label, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 4, 1);
   lv_obj_set_grid_cell(steam_temp_tf, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 4, 1);
+  lv_obj_set_grid_cell(setBtn, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 6, 1);
+  lv_obj_set_grid_cell(cancelBtn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 6, 1);
 }
 
 static void profile_create(lv_obj_t* parent) {
