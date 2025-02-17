@@ -30,7 +30,7 @@ extern "C" {
 /**********************
  * GLOBAL PROTOTYPES
  **********************/
-void instantiateUI();
+void instantiateUI(GaggiaStateT *state);
 void updateUI();
 /**********************
  *      MACROS

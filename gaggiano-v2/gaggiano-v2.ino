@@ -28,6 +28,7 @@
 
 #include <lvgl.h>
 #include "lv_buildUI.h"
+#include "gaggia_state.h"
 /*******************************************************************************
  ******************************************************************************/
 #include <Arduino_GFX_Library.h>
@@ -114,6 +115,9 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
  * Global variables
  ******************************************************************************/
 
+struct GaggiaState state = { false, 98, 8.0, 134, 0, 0, false, false, false };
+
+
 void setup() {
   Serial.begin(115200);
   // while (!Serial);
@@ -167,13 +171,14 @@ void setup() {
     indev_drv.read_cb = my_touchpad_read;
     lv_indev_drv_register(&indev_drv);
 
-    initConfFile();
-    setupAndReadConfigFile();
-    delay(100);
+    initConfFile(&state);
+    delay(500);
 
-    instantiateUI();
-    delay(100);
-    
+    instantiateUI(&state);
+    delay(500);
+
+    setupAndReadConfigFile();
+
     Serial.println("Setup done");
   }
 }

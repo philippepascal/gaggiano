@@ -7,15 +7,13 @@ extern "C" {
 #include <SPI.h>
 
 static fs::FS* fileSystem;
+static GaggiaStateT* state;
 
-void initConfFile() {
-
-#ifdef REASSIGN_PINS
+void initConfFile(GaggiaStateT* s) {
+  state = s;
   SPI.begin(SD_sck, SD_miso, SD_mosi, SD_cs);
+  Serial.println("SPI initialized");
   if (!SD.begin(SD_cs)) {
-#else
-  if (!SD.begin()) {
-#endif
     Serial.println("Card Mount Failed");
     return;
   }
@@ -64,31 +62,36 @@ int setupAndReadConfigFile() {
   File file = fileSystem->open(fileName);
   if (!file) {
     Serial.println("Failed to open file for reading, trying to create it with default values");
-    boilerSetPoint = 99;
-    pressureSetPoint = 7.0;
-    steamSetPoint = 143;
+    state->boilerSetPoint = 99;
+    state->pressureSetPoint = 7.0;
+    state->steamSetPoint = 143;
     writeConfigFile();
     return -1;
   } else {
     Serial.print("Read from file: ");
-    char r = file.read();
-    char* s;
-    while (file.available())
-      s += r;
-    CSV_Parser cp(s, /*format*/ "sd");
-    double* values = (double*)cp["value"];
-    boilerSetPoint = (double)values[0];
-    pressureSetPoint = (double)values[1];
-    steamSetPoint = (double)values[2];
-    hasChanged = true;
-
+    if (file.available()) {
+      String data = file.readString();
+      Serial.println(data);
+      char buffer[200];
+      data.toCharArray(buffer, data.length()+2);
+      CSV_Parser cp(buffer, /*format*/ "sf");
+      float* values = (float*)cp["value"];
+      Serial.printf("%f , %f , %f",(float)values[0],(float)values[1],(float)values[2]);
+      state->boilerSetPoint = (float)values[0];
+      state->pressureSetPoint = (float)values[1];
+      state->steamSetPoint = (float)values[2];
+      state->hasChanged = true;
+      Serial.println("state updated");
+    } else {
+      Serial.print("CSV parsing failed");
+    }
     file.close();
     return 1;
   }
 }
 
 int writeConfigFile(const char* content) {
-  const char* fileName = "/gaggia/gaggia_settins.csv";
+  const char* fileName = "/gaggia/gaggia_settings.csv";
   File file = fileSystem->open(fileName, FILE_WRITE);
   if (!file) {
     Serial.println("Failed to open file for writing");
@@ -104,11 +107,13 @@ int writeConfigFile(const char* content) {
 }
 
 int writeConfigFile() {
-  char buffer[100];
+  char buffer[200];
   const char* csv_str = "key,value\n"
-                        "boilerSetPoint,%d/n"
-                        "pressureSetPoint,%d/n"
-                        "steamSetPoint,%d/n";
-  sprintf(buffer, csv_str, boilerSetPoint, pressureSetPoint, steamSetPoint);
-  return writeConfigFile(csv_str);
+                        "boilerSetPoint,%f\n"
+                        "pressureSetPoint,%f\n"
+                        "steamSetPoint,%f\n\n";
+  sprintf(buffer, csv_str, state->boilerSetPoint, state->pressureSetPoint, state->steamSetPoint);
+  Serial.println("writing to file");
+  Serial.println(buffer);
+  return writeConfigFile(buffer);
 }

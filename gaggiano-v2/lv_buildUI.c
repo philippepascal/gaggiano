@@ -36,6 +36,7 @@ static void color_changer_create(lv_obj_t* parent);
 /**********************
  *  STATIC VARIABLES
  **********************/
+static GaggiaStateT *state;
 
 static lv_obj_t* tempSet2Label;
 static lv_obj_t* tempRead2Label;
@@ -101,10 +102,10 @@ static void setButtonClicked(lv_event_t* e) {
     double newBoilerSetPoint = strtod(lv_textarea_get_text(brew_temp_tf),NULL);
     double newPressureSetPoint = strtod(lv_textarea_get_text(brew_pressure_tf),NULL);
     double newSteamSetPoint = strtod(lv_textarea_get_text(steam_temp_tf),NULL);
-    boilerSetPoint = newBoilerSetPoint;
-    pressureSetPoint = newPressureSetPoint;
-    steamSetPoint = newSteamSetPoint;
-    hasChanged = true;
+    state->boilerSetPoint = newBoilerSetPoint;
+    state->pressureSetPoint = newPressureSetPoint;
+    state->steamSetPoint = newSteamSetPoint;
+    state->hasChanged = true;
     writeConfigFile();
     lv_obj_add_state(setBtn, LV_STATE_DISABLED);
   }
@@ -118,29 +119,35 @@ void my_log_cb(const char* buf) {
   my_log(buf);
 }
 void updateUI() {
-  lv_label_set_text_fmt(tempRead2Label, "%.2f", tempRead);
-  lv_label_set_text_fmt(pressureRead2Label, "%.2f", pressureRead);
+  LV_LOG_TRACE("updating real time fields");
+  lv_label_set_text_fmt(tempRead2Label, "%.2f", state->tempRead);
+  lv_label_set_text_fmt(pressureRead2Label, "%.2f", state->pressureRead);
 
-  if (hasChanged) {
+  if (state->hasChanged) {
+    LV_LOG_WARN("updating config fields");
 
-    lv_label_set_text_fmt(tempSet2Label, "%.2f", boilerSetPoint);
-    lv_label_set_text_fmt(pressureSet2Label, "%.2f", pressureSetPoint);
+    lv_label_set_text_fmt(tempSet2Label, "%.2f", state->boilerSetPoint);
+    lv_label_set_text_fmt(pressureSet2Label, "%.2f", state->pressureSetPoint);
 
     char t[10];
-    sprintf(t, "%.2f", boilerSetPoint);
+    sprintf(t, "%.2f", state->boilerSetPoint);
     lv_textarea_set_text(brew_temp_tf, t);
 
-    sprintf(t, "%.2f", pressureSetPoint);
+    sprintf(t, "%.2f", state->pressureSetPoint);
     lv_textarea_set_text(brew_pressure_tf, t);
 
-    sprintf(t, "%.2f", steamSetPoint);
+    sprintf(t, "%.2f", state->steamSetPoint);
     lv_textarea_set_text(steam_temp_tf, t);
 
-    hasChanged = false;
+    //yuk, but setting text area emits a change event...
+    lv_obj_add_state(setBtn, LV_STATE_DISABLED);
+
+    state->hasChanged = false;
   }
 }
 
-void instantiateUI() {
+void instantiateUI(GaggiaStateT *s) {
+  state = s;
   lv_log_register_print_cb(my_log_cb);
 
   LV_LOG_ERROR("logging works!!");
@@ -253,25 +260,25 @@ static void basic_create(lv_obj_t* parent) {
   lv_label_set_text(tempSet1Label, "Temp Set:");
 
   tempSet2Label = lv_label_create(panel1);
-  lv_label_set_text_fmt(tempSet2Label, "%.2f", boilerSetPoint);
+  lv_label_set_text_fmt(tempSet2Label, "%.2f", state->boilerSetPoint);
 
   lv_obj_t* tempRead1Label = lv_label_create(panel1);
   lv_label_set_text(tempRead1Label, "Temp Read:");
 
   tempRead2Label = lv_label_create(panel1);
-  lv_label_set_text_fmt(tempRead2Label, "%.2f", tempRead);
+  lv_label_set_text_fmt(tempRead2Label, "%.2f", state->tempRead);
 
   lv_obj_t* pressureSet1Label = lv_label_create(panel1);
   lv_label_set_text(pressureSet1Label, "Pressure Set:");
 
   pressureSet2Label = lv_label_create(panel1);
-  lv_label_set_text_fmt(pressureSet2Label, "%.2f", pressureSetPoint);
+  lv_label_set_text_fmt(pressureSet2Label, "%.2f", state->pressureSetPoint);
 
   lv_obj_t* pressureRead1Label = lv_label_create(panel1);
   lv_label_set_text(pressureRead1Label, "Pressure Read:");
 
   pressureRead2Label = lv_label_create(panel1);
-  lv_label_set_text_fmt(pressureRead2Label, "%.2f", pressureRead);
+  lv_label_set_text_fmt(pressureRead2Label, "%.2f", state->pressureRead);
 
   static lv_coord_t grid_panel1_col_dsc[] = { LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 20, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
   static lv_coord_t grid_panel1_row_dsc[] = { LV_GRID_CONTENT, 5, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
@@ -315,8 +322,8 @@ static void settings_create(lv_obj_t* parent) {
 
   brew_temp_tf = lv_textarea_create(panel1);
   lv_textarea_set_one_line(brew_temp_tf, true);
-  char t[6];
-  sprintf(t, "%.2f", boilerSetPoint);
+  char t[20];
+  sprintf(t, "%.2f", state->boilerSetPoint);
   lv_textarea_set_text(brew_temp_tf, t);
   lv_obj_add_event_cb(brew_temp_tf, setting_field_changed, LV_EVENT_ALL, kb);
 
@@ -325,7 +332,7 @@ static void settings_create(lv_obj_t* parent) {
 
   brew_pressure_tf = lv_textarea_create(panel1);
   lv_textarea_set_one_line(brew_pressure_tf, true);
-  sprintf(t, "%.2f", pressureSetPoint);
+  sprintf(t, "%.2f", state->pressureSetPoint);
   lv_textarea_set_text(brew_pressure_tf, t);
   lv_obj_add_event_cb(brew_pressure_tf, setting_field_changed, LV_EVENT_ALL, kb);
 
@@ -334,7 +341,7 @@ static void settings_create(lv_obj_t* parent) {
 
   steam_temp_tf = lv_textarea_create(panel1);
   lv_textarea_set_one_line(steam_temp_tf, true);
-  sprintf(t, "%.2f", steamSetPoint);
+  sprintf(t, "%.2f", state->steamSetPoint);
   lv_textarea_set_text(steam_temp_tf, t);
   lv_obj_add_event_cb(steam_temp_tf, setting_field_changed, LV_EVENT_ALL, kb);
 
