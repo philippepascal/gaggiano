@@ -36,7 +36,7 @@ static void color_changer_create(lv_obj_t* parent);
 /**********************
  *  STATIC VARIABLES
  **********************/
-static GaggiaStateT *state;
+static GaggiaStateT* state;
 
 static lv_obj_t* tempSet2Label;
 static lv_obj_t* tempRead2Label;
@@ -46,6 +46,9 @@ static lv_obj_t* brew_temp_tf;
 static lv_obj_t* brew_pressure_tf;
 static lv_obj_t* steam_temp_tf;
 static lv_obj_t* setBtn;
+static lv_obj_t* boilerBtn;
+static lv_obj_t* brewBtn;
+static lv_obj_t* steamBtn;
 
 static const lv_font_t* font_large;
 static const lv_font_t* font_normal;
@@ -98,10 +101,10 @@ static void setButtonClicked(lv_event_t* e) {
   lv_event_code_t code = lv_event_get_code(e);
 
   if (code == LV_EVENT_CLICKED) {
-    LV_LOG_WARN("Button Clicked");
-    double newBoilerSetPoint = strtod(lv_textarea_get_text(brew_temp_tf),NULL);
-    double newPressureSetPoint = strtod(lv_textarea_get_text(brew_pressure_tf),NULL);
-    double newSteamSetPoint = strtod(lv_textarea_get_text(steam_temp_tf),NULL);
+    LV_LOG_WARN("Set Button Clicked");
+    double newBoilerSetPoint = strtod(lv_textarea_get_text(brew_temp_tf), NULL);
+    double newPressureSetPoint = strtod(lv_textarea_get_text(brew_pressure_tf), NULL);
+    double newSteamSetPoint = strtod(lv_textarea_get_text(steam_temp_tf), NULL);
     state->boilerSetPoint = newBoilerSetPoint;
     state->pressureSetPoint = newPressureSetPoint;
     state->steamSetPoint = newSteamSetPoint;
@@ -110,7 +113,60 @@ static void setButtonClicked(lv_event_t* e) {
     lv_obj_add_state(setBtn, LV_STATE_DISABLED);
   }
 }
+static void cancelButtonClicked(lv_event_t* e) {
+  lv_event_code_t code = lv_event_get_code(e);
 
+  if (code == LV_EVENT_CLICKED) {
+    LV_LOG_WARN("Cancel Button Clicked");
+    state->hasChanged = true;
+    lv_obj_add_state(setBtn, LV_STATE_DISABLED);
+  }
+}
+static void boilerButtonClicked(lv_event_t* e) {
+  lv_event_code_t code = lv_event_get_code(e);
+  if (code == LV_EVENT_VALUE_CHANGED) {
+    LV_LOG_USER("boiler Toggled");
+    if(lv_obj_get_state(boilerBtn) & LV_STATE_CHECKED) {
+      //set arduino to boilerSetPoint
+      LV_LOG_USER("starting boiler");
+    } else {
+      //set arduino to boilerSetPoint 0
+      LV_LOG_USER("stopping boiler (and steam)");
+      lv_obj_clear_state(steamBtn,LV_STATE_CHECKED);
+    }
+  }
+}
+static void brewButtonClicked(lv_event_t* e) {
+  lv_event_code_t code = lv_event_get_code(e);
+  if (code == LV_EVENT_CLICKED) {
+    LV_LOG_USER("brew Clicked");
+  } else if (code == LV_EVENT_VALUE_CHANGED) {
+    LV_LOG_USER("brew Toggled");
+    if(lv_obj_get_state(brewBtn) & LV_STATE_CHECKED) {
+      //set arduino to brew (valve and pump) to pressureSetPoint
+      LV_LOG_USER("starting brew");
+    } else {
+      //set arduino to brew (valve and pump) to pressureSetPoint 0
+      LV_LOG_USER("stopping brew");
+    }
+  }
+}
+static void steamButtonClicked(lv_event_t* e) {
+  lv_event_code_t code = lv_event_get_code(e);
+  if (code == LV_EVENT_CLICKED) {
+    LV_LOG_USER("steam Clicked");
+  } else if (code == LV_EVENT_VALUE_CHANGED) {
+    LV_LOG_USER("steam Toggled");
+    if(lv_obj_get_state(steamBtn) & LV_STATE_CHECKED) {
+      //set arduino to boilerSetPoint at steamSetPoint
+      LV_LOG_USER("starting steam (and brew)");
+      lv_obj_add_state(boilerBtn,LV_STATE_CHECKED);
+    } else {
+      //set arduino to boilerSetPoint to 0
+      LV_LOG_USER("stopping steam ");
+    }
+  }
+}
 /**********************
  *   GLOBAL FUNCTIONS
  **********************/
@@ -146,7 +202,7 @@ void updateUI() {
   }
 }
 
-void instantiateUI(GaggiaStateT *s) {
+void instantiateUI(GaggiaStateT* s) {
   state = s;
   lv_log_register_print_cb(my_log_cb);
 
@@ -223,31 +279,34 @@ void instantiateUI(GaggiaStateT *s) {
 
 static void basic_create(lv_obj_t* parent) {
 
-  lv_obj_t* boilerBtn = lv_btn_create(parent);
+  boilerBtn = lv_btn_create(parent);
   //lv_obj_add_event_cb(boilerBtn, event_handler, LV_EVENT_ALL, NULL);
   lv_obj_add_flag(boilerBtn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_set_height(boilerBtn, 100);
   lv_obj_set_width(boilerBtn, 100);
+  lv_obj_add_event_cb(boilerBtn, boilerButtonClicked, LV_EVENT_ALL, NULL);
 
   lv_obj_t* boilerBtnLabel = lv_label_create(boilerBtn);
   lv_label_set_text(boilerBtnLabel, "Boiler");
   lv_obj_center(boilerBtnLabel);
 
-  lv_obj_t* brewBtn = lv_btn_create(parent);
+  brewBtn = lv_btn_create(parent);
   //lv_obj_add_event_cb(boilerBtn, event_handler, LV_EVENT_ALL, NULL);
   lv_obj_add_flag(brewBtn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_set_height(brewBtn, 100);
   lv_obj_set_width(brewBtn, 100);
+  lv_obj_add_event_cb(brewBtn, brewButtonClicked, LV_EVENT_ALL, NULL);
 
   lv_obj_t* brewBtnLabel = lv_label_create(brewBtn);
   lv_label_set_text(brewBtnLabel, "Brew");
   lv_obj_center(brewBtnLabel);
 
-  lv_obj_t* steamBtn = lv_btn_create(parent);
+  steamBtn = lv_btn_create(parent);
   //lv_obj_add_event_cb(boilerBtn, event_handler, LV_EVENT_ALL, NULL);
   lv_obj_add_flag(steamBtn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_set_height(steamBtn, 100);
   lv_obj_set_width(steamBtn, 100);
+  lv_obj_add_event_cb(steamBtn, steamButtonClicked, LV_EVENT_ALL, NULL);
 
   lv_obj_t* steamBtnLabel = lv_label_create(steamBtn);
   lv_label_set_text(steamBtnLabel, "Steam");
@@ -354,6 +413,7 @@ static void settings_create(lv_obj_t* parent) {
   lv_obj_t* cancelBtn = lv_btn_create(panel1);
   lv_obj_t* cancelBtn_Label = lv_label_create(cancelBtn);
   lv_label_set_text(cancelBtn_Label, "Cancel");
+  lv_obj_add_event_cb(cancelBtn_Label, cancelButtonClicked, LV_EVENT_ALL, kb);
 
   static lv_coord_t grid_panel1_col_dsc[] = { LV_GRID_CONTENT, 5, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
   static lv_coord_t grid_panel1_row_dsc[] = { LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
