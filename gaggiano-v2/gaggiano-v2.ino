@@ -24,10 +24,9 @@
  *
  * Optional: Show CPU usage and FPS count
  * #define LV_USE_PERF_MONITOR 1
- ******************************************************************************/
-//#include "lv_demo_widgets.h"
+  ******************************************************************************/
+
 #include <lvgl.h>
-//#include <demos/lv_demos.h>
 #include "lv_buildUI.h"
 /*******************************************************************************
  ******************************************************************************/
@@ -114,10 +113,8 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
 /*******************************************************************************
  * Global variables
  ******************************************************************************/
-struct GaggiaState state = {98,0,8.0,0,false,false,false};
 
-void
-setup() {
+void setup() {
   Serial.begin(115200);
   // while (!Serial);
   Serial.println("LVGL Widgets Demo");
@@ -170,8 +167,13 @@ setup() {
     indev_drv.read_cb = my_touchpad_read;
     lv_indev_drv_register(&indev_drv);
 
-    instantiateUI(&state);
+    initConfFile();
+    setupAndReadConfigFile();
+    delay(100);
 
+    instantiateUI();
+    delay(100);
+    
     Serial.println("Setup done");
   }
 }
@@ -181,3 +183,6 @@ void loop() {
   lv_timer_handler(); /* let the GUI do its work */
   delay(5);
 }
+
+
+// https://github.com/espressif/arduino-esp32/blob/master/libraries/SD/examples/SD_Test/SD_Test.ino

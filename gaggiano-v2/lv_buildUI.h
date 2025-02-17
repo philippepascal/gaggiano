@@ -17,28 +17,20 @@ extern "C" {
 //adding arduino for using serial.print
 #include "Arduino.h"
 #include <lvgl.h>
+#include "gaggia_config.h"
+
 
 /*********************
  *      DEFINES
  *********************/
-struct GaggiaState {
-  double boilerSetPoint;
-  double tempRead;
-  double pressureSetPoint;
-  double pressureRead;
-  boolean isBoilerOn;
-  boolean isBrewing;
-  boolean isSteaming;
-};
 /**********************
  *      TYPEDEFS
  **********************/
-typedef struct GaggiaState GaggiaStateT;
 
 /**********************
  * GLOBAL PROTOTYPES
  **********************/
-void instantiateUI(GaggiaStateT* state);
+void instantiateUI();
 void updateUI();
 /**********************
  *      MACROS
