@@ -182,9 +182,16 @@ void setup() {
     Serial.println("Setup done");
   }
 }
-
+int i = 0;
 void loop() {
-  updateUI();
+  //inelegant optimization to minimize useless(from user perspective) granularity
+  //helps ALOT with UI responsiveness
+  if (i<100) {
+    i++;
+    updateUI();
+  } else {
+    i=0;
+  }
   lv_timer_handler(); /* let the GUI do its work */
   delay(5);
 }
