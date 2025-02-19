@@ -116,13 +116,19 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
  ******************************************************************************/
 
 struct GaggiaState state = { false, 98, 8.0, 134, 0, 0, false, false, false };
+HardwareSerial controllerSerial(2);
 
 
 void setup() {
-  Serial.begin(115200);
-  // while (!Serial);
-  Serial.println("LVGL Widgets Demo");
+  // controllerSerial.begin(115200,SERIAL_8N1, 18, 19); //TX 19??
 
+
+  Serial.begin(115200);
+  // controllerSerial.begin(115200);  //default: RX19, TX20
+  controllerSerial.begin(115200,SERIAL_8N1, 18, 17);  // TX_GPIO 17, RX_GPIO 18,  // works on receive
+  controllerSerial.setTimeout(50);
+  Serial.println("LVGL Widgets Demo");
+  controllerSerial.println("hello controller!");
   // Init touch device
 
 
@@ -182,15 +188,22 @@ void setup() {
     Serial.println("Setup done");
   }
 }
+
 int i = 0;
+int j = 0;
 void loop() {
   //inelegant optimization to minimize useless(from user perspective) granularity
   //helps ALOT with UI responsiveness
-  if (i<100) {
+  if (i < 100) {
     i++;
     updateUI();
+    controllerSerial.println("controller, do you hear me?");
+    if (controllerSerial.available()) {
+      Serial.print("controller sent: ");
+      Serial.println(controllerSerial.readStringUntil('\n'));
+    }
   } else {
-    i=0;
+    i = 0;
   }
   lv_timer_handler(); /* let the GUI do its work */
   delay(5);
