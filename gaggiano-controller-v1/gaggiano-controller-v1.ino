@@ -53,7 +53,7 @@ void loop() {
     }
   }
   Serial.println("sending to screen");
-  screenSerial.println("hello screen");
+  screenSerial.println("0;10;99.78;1;-");
 
   // boiler PID
   myPID.run();

@@ -42,6 +42,7 @@ static lv_obj_t* tempSet2Label;
 static lv_obj_t* tempRead2Label;
 static lv_obj_t* pressureSet2Label;
 static lv_obj_t* pressureRead2Label;
+static lv_obj_t* solenoid2Label;
 static lv_obj_t* brew_temp_tf;
 static lv_obj_t* brew_pressure_tf;
 static lv_obj_t* steam_temp_tf;
@@ -126,13 +127,13 @@ static void boilerButtonClicked(lv_event_t* e) {
   lv_event_code_t code = lv_event_get_code(e);
   if (code == LV_EVENT_VALUE_CHANGED) {
     LV_LOG_USER("boiler Toggled");
-    if(lv_obj_get_state(boilerBtn) & LV_STATE_CHECKED) {
+    if (lv_obj_get_state(boilerBtn) & LV_STATE_CHECKED) {
       //set arduino to boilerSetPoint
       LV_LOG_USER("starting boiler");
     } else {
       //set arduino to boilerSetPoint 0
       LV_LOG_USER("stopping boiler (and steam)");
-      lv_obj_clear_state(steamBtn,LV_STATE_CHECKED);
+      lv_obj_clear_state(steamBtn, LV_STATE_CHECKED);
     }
   }
 }
@@ -142,7 +143,7 @@ static void brewButtonClicked(lv_event_t* e) {
     LV_LOG_USER("brew Clicked");
   } else if (code == LV_EVENT_VALUE_CHANGED) {
     LV_LOG_USER("brew Toggled");
-    if(lv_obj_get_state(brewBtn) & LV_STATE_CHECKED) {
+    if (lv_obj_get_state(brewBtn) & LV_STATE_CHECKED) {
       //set arduino to brew (valve and pump) to pressureSetPoint
       LV_LOG_USER("starting brew");
     } else {
@@ -157,10 +158,10 @@ static void steamButtonClicked(lv_event_t* e) {
     LV_LOG_USER("steam Clicked");
   } else if (code == LV_EVENT_VALUE_CHANGED) {
     LV_LOG_USER("steam Toggled");
-    if(lv_obj_get_state(steamBtn) & LV_STATE_CHECKED) {
+    if (lv_obj_get_state(steamBtn) & LV_STATE_CHECKED) {
       //set arduino to boilerSetPoint at steamSetPoint
       LV_LOG_USER("starting steam (and brew)");
-      lv_obj_add_state(boilerBtn,LV_STATE_CHECKED);
+      lv_obj_add_state(boilerBtn, LV_STATE_CHECKED);
     } else {
       //set arduino to boilerSetPoint to 0
       LV_LOG_USER("stopping steam ");
@@ -178,6 +179,12 @@ void updateUI() {
   LV_LOG_TRACE("updating real time fields");
   lv_label_set_text_fmt(tempRead2Label, "%.2f", state->tempRead);
   lv_label_set_text_fmt(pressureRead2Label, "%.2f", state->pressureRead);
+
+  if (state->isSolenoidOn) {
+    lv_label_set_text_fmt(solenoid2Label, "ON");
+  } else {
+    lv_label_set_text_fmt(solenoid2Label, "OFF");
+  }
 
   if (state->hasChanged) {
     LV_LOG_WARN("updating config fields");
@@ -339,7 +346,18 @@ static void basic_create(lv_obj_t* parent) {
   pressureRead2Label = lv_label_create(panel1);
   lv_label_set_text_fmt(pressureRead2Label, "%.2f", state->pressureRead);
 
-  static lv_coord_t grid_panel1_col_dsc[] = { LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 20, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
+  lv_obj_t* solenoid1Label = lv_label_create(panel1);
+  lv_label_set_text(solenoid1Label, "Solenoid State:");
+
+  solenoid2Label = lv_label_create(panel1);
+  if (state->isSolenoidOn) {
+    lv_label_set_text_fmt(solenoid2Label, "ON");
+  } else {
+    lv_label_set_text_fmt(solenoid2Label, "OFF");
+  }
+
+
+  static lv_coord_t grid_panel1_col_dsc[] = { LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 20, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 20, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
   static lv_coord_t grid_panel1_row_dsc[] = { LV_GRID_CONTENT, 5, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
 
   lv_obj_set_grid_dsc_array(panel1, grid_panel1_col_dsc, grid_panel1_row_dsc);
@@ -352,6 +370,9 @@ static void basic_create(lv_obj_t* parent) {
   lv_obj_set_grid_cell(pressureSet2Label, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 1, 1);
   lv_obj_set_grid_cell(pressureRead1Label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 1, 1);
   lv_obj_set_grid_cell(pressureRead2Label, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 1, 1);
+  lv_obj_set_grid_cell(solenoid1Label, LV_GRID_ALIGN_CENTER, 8, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_grid_cell(solenoid2Label, LV_GRID_ALIGN_CENTER, 10, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+
 
   static lv_coord_t grid_main_col_dsc[] = { LV_GRID_FR(1), 10, LV_GRID_FR(1), 10, LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
   static lv_coord_t grid_main_row_dsc[] = { LV_GRID_FR(1), LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };

@@ -115,7 +115,7 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
  * Global variables
  ******************************************************************************/
 
-struct GaggiaState state = { false, 98, 8.0, 134, 0, 0, false, false, false };
+struct GaggiaState state = { false, 98, 8.0, 134, 0, 0, false, false, false, false };
 HardwareSerial controllerSerial(2);
 
 
@@ -125,7 +125,7 @@ void setup() {
 
   Serial.begin(115200);
   // controllerSerial.begin(115200);  //default: RX19, TX20
-  controllerSerial.begin(115200,SERIAL_8N1, 18, 17);  // TX_GPIO 17, RX_GPIO 18,  // works on receive
+  controllerSerial.begin(115200, SERIAL_8N1, 18, 17);  // TX_GPIO 17, RX_GPIO 18,  // works on receive
   controllerSerial.setTimeout(50);
   Serial.println("LVGL Widgets Demo");
   controllerSerial.println("hello controller!");
@@ -189,20 +189,85 @@ void setup() {
   }
 }
 
+int myIndexOF(const char *str, const char ch, int fromIndex) {
+  const char *result = strchr(str + fromIndex, ch);
+  if (result == NULL) {
+    return -1;  // Substring not found
+  } else {
+    return result - str;  // Calculate the index
+  }
+}
+char *mySubString(const char *str, int start, int end) {
+  char *sub = (char *)malloc(sizeof(char) * (end - start));
+  if (sub == NULL) {
+    return NULL;
+  }
+
+  strncpy(sub, str + start, (end - start));
+  sub[(end - start)] = '\0';
+
+  return sub;
+}
+
+void readMessage() {
+  char m[100] = "";
+  if (controllerSerial.available()) {
+    Serial.println("something received");
+    strcat(m, controllerSerial.readStringUntil('\n').c_str());
+    Serial.println(m);
+  }
+  int messageSize = myIndexOF(m, '-', 0);
+  if (messageSize > 0) {
+    //message is complete..unpack
+    Serial.println("something complete needs parsing");
+    int cursor = 0;
+    int endCursor = myIndexOF(m, ';', cursor);
+    if (endCursor > 0 && endCursor < messageSize) {
+      int sender = atoi(mySubString(m, cursor, endCursor));
+      Serial.println(sender);
+      if (sender != 0) {  //not comming from the controler
+        return;
+      }
+      Serial.println("it's a message from controller");
+      cursor = endCursor + 1;
+      endCursor = myIndexOF(m, ';', cursor);
+    }
+
+    if (endCursor > 0 && endCursor < messageSize) {
+      float value = atof(mySubString(m, cursor, endCursor));
+      state.tempRead = value;
+      Serial.println(value);
+      cursor = endCursor + 1;
+      endCursor = myIndexOF(m, ';', cursor);
+    }
+
+    if (endCursor > 0 && endCursor < messageSize) {
+      float value = atof(mySubString(m, cursor, endCursor));
+      state.pressureRead = value;
+      Serial.println(value);
+      cursor = endCursor + 1;
+      endCursor = myIndexOF(m, ';', cursor);
+    }
+
+    if (endCursor > 0 && endCursor < messageSize) {
+      int value = atoi(mySubString(m, cursor, endCursor));
+      state.isSolenoidOn = value;
+      Serial.println(value);
+      cursor = endCursor + 1;
+      endCursor = myIndexOF(m, ';', cursor);
+    }
+  }
+}
+
 int i = 0;
-int j = 0;
 void loop() {
   //inelegant optimization to minimize useless(from user perspective) granularity
   //helps ALOT with UI responsiveness
   if (i < 100) {
     i++;
-    updateUI();
-    controllerSerial.println("controller, do you hear me?");
-    if (controllerSerial.available()) {
-      Serial.print("controller sent: ");
-      Serial.println(controllerSerial.readStringUntil('\n'));
-    }
   } else {
+    readMessage();
+    updateUI();
     i = 0;
   }
   lv_timer_handler(); /* let the GUI do its work */
