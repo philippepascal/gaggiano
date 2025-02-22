@@ -80,7 +80,7 @@ int setupAndReadConfigFile() {
       state->boilerSetPoint = (float)values[0];
       state->pressureSetPoint = (float)values[1];
       state->steamSetPoint = (float)values[2];
-      state->hasChanged = true;
+      state->hasConfigChanged = true;
       Serial.println("state updated");
     } else {
       Serial.print("CSV parsing failed");

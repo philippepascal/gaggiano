@@ -115,7 +115,7 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
  * Global variables
  ******************************************************************************/
 
-struct GaggiaState state = { false, 98, 8.0, 134, 0, 0, false, false, false, false };
+struct GaggiaState state = { false, 98, 8.0, 134, 0, 0, false, false, false, false, false };
 HardwareSerial controllerSerial(2);
 
 
@@ -259,6 +259,25 @@ void readMessage() {
   }
 }
 
+void sendCommand() {
+  if (state.hasCommandChanged || ((state.hasConfigChanged && (state.isBoilerOn || state.isBrewing || state.isSteaming)))) {
+    float temp = 0;
+    if (state.isSteaming) {
+      temp = state.steamSetPoint;
+    } else if (state.isBoilerOn) {
+      temp = state.boilerSetPoint;
+    }
+    float pressure = 0;
+    if (state.isBrewing) {
+      pressure = state.pressureSetPoint;
+    }
+    char message[100]  = "";
+    sprintf(message, "1;%2f;%2f-", temp, pressure);
+    controllerSerial.println(message);
+    state.hasCommandChanged = false;
+  }
+}
+
 int i = 0;
 void loop() {
   //inelegant optimization to minimize useless(from user perspective) granularity
@@ -271,6 +290,7 @@ void loop() {
     i = 0;
   }
   lv_timer_handler(); /* let the GUI do its work */
+  sendCommand();
   delay(5);
 }
 

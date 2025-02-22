@@ -109,7 +109,7 @@ static void setButtonClicked(lv_event_t* e) {
     state->boilerSetPoint = newBoilerSetPoint;
     state->pressureSetPoint = newPressureSetPoint;
     state->steamSetPoint = newSteamSetPoint;
-    state->hasChanged = true;
+    state->hasConfigChanged = true;
     writeConfigFile();
     lv_obj_add_state(setBtn, LV_STATE_DISABLED);
   }
@@ -119,7 +119,7 @@ static void cancelButtonClicked(lv_event_t* e) {
 
   if (code == LV_EVENT_CLICKED) {
     LV_LOG_WARN("Cancel Button Clicked");
-    state->hasChanged = true;
+    state->hasConfigChanged = true;
     lv_obj_add_state(setBtn, LV_STATE_DISABLED);
   }
 }
@@ -130,10 +130,15 @@ static void boilerButtonClicked(lv_event_t* e) {
     if (lv_obj_get_state(boilerBtn) & LV_STATE_CHECKED) {
       //set arduino to boilerSetPoint
       LV_LOG_USER("starting boiler");
+      state->isBoilerOn = true;
+      state->hasCommandChanged = true;
     } else {
       //set arduino to boilerSetPoint 0
       LV_LOG_USER("stopping boiler (and steam)");
+      state->isBoilerOn = false;
       lv_obj_clear_state(steamBtn, LV_STATE_CHECKED);
+      state->isSteaming = false;
+      state->hasCommandChanged = true;
     }
   }
 }
@@ -146,9 +151,13 @@ static void brewButtonClicked(lv_event_t* e) {
     if (lv_obj_get_state(brewBtn) & LV_STATE_CHECKED) {
       //set arduino to brew (valve and pump) to pressureSetPoint
       LV_LOG_USER("starting brew");
+      state->isBrewing = true;
+      state->hasCommandChanged = true;
     } else {
       //set arduino to brew (valve and pump) to pressureSetPoint 0
       LV_LOG_USER("stopping brew");
+      state->isBrewing = false;
+      state->hasCommandChanged = true;
     }
   }
 }
@@ -160,14 +169,20 @@ static void steamButtonClicked(lv_event_t* e) {
     LV_LOG_USER("steam Toggled");
     if (lv_obj_get_state(steamBtn) & LV_STATE_CHECKED) {
       //set arduino to boilerSetPoint at steamSetPoint
-      LV_LOG_USER("starting steam (and brew)");
+      LV_LOG_USER("starting steam (and boiler)");
+      state->isBoilerOn = true;
       lv_obj_add_state(boilerBtn, LV_STATE_CHECKED);
+      state->isSteaming = true;
+      state->hasCommandChanged = true;
     } else {
       //set arduino to boilerSetPoint to 0
       LV_LOG_USER("stopping steam ");
+      state->isSteaming = false;
+      state->hasCommandChanged = true;
     }
   }
 }
+
 /**********************
  *   GLOBAL FUNCTIONS
  **********************/
@@ -186,7 +201,7 @@ void updateUI() {
     lv_label_set_text_fmt(solenoid2Label, "OFF");
   }
 
-  if (state->hasChanged) {
+  if (state->hasConfigChanged) {
     LV_LOG_WARN("updating config fields");
 
     lv_label_set_text_fmt(tempSet2Label, "%.2f", state->boilerSetPoint);
@@ -205,7 +220,7 @@ void updateUI() {
     //yuk, but setting text area emits a change event...
     lv_obj_add_state(setBtn, LV_STATE_DISABLED);
 
-    state->hasChanged = false;
+    state->hasConfigChanged = false;
   }
 }
 

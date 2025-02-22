@@ -4,7 +4,7 @@
 
 struct GaggiaState {
   //config and setting based
-  bool hasChanged;
+  bool hasConfigChanged;
   float boilerSetPoint;
   float pressureSetPoint;
   float steamSetPoint;
@@ -13,6 +13,7 @@ struct GaggiaState {
   float pressureRead;
   bool isSolenoidOn;
   //real time set
+  bool hasCommandChanged;
   bool isBoilerOn;
   bool isBrewing;
   bool isSteaming;
