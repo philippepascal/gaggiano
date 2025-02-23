@@ -210,13 +210,13 @@ char *mySubString(const char *str, int start, int end) {
 }
 
 void readMessage() {
-  char m[100] = "";
+  char m[300] = "";
   if (controllerSerial.available()) {
     Serial.println("something received");
     strcat(m, controllerSerial.readStringUntil('\n').c_str());
     Serial.println(m);
   }
-  int messageSize = myIndexOF(m, '-', 0);
+  int messageSize = myIndexOF(m, '|', 0);
   if (messageSize > 0) {
     //message is complete..unpack
     Serial.println("something complete needs parsing");
@@ -233,7 +233,7 @@ void readMessage() {
       endCursor = myIndexOF(m, ';', cursor);
     }
 
-    if (endCursor > 0 && endCursor < messageSize) {
+    if ((cursor<endCursor)&&(endCursor > 0 && endCursor < messageSize)) {
       float value = atof(mySubString(m, cursor, endCursor));
       state.tempRead = value;
       Serial.println(value);
@@ -241,7 +241,7 @@ void readMessage() {
       endCursor = myIndexOF(m, ';', cursor);
     }
 
-    if (endCursor > 0 && endCursor < messageSize) {
+    if ((cursor<endCursor)&&(endCursor > 0 && endCursor < messageSize)) {
       float value = atof(mySubString(m, cursor, endCursor));
       state.pressureRead = value;
       Serial.println(value);
@@ -249,7 +249,7 @@ void readMessage() {
       endCursor = myIndexOF(m, ';', cursor);
     }
 
-    if (endCursor > 0 && endCursor < messageSize) {
+    if ((cursor<endCursor)&&(endCursor > 0 && endCursor < messageSize)) {
       int value = atoi(mySubString(m, cursor, endCursor));
       state.isSolenoidOn = value;
       Serial.println(value);
@@ -272,7 +272,7 @@ void sendCommand() {
       pressure = state.pressureSetPoint;
     }
     char message[100]  = "";
-    sprintf(message, "1;%2f;%2f-", temp, pressure);
+    sprintf(message, "1;%2f;%2f|", temp, pressure);
     controllerSerial.println(message);
     state.hasCommandChanged = false;
   }
