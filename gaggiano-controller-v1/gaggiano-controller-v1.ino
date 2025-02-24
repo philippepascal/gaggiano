@@ -2,6 +2,15 @@
 
 #include <AutoPID.h>
 
+// boiler thermo couple -----------------
+
+#include <max6675.h>
+#define MAX6675_CS   PA6
+#define MAX6675_SO   PB4
+#define MAX6675_SCK  PA5
+
+MAX6675 thermocouple(MAX6675_SCK, MAX6675_CS, MAX6675_SO);
+
 // ---------  boiler PID ---------------
 //pid settings and gains
 #define OUTPUT_MIN 0
@@ -43,17 +52,16 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
 
+  // --- read temp ----
+  temperature_read = thermocouple.readCelsius();
+
   readMessage();
   sendStatus();
-
-  char m[100];
-  sprintf(m,"status: temp %2f; pressure %2f",temperatureSetPoint,pressureSetPoint);
-  Serial.println(m);
 
   // boiler PID
   myPID.run();
   //Serial.printf("The PID output is %f.\n",boiler_relay_output);
-  delay(500);
+  delay(200);
 }
 
 int myIndexOF(const char *str, const char ch, int fromIndex) {
@@ -79,24 +87,21 @@ char *mySubString(const char *str, int start, int end) {
 void readMessage() {
   char m[100] = "";
   if (screenSerial.available()) {
-    Serial.println("something received");
+    Serial.println("received");
     strcat(m, screenSerial.readStringUntil('\n').c_str());
     Serial.println(m);
   }
   int messageSize = myIndexOF(m, '|', 0);
   if (messageSize > 0) {
     //message is complete..unpack
-    Serial.println("something complete needs parsing");
     int cursor = 0;
     int endCursor = myIndexOF(m, ';', cursor);
     if (endCursor > 0 && endCursor < messageSize) {
       int sender = atoi(mySubString(m, cursor, endCursor));
-      Serial.println(sender);
       if (sender != 1) {  //not comming from the controler
-        Serial.println("not from screen, ignore");
+        //if it's 0, indicate loopback which means loss of connection with screen. should turn everything off
         return;
       }
-      Serial.println("it's a message from controller");
       cursor = endCursor + 1;
       endCursor = myIndexOF(m, ';', cursor);
     }
@@ -104,7 +109,6 @@ void readMessage() {
     if (endCursor > 0 && endCursor < messageSize) {
       float value = atof(mySubString(m, cursor, endCursor));
       temperatureSetPoint = value;
-      Serial.println(value);
       cursor = endCursor + 1;
       endCursor = myIndexOF(m, ';', cursor);
     }
@@ -112,7 +116,6 @@ void readMessage() {
     if (endCursor > 0 && endCursor < messageSize) {
       float value = atof(mySubString(m, cursor, endCursor));
       pressureSetPoint = value;
-      Serial.println(value);
       cursor = endCursor + 1;
       endCursor = myIndexOF(m, ';', cursor);
     }
@@ -121,7 +124,9 @@ void readMessage() {
 
 void sendStatus() {
   char message[100] = "";
-  sprintf(message, "0;%f;%f;%d;|", (float)(temperatureSetPoint-5), (float)(pressureSetPoint-1),((pressureSetPoint>0) ? 1 : 0));
+  sprintf(message, "0;%2f;%2f;%d;|", temperature_read, (float)(pressureSetPoint-1),((pressureSetPoint>0) ? 1 : 0));
+  Serial.println("sent:");
+  Serial.println(message);
   screenSerial.println(message);
 }
 // to upload with arduino, select DFU programmer in tools/upload method, then hold boot while pressing NRST once. board enters DFU mode. select DFU port in tools/port and click upload
