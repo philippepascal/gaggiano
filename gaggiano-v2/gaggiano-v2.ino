@@ -212,23 +212,20 @@ char *mySubString(const char *str, int start, int end) {
 void readMessage() {
   char m[300] = "";
   if (controllerSerial.available()) {
-    Serial.println("something received");
+    Serial.println("received");
     strcat(m, controllerSerial.readStringUntil('\n').c_str());
     Serial.println(m);
   }
   int messageSize = myIndexOF(m, '|', 0);
   if (messageSize > 0) {
     //message is complete..unpack
-    Serial.println("something complete needs parsing");
     int cursor = 0;
     int endCursor = myIndexOF(m, ';', cursor);
     if (endCursor > 0 && endCursor < messageSize) {
       int sender = atoi(mySubString(m, cursor, endCursor));
-      Serial.println(sender);
       if (sender != 0) {  //not comming from the controler
         return;
       }
-      Serial.println("it's a message from controller");
       cursor = endCursor + 1;
       endCursor = myIndexOF(m, ';', cursor);
     }
@@ -236,7 +233,6 @@ void readMessage() {
     if ((cursor<endCursor)&&(endCursor > 0 && endCursor < messageSize)) {
       float value = atof(mySubString(m, cursor, endCursor));
       state.tempRead = value;
-      Serial.println(value);
       cursor = endCursor + 1;
       endCursor = myIndexOF(m, ';', cursor);
     }
@@ -244,7 +240,6 @@ void readMessage() {
     if ((cursor<endCursor)&&(endCursor > 0 && endCursor < messageSize)) {
       float value = atof(mySubString(m, cursor, endCursor));
       state.pressureRead = value;
-      Serial.println(value);
       cursor = endCursor + 1;
       endCursor = myIndexOF(m, ';', cursor);
     }
@@ -252,7 +247,6 @@ void readMessage() {
     if ((cursor<endCursor)&&(endCursor > 0 && endCursor < messageSize)) {
       int value = atoi(mySubString(m, cursor, endCursor));
       state.isSolenoidOn = value;
-      Serial.println(value);
       cursor = endCursor + 1;
       endCursor = myIndexOF(m, ';', cursor);
     }
@@ -274,6 +268,7 @@ void sendCommand() {
     char message[100]  = "";
     sprintf(message, "1;%2f;%2f|", temp, pressure);
     controllerSerial.println(message);
+    Serial.println(message);
     state.hasCommandChanged = false;
   }
 }
@@ -282,7 +277,7 @@ int i = 0;
 void loop() {
   //inelegant optimization to minimize useless(from user perspective) granularity
   //helps ALOT with UI responsiveness
-  if (i < 100) {
+  if (i < 40) {
     i++;
   } else {
     readMessage();
