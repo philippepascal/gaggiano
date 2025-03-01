@@ -2,12 +2,19 @@
 
 #include <AutoPID.h>
 
+// AD1115 for pressure ------------------
+
+// #include <Wire.h>
+// #include <ADS1X15.h>
+// ADS1115 ADS(0x48);
+// ADS1015 ADS;
+
 // boiler thermo couple -----------------
 
 #include <max6675.h>
-#define MAX6675_CS   PA6
-#define MAX6675_SO   PB4
-#define MAX6675_SCK  PA5
+#define MAX6675_CS PA6
+#define MAX6675_SO PB4
+#define MAX6675_SCK PA5
 
 MAX6675 thermocouple(MAX6675_SCK, MAX6675_CS, MAX6675_SO);
 
@@ -36,12 +43,19 @@ int solenoidState = 0;
 AutoPID myPID(&temperature_read, &temperatureSetPoint, &boiler_relay_output, OUTPUT_MIN, OUTPUT_MAX, KP, KI, KD);
 
 // HardwareSerial screenSerial(2);
-HardwareSerial screenSerial( PA3, PA2 );
+HardwareSerial screenSerial(PA3, PA2);
 
 
 // ---------------------------
 void setup() {
   // put your setup code here, to run once:
+  // ADS.begin();
+  // Wire.setSDA(PB7); //should not be necessary.. default value
+  // Wire.setSCL(PB6); //should not be necessary.. default value
+  // Wire.setSDA(PB6);
+  // Wire.setSCL(PB7);
+  // Wire.setClock(100000); //break things
+  // Wire.begin();
   Serial.begin(9600);
   screenSerial.begin(115200);  //default ports...
   screenSerial.println("hello screen");
@@ -51,6 +65,54 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
+  // ADS.setGain(0);
+  // Serial.print("ADS read: ");
+  // Serial.println(ADS.readADC(0));
+
+
+  // byte error, address;
+  // int nDevices;
+
+  // Serial.println("Scanning...");
+
+  // nDevices = 0;
+  // for (address = 1; address < 255; address++) {
+  //   // The i2c_scanner uses the return value of
+  //   // the Write.endTransmisstion to see if
+  //   // a device did acknowledge to the address.
+
+  //   Wire.beginTransmission(address);
+  //   error = Wire.endTransmission();
+
+  //   if (error == 0) {
+  //     Serial.print("I2C device found at address 0x");
+  //     if (address < 16)
+  //       Serial.print("0");
+  //     Serial.println(address, HEX);
+
+  //     nDevices++;
+  //   } else if (error == 4) {
+  //     Serial.print("Unknown error at address 0x");
+  //     if (address < 16)
+  //       Serial.print("0");
+  //     Serial.println(address, HEX);
+  //   } else {
+  //     Serial.print("error");
+  //     Serial.println(error);
+  //   }
+  // }
+  // if (nDevices == 0)
+  //   Serial.println("No I2C devices found");
+  // else
+  //   Serial.println("done");
+
+
+  int pressure_voltage = analogRead(PB6);
+  Serial.print("read pressure voltage is ");
+  Serial.println(pressure_voltage);
+
+
+
 
   // --- read temp ----
   temperature_read = thermocouple.readCelsius();
@@ -61,7 +123,7 @@ void loop() {
   // boiler PID
   myPID.run();
   //Serial.printf("The PID output is %f.\n",boiler_relay_output);
-  delay(200);
+  delay(5000);  //200 is a decent value for screen updates
 }
 
 int myIndexOF(const char *str, const char ch, int fromIndex) {
@@ -124,9 +186,12 @@ void readMessage() {
 
 void sendStatus() {
   char message[100] = "";
-  sprintf(message, "0;%2f;%2f;%d;|", temperature_read, (float)(pressureSetPoint-1),((pressureSetPoint>0) ? 1 : 0));
+  sprintf(message, "0;%2f;%2f;%d;|", temperature_read, (float)(pressureSetPoint - 1), ((pressureSetPoint > 0) ? 1 : 0));
   Serial.println("sent:");
   Serial.println(message);
   screenSerial.println(message);
 }
 // to upload with arduino, select DFU programmer in tools/upload method, then hold boot while pressing NRST once. board enters DFU mode. select DFU port in tools/port and click upload
+// Wire library example
+// https://github.com/stm32duino/Arduino_Core_STM32/blob/main/libraries/Wire/examples/i2c_scanner/i2c_scanner.ino
+// https://www.stm32duino.com/viewtopic.php?t=1760
