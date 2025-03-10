@@ -2,6 +2,15 @@
 
 #include <AutoPID.h>
 
+// --------- global vars ----------
+double temperature_read = 0;
+double temperatureSetPoint = 0;
+double boiler_relay_output;
+
+double pressure_read = 0;
+double pressureSetPoint = 0;
+double pump_dimmer_output;
+
 // AD1115 for pressure ------------------
 
 #include <Wire.h>
@@ -11,6 +20,26 @@ ADS1115 ADS;
 // Solenoid Valve -----------------------
 
 #define valvePin PC13
+
+// Pump Pulse Skip Modulation -----------
+
+#include "PSM.h"
+#define zcPin PA0
+#define dimmerPin PA1
+#define ZC_MODE RISING
+#define PUMP_RANGE 127
+PSM pump(zcPin, dimmerPin, PUMP_RANGE, ZC_MODE, 2);
+
+//pid settings and gains
+#define PUMP_OUTPUT_MIN 0
+#define PUMP_OUTPUT_MAX 255
+
+// empirical values
+#define PUMP_KP 5
+#define PUMP_KI .1
+#define PUMP_KD .05
+//input/output variables passed by reference, so they are updated automatically
+AutoPID pumpPID(&pressure_read, &pressureSetPoint, &pump_dimmer_output, PUMP_OUTPUT_MIN, PUMP_OUTPUT_MAX, PUMP_KP, PUMP_KI, PUMP_KD);
 
 // boiler thermo couple -----------------
 
@@ -34,17 +63,6 @@ MAX6675 thermocouple(MAX6675_SCK, MAX6675_CS, MAX6675_SO);
 #define BOILER_RELAY_PIN PB5
 uint32_t boiler_relay_pin_channel;  //timer channel for the boiler pin
 HardwareTimer *MyTim;               //timer for the boiler pin
-
-// --------- global vars ----------
-double temperature_read = 0;
-double temperatureSetPoint = 0;
-double boiler_relay_output;
-
-double pressure_read = 0;
-double pressureSetPoint = 0;
-double pump_relay_output;
-
-int solenoidState = 0;
 
 //input/output variables passed by reference, so they are updated automatically
 AutoPID myPID(&temperature_read, &temperatureSetPoint, &boiler_relay_output, OUTPUT_MIN, OUTPUT_MAX, KP, KI, KD);
@@ -73,12 +91,22 @@ void setup() {
   ADS.setMode(0);      // continuous mode
   ADS.readADC(0);      // first read to trigger
 
+  // Pump
+  //if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
+  pumpPID.setBangBang(3);
+  //set PID update interval to 1000ms
+  pumpPID.setTimeStep(500);
+
   //Solenoid --------------------
   pinMode(valvePin, OUTPUT);
   // just in case
   digitalWrite(valvePin, LOW);
 
+  //Pump -------------------------
+  pump.set(0);
+
   //Boiler PID -------------------
+  pinMode(BOILER_RELAY_PIN, OUTPUT);
   //if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
   myPID.setBangBang(3);
   //set PID update interval to 1000ms
@@ -114,9 +142,10 @@ void loop() {
   MyTim->setPWM(boiler_relay_pin_channel, BOILER_RELAY_PIN, 5, boiler_relay_output);
 
   //Pump and Solenoid (coupled)
+  pumpPID.run();
   updatePump();
-  Serial.print(" pressure set: ");
-  Serial.print(pressureSetPoint);
+  Serial.print(" pump output: ");
+  Serial.print(pump_dimmer_output);
   Serial.print(" valve state: ");
   Serial.print(digitalRead(valvePin));
 
@@ -130,10 +159,14 @@ void loop() {
 // Utilities --------------------
 
 void updatePump() {
-  if(pressureSetPoint > 0) {
+  if (pressureSetPoint > 0) {
     // open Solenoid
     digitalWrite(valvePin, HIGH);
+    pump.set(pump_dimmer_output);
+    // digitalWrite(dimmerPin,HIGH);
   } else {
+    pump.set(0);
+    // digitalWrite(dimmerPin,LOW);
     // close Solenoid
     digitalWrite(valvePin, LOW);
   }
@@ -267,5 +300,7 @@ void scanI2C() {
 // trying this for setting PWM frequency for pin PB5 that we will use for boiler relay. hopefully it's timer is isolated from other functions
 // https://github.com/stm32duino/STM32Examples/blob/main/examples/Peripherals/HardwareTimer/All-in-one_setPWM/All-in-one_setPWM.ino
 //
-// weird, but it looks like I had to connect the valve relay to normally closed... 
+// weird, but it looks like I had to connect the valve relay to normally closed...
+//
+// picked up PSM library from https://github.com/banoz/PSM.Library.git, cloned and copied manually
 //
