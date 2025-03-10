@@ -273,7 +273,6 @@ void updateUI() {
     state->hasConfigChanged = false;
   }
 
-  ///////////// !!! Adapt to advanced settings
   if (advancedSettings->userChanged) {
     LV_LOG_WARN("updating advanced Settings fields");
 
