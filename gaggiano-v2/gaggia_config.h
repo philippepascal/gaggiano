@@ -16,6 +16,6 @@
  *      TYPEDEFS
  **********************/
 
-void initConfFile(GaggiaStateT *state);
+void initConfFile(GaggiaStateT *state, AdvancedSettingsT *advancedSettings);
 int setupAndReadConfigFile();
 int writeConfigFile();

@@ -20,4 +20,19 @@ struct GaggiaState {
 };
 typedef struct GaggiaState GaggiaStateT;
 
+struct AdvancedSettings {
+  bool userChanged;
+  double boiler_bb_range;
+  double boiler_PID_cicle;
+  double boiler_PID_KP;
+  double boiler_PID_KI;
+  double boiler_PID_KD;
+  double pump_bb_range;
+  double pump_PID_cicle;
+  double pump_PID_KP;
+  double pump_PID_KI;
+  double pump_PID_KD;
+};
+typedef struct AdvancedSettings AdvancedSettingsT;
+
 #endif /*GAGGIA_STATE_H*/

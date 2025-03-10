@@ -116,6 +116,8 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
  ******************************************************************************/
 
 struct GaggiaState state = { false, 98, 8.0, 134, 0, 0, false, false, false, false, false };
+struct AdvancedSettings advancedSettings = { false, 3, 1000, 10, 0.2, 0.1, 1, 100, 1, 0.1, 0.05 };
+
 HardwareSerial controllerSerial(2);
 
 
@@ -177,10 +179,10 @@ void setup() {
     indev_drv.read_cb = my_touchpad_read;
     lv_indev_drv_register(&indev_drv);
 
-    initConfFile(&state);
+    initConfFile(&state,&advancedSettings);
     delay(500);
 
-    instantiateUI(&state);
+    instantiateUI(&state,&advancedSettings);
     delay(500);
 
     setupAndReadConfigFile();
@@ -210,7 +212,7 @@ char *mySubString(const char *str, int start, int end) {
 }
 
 void readMessage() {
-  char m[300] = "";
+  char m[500] = "";
   if (controllerSerial.available()) {
     Serial.println("received");
     strcat(m, controllerSerial.readStringUntil('\n').c_str());
@@ -230,21 +232,21 @@ void readMessage() {
       endCursor = myIndexOF(m, ';', cursor);
     }
 
-    if ((cursor<endCursor)&&(endCursor > 0 && endCursor < messageSize)) {
+    if ((cursor < endCursor) && (endCursor > 0 && endCursor < messageSize)) {
       float value = atof(mySubString(m, cursor, endCursor));
       state.tempRead = value;
       cursor = endCursor + 1;
       endCursor = myIndexOF(m, ';', cursor);
     }
 
-    if ((cursor<endCursor)&&(endCursor > 0 && endCursor < messageSize)) {
+    if ((cursor < endCursor) && (endCursor > 0 && endCursor < messageSize)) {
       float value = atof(mySubString(m, cursor, endCursor));
       state.pressureRead = value;
       cursor = endCursor + 1;
       endCursor = myIndexOF(m, ';', cursor);
     }
 
-    if ((cursor<endCursor)&&(endCursor > 0 && endCursor < messageSize)) {
+    if ((cursor < endCursor) && (endCursor > 0 && endCursor < messageSize)) {
       int value = atoi(mySubString(m, cursor, endCursor));
       state.isSolenoidOn = value;
       cursor = endCursor + 1;
@@ -265,11 +267,31 @@ void sendCommand() {
     if (state.isBrewing) {
       pressure = state.pressureSetPoint;
     }
-    char message[100]  = "";
+    char message[100] = "";
     sprintf(message, "1;%2f;%2f;|", temp, pressure);
     controllerSerial.println(message);
     Serial.println(message);
     state.hasCommandChanged = false;
+  }
+}
+
+void sendAdvancedSettings() {
+  if (advancedSettings.userChanged) {
+    char message[500] = "";
+    sprintf(message, "2;%2f;%2f;%2f;%2f;%2f;%2f;%2f;%2f;%2f;%2f;|",
+            advancedSettings.boiler_bb_range,
+            advancedSettings.boiler_PID_cicle,
+            advancedSettings.boiler_PID_KP,
+            advancedSettings.boiler_PID_KI,
+            advancedSettings.boiler_PID_KD,
+            advancedSettings.pump_bb_range,
+            advancedSettings.pump_PID_cicle,
+            advancedSettings.pump_PID_KP,
+            advancedSettings.pump_PID_KI,
+            advancedSettings.pump_PID_KD);
+    controllerSerial.println(message);
+    Serial.println(message);
+    advancedSettings.userChanged = false;
   }
 }
 

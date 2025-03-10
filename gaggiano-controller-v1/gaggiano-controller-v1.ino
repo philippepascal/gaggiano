@@ -6,10 +6,20 @@
 double temperature_read = 0;
 double temperatureSetPoint = 0;
 double boiler_relay_output;
+double boiler_bb_range = 3;
+double boiler_PID_cicle = 1000;
+double boiler_PID_KP = 10;
+double boiler_PID_KI = 0.2;
+double boiler_PID_KD = 0.1;
 
 double pressure_read = 0;
 double pressureSetPoint = 0;
 double pump_dimmer_output;
+double pump_bb_range = 1;
+double pump_PID_cicle = 100;
+double pump_PID_KP = 1;
+double pump_PID_KI = 0.1;
+double pump_PID_KD = 0.05;
 
 // AD1115 for pressure ------------------
 
@@ -24,11 +34,13 @@ ADS1115 ADS;
 // Pump Pulse Skip Modulation -----------
 
 #include "PSM.h"
-#define zcPin PA0
-#define dimmerPin PA1
+// #define zcPin PA0
+// #define dimmerPin PA1
+#define zcPin PA15
+#define dimmerPin PB3
 #define ZC_MODE RISING
-#define PUMP_RANGE 127
-PSM pump(zcPin, dimmerPin, PUMP_RANGE, ZC_MODE, 2);
+#define PUMP_RANGE 255
+PSM *pump;
 
 //pid settings and gains
 #define PUMP_OUTPUT_MIN 0
@@ -65,16 +77,20 @@ uint32_t boiler_relay_pin_channel;  //timer channel for the boiler pin
 HardwareTimer *MyTim;               //timer for the boiler pin
 
 //input/output variables passed by reference, so they are updated automatically
-AutoPID myPID(&temperature_read, &temperatureSetPoint, &boiler_relay_output, OUTPUT_MIN, OUTPUT_MAX, KP, KI, KD);
+AutoPID boilerPID(&temperature_read, &temperatureSetPoint, &boiler_relay_output, OUTPUT_MIN, OUTPUT_MAX, KP, KI, KD);
 
 // HardwareSerial screenSerial(2);
 HardwareSerial screenSerial(PA3, PA2);
 
 
 // ---------------------------
+
 void setup() {
   //Communications --------------
   Serial.begin(9600);
+  delay(5000);
+  Serial.println("serial works");
+
   screenSerial.begin(115200);  //default ports...
   screenSerial.println("hello screen");
 
@@ -93,9 +109,9 @@ void setup() {
 
   // Pump
   //if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
-  pumpPID.setBangBang(3);
+  pumpPID.setBangBang(pump_bb_range);
   //set PID update interval to 1000ms
-  pumpPID.setTimeStep(500);
+  pumpPID.setTimeStep(pump_PID_cicle);
 
   //Solenoid --------------------
   pinMode(valvePin, OUTPUT);
@@ -103,14 +119,15 @@ void setup() {
   digitalWrite(valvePin, LOW);
 
   //Pump -------------------------
-  pump.set(0);
+  pump = new PSM(zcPin, dimmerPin, PUMP_RANGE, ZC_MODE, 2);
+  pump->set(0);
 
   //Boiler PID -------------------
   pinMode(BOILER_RELAY_PIN, OUTPUT);
   //if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
-  myPID.setBangBang(3);
+  boilerPID.setBangBang(boiler_bb_range);
   //set PID update interval to 1000ms
-  myPID.setTimeStep(500);
+  boilerPID.setTimeStep(boiler_PID_cicle);
 
   // Automatically retrieve TIM instance and channel associated to pin
   // This is used to be compatible with all STM32 series automatically.
@@ -128,6 +145,9 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
 
+  Serial.print(" counter: ");
+  Serial.println(pump->getCounter());
+
   // --- read sensors ----
   temperature_read = thermocouple.readCelsius();
   pressure_read = getPressure();
@@ -136,7 +156,7 @@ void loop() {
   readMessage();
 
   //Boiler PID -----------
-  myPID.run();
+  boilerPID.run();
   Serial.print(" boiler output: ");
   Serial.print(boiler_relay_output);
   MyTim->setPWM(boiler_relay_pin_channel, BOILER_RELAY_PIN, 5, boiler_relay_output);
@@ -162,14 +182,30 @@ void updatePump() {
   if (pressureSetPoint > 0) {
     // open Solenoid
     digitalWrite(valvePin, HIGH);
-    pump.set(pump_dimmer_output);
+
+    pump->set(pump_dimmer_output);
     // digitalWrite(dimmerPin,HIGH);
   } else {
-    pump.set(0);
+    pump->set(0);
     // digitalWrite(dimmerPin,LOW);
+
     // close Solenoid
     digitalWrite(valvePin, LOW);
   }
+}
+
+void updateAdvancedSettings() {
+  //if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
+  boilerPID.setBangBang(boiler_bb_range);
+  //set PID update interval to 1000ms
+  boilerPID.setTimeStep(boiler_PID_cicle);
+  boilerPID.setGains(boiler_PID_KP, boiler_PID_KI, boiler_PID_KD);
+
+  //if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
+  pumpPID.setBangBang(pump_bb_range);
+  //set PID update interval to 1000ms
+  pumpPID.setTimeStep(pump_PID_cicle);
+  pumpPID.setGains(pump_PID_KP, pump_PID_KI, pump_PID_KD);
 }
 
 float getPressure() {  //returns sensor pressure data
@@ -215,28 +251,98 @@ void readMessage() {
     //message is complete..unpack
     int cursor = 0;
     int endCursor = myIndexOF(m, ';', cursor);
+    int sender = -1;
     if (endCursor > 0 && endCursor < messageSize) {
-      int sender = atoi(mySubString(m, cursor, endCursor));
-      if (sender != 1) {  //not comming from the controler
-        //if it's 0, indicate loopback which means loss of connection with screen. should turn everything off
-        return;
+      sender = atoi(mySubString(m, cursor, endCursor));
+      cursor = endCursor + 1;
+      endCursor = myIndexOF(m, ';', cursor);
+    }
+    if (sender == 1) {  //command from the screen
+      if (endCursor > 0 && endCursor < messageSize) {
+        float value = atof(mySubString(m, cursor, endCursor));
+        temperatureSetPoint = value;
+        cursor = endCursor + 1;
+        endCursor = myIndexOF(m, ';', cursor);
       }
-      cursor = endCursor + 1;
-      endCursor = myIndexOF(m, ';', cursor);
-    }
 
-    if (endCursor > 0 && endCursor < messageSize) {
-      float value = atof(mySubString(m, cursor, endCursor));
-      temperatureSetPoint = value;
-      cursor = endCursor + 1;
-      endCursor = myIndexOF(m, ';', cursor);
-    }
+      if (endCursor > 0 && endCursor < messageSize) {
+        float value = atof(mySubString(m, cursor, endCursor));
+        pressureSetPoint = value;
+        cursor = endCursor + 1;
+        endCursor = myIndexOF(m, ';', cursor);
+      }
+    } else if (sender == 2) {  //advanced settings
+      if (endCursor > 0 && endCursor < messageSize) {
+        float value = atof(mySubString(m, cursor, endCursor));
+        boiler_bb_range = value;
+        cursor = endCursor + 1;
+        endCursor = myIndexOF(m, ';', cursor);
+      }
 
-    if (endCursor > 0 && endCursor < messageSize) {
-      float value = atof(mySubString(m, cursor, endCursor));
-      pressureSetPoint = value;
-      cursor = endCursor + 1;
-      endCursor = myIndexOF(m, ';', cursor);
+      if (endCursor > 0 && endCursor < messageSize) {
+        float value = atof(mySubString(m, cursor, endCursor));
+        boiler_PID_cicle = value;
+        cursor = endCursor + 1;
+        endCursor = myIndexOF(m, ';', cursor);
+      }
+
+      if (endCursor > 0 && endCursor < messageSize) {
+        float value = atof(mySubString(m, cursor, endCursor));
+        boiler_PID_KP = value;
+        cursor = endCursor + 1;
+        endCursor = myIndexOF(m, ';', cursor);
+      }
+
+      if (endCursor > 0 && endCursor < messageSize) {
+        float value = atof(mySubString(m, cursor, endCursor));
+        boiler_PID_KI = value;
+        cursor = endCursor + 1;
+        endCursor = myIndexOF(m, ';', cursor);
+      }
+
+      if (endCursor > 0 && endCursor < messageSize) {
+        float value = atof(mySubString(m, cursor, endCursor));
+        boiler_PID_KD = value;
+        cursor = endCursor + 1;
+        endCursor = myIndexOF(m, ';', cursor);
+      }
+
+      if (endCursor > 0 && endCursor < messageSize) {
+        float value = atof(mySubString(m, cursor, endCursor));
+        pump_bb_range = value;
+        cursor = endCursor + 1;
+        endCursor = myIndexOF(m, ';', cursor);
+      }
+
+      if (endCursor > 0 && endCursor < messageSize) {
+        float value = atof(mySubString(m, cursor, endCursor));
+        pump_PID_cicle = value;
+        cursor = endCursor + 1;
+        endCursor = myIndexOF(m, ';', cursor);
+      }
+
+      if (endCursor > 0 && endCursor < messageSize) {
+        float value = atof(mySubString(m, cursor, endCursor));
+        pump_PID_KP = value;
+        cursor = endCursor + 1;
+        endCursor = myIndexOF(m, ';', cursor);
+      }
+
+      if (endCursor > 0 && endCursor < messageSize) {
+        float value = atof(mySubString(m, cursor, endCursor));
+        pump_PID_KI = value;
+        cursor = endCursor + 1;
+        endCursor = myIndexOF(m, ';', cursor);
+      }
+
+      if (endCursor > 0 && endCursor < messageSize) {
+        float value = atof(mySubString(m, cursor, endCursor));
+        pump_PID_KD = value;
+        cursor = endCursor + 1;
+        endCursor = myIndexOF(m, ';', cursor);
+      }
+
+      updateAdvancedSettings();
     }
   }
 }

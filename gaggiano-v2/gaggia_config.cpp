@@ -8,9 +8,11 @@ extern "C" {
 
 static fs::FS* fileSystem;
 static GaggiaStateT* state;
+static AdvancedSettingsT* advancedSettings;
 
-void initConfFile(GaggiaStateT* s) {
+void initConfFile(GaggiaStateT* s, AdvancedSettingsT* as) {
   state = s;
+  advancedSettings = as;
   SPI.begin(SD_sck, SD_miso, SD_mosi, SD_cs);
   Serial.println("SPI initialized");
   if (!SD.begin(SD_cs)) {
@@ -62,9 +64,6 @@ int setupAndReadConfigFile() {
   File file = fileSystem->open(fileName);
   if (!file) {
     Serial.println("Failed to open file for reading, trying to create it with default values");
-    state->boilerSetPoint = 99;
-    state->pressureSetPoint = 7.0;
-    state->steamSetPoint = 143;
     writeConfigFile();
     return -1;
   } else {
@@ -72,15 +71,26 @@ int setupAndReadConfigFile() {
     if (file.available()) {
       String data = file.readString();
       Serial.println(data);
-      char buffer[200];
-      data.toCharArray(buffer, data.length()+2);
+      char buffer[500];
+      data.toCharArray(buffer, data.length() + 2);
       CSV_Parser cp(buffer, /*format*/ "sf");
       float* values = (float*)cp["value"];
-      Serial.printf("%f , %f , %f",(float)values[0],(float)values[1],(float)values[2]);
+      Serial.printf("%f , %f , %f", (float)values[0], (float)values[1], (float)values[2]);
       state->boilerSetPoint = (float)values[0];
       state->pressureSetPoint = (float)values[1];
       state->steamSetPoint = (float)values[2];
       state->hasConfigChanged = true;
+      advancedSettings->boiler_bb_range = (float)values[3];
+      advancedSettings->boiler_PID_cicle = (float)values[4];
+      advancedSettings->boiler_PID_KP = (float)values[5];
+      advancedSettings->boiler_PID_KI = (float)values[6];
+      advancedSettings->boiler_PID_KD = (float)values[7];
+      advancedSettings->pump_bb_range = (float)values[8];
+      advancedSettings->pump_PID_cicle = (float)values[9];
+      advancedSettings->pump_PID_KP = (float)values[10];
+      advancedSettings->pump_PID_KI = (float)values[11];
+      advancedSettings->pump_PID_KD = (float)values[12];
+      advancedSettings->userChanged = true;
       Serial.println("state updated");
     } else {
       Serial.print("CSV parsing failed");
@@ -107,12 +117,35 @@ int writeConfigFile(const char* content) {
 }
 
 int writeConfigFile() {
-  char buffer[200];
+  char buffer[500];
   const char* csv_str = "key,value\n"
                         "boilerSetPoint,%f\n"
                         "pressureSetPoint,%f\n"
-                        "steamSetPoint,%f\n\n";
-  sprintf(buffer, csv_str, state->boilerSetPoint, state->pressureSetPoint, state->steamSetPoint);
+                        "steamSetPoint,%f\n\n"
+                        "boiler_bb_range,%f\n"
+                        "boiler_PID_cicle,%f\n"
+                        "boiler_PID_KP,%f\n"
+                        "boiler_PID_KI,%f\n"
+                        "boiler_PID_KD,%f\n"
+                        "pump_bb_range,%f\n"
+                        "pump_PID_cicle,%f\n"
+                        "pump_PID_KP,%f\n"
+                        "pump_PID_KI,%f\n"
+                        "pump_PID_KD,%f\n";
+  sprintf(buffer, csv_str,
+          state->boilerSetPoint,
+          state->pressureSetPoint,
+          state->steamSetPoint,
+          advancedSettings->boiler_bb_range,
+          advancedSettings->boiler_PID_cicle,
+          advancedSettings->boiler_PID_KP,
+          advancedSettings->boiler_PID_KI,
+          advancedSettings->boiler_PID_KD,
+          advancedSettings->pump_bb_range,
+          advancedSettings->pump_PID_cicle,
+          advancedSettings->pump_PID_KP,
+          advancedSettings->pump_PID_KI,
+          advancedSettings->pump_PID_KD);
   Serial.println("writing to file");
   Serial.println(buffer);
   return writeConfigFile(buffer);
