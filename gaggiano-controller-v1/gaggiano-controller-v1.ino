@@ -8,6 +8,10 @@
 #include <ADS1X15.h>
 ADS1115 ADS;
 
+// Solenoid Valve -----------------------
+
+#define valvePin PC13
+
 // boiler thermo couple -----------------
 
 #include <max6675.h>
@@ -20,14 +24,18 @@ MAX6675 thermocouple(MAX6675_SCK, MAX6675_CS, MAX6675_SO);
 // ---------  boiler PID ---------------
 //pid settings and gains
 #define OUTPUT_MIN 0
-#define OUTPUT_MAX 255
+#define OUTPUT_MAX 100
 
-// empirical values to result in quarters
-// of 255 values
+// empirical values
 #define KP 10
 #define KI .2
-#define KD .2
+#define KD .1
 
+#define BOILER_RELAY_PIN PB5
+uint32_t boiler_relay_pin_channel;  //timer channel for the boiler pin
+HardwareTimer *MyTim;               //timer for the boiler pin
+
+// --------- global vars ----------
 double temperature_read = 0;
 double temperatureSetPoint = 0;
 double boiler_relay_output;
@@ -47,7 +55,12 @@ HardwareSerial screenSerial(PA3, PA2);
 
 // ---------------------------
 void setup() {
-  // put your setup code here, to run once:
+  //Communications --------------
+  Serial.begin(9600);
+  screenSerial.begin(115200);  //default ports...
+  screenSerial.println("hello screen");
+
+  //Pressure reading ------------
   Wire.setSDA(PB7);  //should not be necessary.. default value
   Wire.setSCL(PB6);  //should not be necessary.. default value
   ADS = ADS1115(0x48, &Wire);
@@ -60,11 +73,28 @@ void setup() {
   ADS.setMode(0);      // continuous mode
   ADS.readADC(0);      // first read to trigger
 
-  Serial.begin(9600);
-  screenSerial.begin(115200);  //default ports...
-  screenSerial.println("hello screen");
-  // boiler PID
-  myPID.setTimeStep(1000);
+  //Solenoid --------------------
+  pinMode(valvePin, OUTPUT);
+  // just in case
+  digitalWrite(valvePin, LOW);
+
+  //Boiler PID -------------------
+  //if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
+  myPID.setBangBang(3);
+  //set PID update interval to 1000ms
+  myPID.setTimeStep(500);
+
+  // Automatically retrieve TIM instance and channel associated to pin
+  // This is used to be compatible with all STM32 series automatically.
+  TIM_TypeDef *Instance = (TIM_TypeDef *)pinmap_peripheral(digitalPinToPinName(BOILER_RELAY_PIN), PinMap_PWM);
+  boiler_relay_pin_channel = STM_PIN_CHANNEL(pinmap_function(digitalPinToPinName(BOILER_RELAY_PIN), PinMap_PWM));
+  // Instantiate HardwareTimer object. Thanks to 'new' instantiation, HardwareTimer is not destructed when setup() function is finished.
+  MyTim = new HardwareTimer(Instance);
+
+  // Configure and start PWM
+  // MyTim->setPWM(boiler_relay_pin_channel, pin, 5, 10, NULL, NULL); // No callback required, we can simplify the function call
+  // MyTim->setPWM(boiler_relay_pin_channel, BOILER_RELAY_PIN, 5, 10);  // 5 Hertz, 10% dutycycle
+  MyTim->setPWM(boiler_relay_pin_channel, BOILER_RELAY_PIN, 5, 0);
 }
 
 void loop() {
@@ -74,15 +104,40 @@ void loop() {
   temperature_read = thermocouple.readCelsius();
   pressure_read = getPressure();
 
+  //----------------------
   readMessage();
+
+  //Boiler PID -----------
+  myPID.run();
+  Serial.print(" boiler output: ");
+  Serial.print(boiler_relay_output);
+  MyTim->setPWM(boiler_relay_pin_channel, BOILER_RELAY_PIN, 5, boiler_relay_output);
+
+  //Pump and Solenoid (coupled)
+  updatePump();
+  Serial.print(" pressure set: ");
+  Serial.print(pressureSetPoint);
+  Serial.print(" valve state: ");
+  Serial.print(digitalRead(valvePin));
+
+  //----------------------
   sendStatus();
 
-  // boiler PID
-  myPID.run();
-  //Serial.printf("The PID output is %f.\n",boiler_relay_output);
-  delay(5000);  //200 is a decent value for screen updates
+  // ---------------------
+  delay(500);  //200 is a decent value for screen updates
 }
 
+// Utilities --------------------
+
+void updatePump() {
+  if(pressureSetPoint > 0) {
+    // open Solenoid
+    digitalWrite(valvePin, HIGH);
+  } else {
+    // close Solenoid
+    digitalWrite(valvePin, LOW);
+  }
+}
 
 float getPressure() {  //returns sensor pressure data
                        // 5V/1024 = 1/204.8 (10 bit) or 6553.6 (15 bit)
@@ -93,45 +148,6 @@ float getPressure() {  //returns sensor pressure data
                        // 1 bar = 68.27 or 2184.5
 
   return ADS.getValue() / 1706.6f - 1.49f;
-}
-
-void scanI2C() {
-
-  byte error, address;
-  int nDevices;
-
-  Serial.println("Scanning...");
-
-  nDevices = 0;
-  for (address = 1; address < 255; address++) {
-    // The i2c_scanner uses the return value of
-    // the Write.endTransmisstion to see if
-    // a device did acknowledge to the address.
-
-    Wire.beginTransmission(address);
-    error = Wire.endTransmission();
-
-    if (error == 0) {
-      Serial.print("I2C device found at address 0x");
-      if (address < 16)
-        Serial.print("0");
-      Serial.println(address, HEX);
-
-      nDevices++;
-    } else if (error == 4) {
-      Serial.print("Unknown error at address 0x");
-      if (address < 16)
-        Serial.print("0");
-      Serial.println(address, HEX);
-    } else {
-      // Serial.print("error");
-      // Serial.println(error);
-    }
-  }
-  if (nDevices == 0)
-    Serial.println("No I2C devices found");
-  else
-    Serial.println("done");
 }
 
 int myIndexOF(const char *str, const char ch, int fromIndex) {
@@ -194,10 +210,50 @@ void readMessage() {
 
 void sendStatus() {
   char message[100] = "";
-  sprintf(message, "0;%2f;%2f;%d;|", temperature_read, pressure_read, ((pressureSetPoint > 0) ? 1 : 0));
-  Serial.println("sent:");
+  sprintf(message, "0;%2f;%2f;%d;|", temperature_read, pressure_read, digitalRead(valvePin));
+  Serial.print(" sent: ");
   Serial.println(message);
   screenSerial.println(message);
+}
+
+// Debugging Stuff -----------------------
+void scanI2C() {
+
+  byte error, address;
+  int nDevices;
+
+  Serial.println("Scanning...");
+
+  nDevices = 0;
+  for (address = 1; address < 255; address++) {
+    // The i2c_scanner uses the return value of
+    // the Write.endTransmisstion to see if
+    // a device did acknowledge to the address.
+
+    Wire.beginTransmission(address);
+    error = Wire.endTransmission();
+
+    if (error == 0) {
+      Serial.print("I2C device found at address 0x");
+      if (address < 16)
+        Serial.print("0");
+      Serial.println(address, HEX);
+
+      nDevices++;
+    } else if (error == 4) {
+      Serial.print("Unknown error at address 0x");
+      if (address < 16)
+        Serial.print("0");
+      Serial.println(address, HEX);
+    } else {
+      // Serial.print("error");
+      // Serial.println(error);
+    }
+  }
+  if (nDevices == 0)
+    Serial.println("No I2C devices found");
+  else
+    Serial.println("done");
 }
 
 // to enable serial on this board , you need to compile with CDC Serial....
@@ -207,3 +263,9 @@ void sendStatus() {
 // Wire library example
 // https://github.com/stm32duino/Arduino_Core_STM32/blob/main/libraries/Wire/examples/i2c_scanner/i2c_scanner.ino
 // https://www.stm32duino.com/viewtopic.php?t=1760
+//
+// trying this for setting PWM frequency for pin PB5 that we will use for boiler relay. hopefully it's timer is isolated from other functions
+// https://github.com/stm32duino/STM32Examples/blob/main/examples/Peripherals/HardwareTimer/All-in-one_setPWM/All-in-one_setPWM.ino
+//
+// weird, but it looks like I had to connect the valve relay to normally closed... 
+//

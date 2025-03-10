@@ -266,7 +266,7 @@ void sendCommand() {
       pressure = state.pressureSetPoint;
     }
     char message[100]  = "";
-    sprintf(message, "1;%2f;%2f|", temp, pressure);
+    sprintf(message, "1;%2f;%2f;|", temp, pressure);
     controllerSerial.println(message);
     Serial.println(message);
     state.hasCommandChanged = false;
