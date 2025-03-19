@@ -128,9 +128,10 @@ void setup() {
   Serial.begin(115200);
   // controllerSerial.begin(115200);  //default: RX19, TX20
   controllerSerial.begin(115200, SERIAL_8N1, 18, 17);  // TX_GPIO 17, RX_GPIO 18,  // works on receive
-  controllerSerial.setTimeout(200);
+  controllerSerial.setTimeout(50);
   Serial.println("LVGL Widgets Demo");
   controllerSerial.println("hello controller!");
+  delay(5000); //safe wait for controller to be ready
   // Init touch device
 
 
@@ -309,7 +310,7 @@ int i = 0;
 void loop() {
   //inelegant optimization to minimize useless(from user perspective) granularity
   //helps ALOT with UI responsiveness
-  if (i < 100) {
+  if (i < 20) {
     i++;
   } else {
     readMessage();

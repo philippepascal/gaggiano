@@ -1,20 +1,37 @@
 // --------- includes ------------------
 
 #include <AutoPID.h>
+#include <SimpleKalmanFilter.h>
 
 // --------- global vars ----------
+
+#define LOOP_PERIOD 10
+
+// readings and outputs
 double temperature_read = 0;
-double temperatureSetPoint = 0;
 double boiler_relay_output;
+
+double pressure_read = 0;
+double pressure_smoothed = 0;
+double pump_dimmer_output;
+double pump_dimmer_output2;
+
+// timers
+uint32_t last_temp_read_time = 0;
+uint32_t last_pressure_read_time = 0;
+uint32_t last_read_message_time = 0;
+uint32_t last_sent_message_time = 0;
+uint32_t loopCounter = 0;
+
+// inputs
+double temperatureSetPoint = 0;
 double boiler_bb_range = 3;
 double boiler_PID_cycle = 1000;
 double boiler_PID_KP = 10;
 double boiler_PID_KI = 0.2;
 double boiler_PID_KD = 0.1;
 
-double pressure_read = 0;
 double pressureSetPoint = 0;
-double pump_dimmer_output;
 double pump_bb_range = 1;
 double pump_PID_cycle = 100;
 double pump_PID_KP = 1;
@@ -27,6 +44,10 @@ double pump_PID_KD = 0.05;
 #include <ADS1X15.h>
 ADS1115 ADS;
 
+#define PRESSURE_READ_PERIOD 10
+
+SimpleKalmanFilter smoothPressure(0.6f, 0.6f, 0.1f);
+
 // Solenoid Valve -----------------------
 
 #define valvePin PC13
@@ -34,24 +55,22 @@ ADS1115 ADS;
 // Pump Pulse Skip Modulation -----------
 
 #include "PSM.h"
-// #define zcPin PA0
-// #define dimmerPin PA1
 #define zcPin PA15
 #define dimmerPin PB3
 #define ZC_MODE RISING
 #define PUMP_RANGE 127
 PSM *pump;
 
-//pid settings and gains
-#define PUMP_OUTPUT_MIN 0
-#define PUMP_OUTPUT_MAX 127
+// // pid settings and gains
+// #define PUMP_OUTPUT_MIN 0
+// #define PUMP_OUTPUT_MAX 127
 
-// empirical values
-#define PUMP_KP 5
-#define PUMP_KI .1
-#define PUMP_KD .05
-//input/output variables passed by reference, so they are updated automatically
-AutoPID pumpPID(&pressure_read, &pressureSetPoint, &pump_dimmer_output, PUMP_OUTPUT_MIN, PUMP_OUTPUT_MAX, PUMP_KP, PUMP_KI, PUMP_KD);
+// // empirical values
+// #define PUMP_KP 5
+// #define PUMP_KI .1
+// #define PUMP_KD .05
+// input/output variables passed by reference, so they are updated automatically
+// AutoPID pumpPID(&pressure_read, &pressureSetPoint, &pump_dimmer_output, PUMP_OUTPUT_MIN, PUMP_OUTPUT_MAX, PUMP_KP, PUMP_KI, PUMP_KD);
 
 // boiler thermo couple -----------------
 
@@ -62,8 +81,10 @@ AutoPID pumpPID(&pressure_read, &pressureSetPoint, &pump_dimmer_output, PUMP_OUT
 
 MAX6675 thermocouple(MAX6675_SCK, MAX6675_CS, MAX6675_SO);
 
+#define TEMP_READ_PERIOD 250
+
 // ---------  boiler PID ---------------
-//pid settings and gains
+// pid settings and gains
 #define OUTPUT_MIN 0
 #define OUTPUT_MAX 100
 
@@ -72,33 +93,37 @@ MAX6675 thermocouple(MAX6675_SCK, MAX6675_CS, MAX6675_SO);
 #define KI .2
 #define KD .1
 
-#define BOILER_PID_FREQ 30
+#define BOILER_RELAY_FREQ 30
 
 #define BOILER_RELAY_PIN PB5
-uint32_t boiler_relay_pin_channel;  //timer channel for the boiler pin
-HardwareTimer *MyTim;               //timer for the boiler pin
+uint32_t boiler_relay_pin_channel;  // timer channel for the boiler pin
+HardwareTimer *MyTim;               // timer for the boiler pin
 
-//input/output variables passed by reference, so they are updated automatically
+// input/output variables passed by reference, so they are updated automatically
 AutoPID boilerPID(&temperature_read, &temperatureSetPoint, &boiler_relay_output, OUTPUT_MIN, OUTPUT_MAX, KP, KI, KD);
+
+// ----------- messaging ---------------
 
 // HardwareSerial screenSerial(2);
 HardwareSerial screenSerial(PA3, PA2);
 
+#define MESSAGE_READ_PERIOD 200
+#define MESSAGE_SEND_PERIOD 200  // 200 is a decent value for screen updates; last known working value was 500
 
 // ---------------------------
 
 void setup() {
-  //Communications --------------
+  // Communications --------------
   Serial.begin(9600);
-  delay(5000);
+  delay(1000);
   Serial.println("serial works");
 
-  screenSerial.begin(115200);  //default ports...
+  screenSerial.begin(115200);  // default ports...
   screenSerial.println("hello screen");
 
-  //Pressure reading ------------
-  Wire.setSDA(PB7);  //should not be necessary.. default value
-  Wire.setSCL(PB6);  //should not be necessary.. default value
+  // Pressure reading ------------
+  Wire.setSDA(PB7);  // should not be necessary.. default value
+  Wire.setSCL(PB6);  // should not be necessary.. default value
   ADS = ADS1115(0x48, &Wire);
 
   Wire.begin();
@@ -109,26 +134,26 @@ void setup() {
   ADS.setMode(0);      // continuous mode
   ADS.readADC(0);      // first read to trigger
 
-  // Pump
-  //if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
-  pumpPID.setBangBang(pump_bb_range);
-  //set PID update interval to 1000ms
-  pumpPID.setTimeStep(pump_PID_cycle);
+  // Pump replaced with more "manual" control
+  // if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
+  // pumpPID.setBangBang(pump_bb_range);
+  // set PID update interval to 1000ms
+  // pumpPID.setTimeStep(pump_PID_cycle);
 
-  //Solenoid --------------------
+  // Solenoid --------------------
   pinMode(valvePin, OUTPUT);
   // just in case
   digitalWrite(valvePin, LOW);
 
-  //Pump -------------------------
+  // Pump -------------------------
   pump = new PSM(zcPin, dimmerPin, PUMP_RANGE, ZC_MODE, 2);
   pump->set(0);
 
-  //Boiler PID -------------------
+  // Boiler PID -------------------
   pinMode(BOILER_RELAY_PIN, OUTPUT);
-  //if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
+  // if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
   boilerPID.setBangBang(boiler_bb_range);
-  //set PID update interval to 1000ms
+  // set PID update interval to 1000ms
   boilerPID.setTimeStep(boiler_PID_cycle);
 
   // Automatically retrieve TIM instance and channel associated to pin
@@ -141,49 +166,107 @@ void setup() {
   // Configure and start PWM
   // MyTim->setPWM(boiler_relay_pin_channel, pin, 5, 10, NULL, NULL); // No callback required, we can simplify the function call
   // MyTim->setPWM(boiler_relay_pin_channel, BOILER_RELAY_PIN, 5, 10);  // 5 Hertz, 10% dutycycle
-  MyTim->setPWM(boiler_relay_pin_channel, BOILER_RELAY_PIN, BOILER_PID_FREQ, 0);
+  MyTim->setPWM(boiler_relay_pin_channel, BOILER_RELAY_PIN, BOILER_RELAY_FREQ, 0);
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
 
+  uint32_t loopStart = millis();
+
   // --- read sensors ----
-  temperature_read = thermocouple.readCelsius();
-  pressure_read = getPressure();
+  bool tempChanged = readTemperature(loopStart);
+  bool pressureChanged = readPressure(loopStart);
 
   //----------------------
-  readMessage();
+  readMessage(loopStart);
 
-  //Boiler PID -----------
-  boilerPID.run();
-  Serial.print(" boiler output: ");
-  Serial.print(boiler_relay_output);
-  MyTim->setPWM(boiler_relay_pin_channel, BOILER_RELAY_PIN, BOILER_PID_FREQ, boiler_relay_output);
+  // Boiler PID -----------
+  if (tempChanged) updateBoiler();
 
-  //Pump and Solenoid (coupled)
-  pumpPID.run();
-  updatePump();
-  Serial.print(" pump output: ");
-  Serial.print(pump_dimmer_output);
-  Serial.print(" valve state: ");
-  Serial.print(digitalRead(valvePin));
+  // Pump and Solenoid (coupled)
+  if (pressureChanged) updatePump();
 
   //----------------------
-  sendStatus();
+  sendStatus(loopStart);
 
   // ---------------------
-  delay(500);  //200 is a decent value for screen updates
+  loopCounter++;
+  uint32_t waitTime = LOOP_PERIOD - (millis() - loopStart);
+  delay(waitTime);
 }
 
 // Utilities --------------------
 
+
+bool readPressure(uint32_t now) {
+  if ((now - last_pressure_read_time) > PRESSURE_READ_PERIOD) {
+    // float elapsedTimeSec = elapsedTime / 1000.f;
+    pressure_read = getPressure();
+    // double previousSmoothedPressure = pressure_smoothed;
+    pressure_smoothed = smoothPressure.updateEstimate(pressure_read);
+    // double ressureChangeSpeed = (currentState.smoothedPressure - previousSmoothedPressure) / elapsedTimeSec;
+    last_pressure_read_time = now;
+    return true;
+  }
+  return false;
+}
+
+float getPressure() {
+  // returns sensor pressure data
+  //  5V/1024 = 1/204.8 (10 bit) or 6553.6 (15 bit)
+  //  voltageZero = 0.5V --> 102.4(10 bit) or 3276.8 (15 bit)
+  //  voltageMax = 4.5V --> 921.6 (10 bit) or 29491.2 (15 bit)
+  //  range 921.6 - 102.4 = 819.2 or 26214.4
+  //  pressure gauge range 0-1.2MPa - 0-12 bar
+  //  1 bar = 68.27 or 2184.5
+
+  // return ADS.getValue() / 1706.6f - 1.49f;
+
+  // voltageZero = 0.5V --> 25.6 (8 bit) or 102.4 (10 bit) or 2666.7 (ADS 15 bit)
+  // voltageMax = 4.5V --> 230.4 (8 bit) or 921.6 (10 bit) or 24000 (ADS 15 bit)
+  // range 921.6 - 102.4 = 204.8 or 819.2 or 21333.3
+  // pressure gauge range 0-1.2MPa - 0-12 bar
+  // 1 bar = 17.1 or 68.27 or 1777.8
+  return (ADS.getValue() - 2666) / 1777.8f;  // 16bit
+}
+
+bool readTemperature(uint32_t now) {
+  if ((now - last_temp_read_time) > TEMP_READ_PERIOD) {
+    double newReading = thermocouple.readCelsius();
+    if (newReading > 1 || newReading < 200)  // not meant to run at freezing or too hot temperatures, so this should never be 0, just skip this reading.
+    {
+      temperature_read = newReading;
+    }
+    last_temp_read_time = now;
+    return true;
+  }
+  return false;
+}
+
 void updatePump() {
+  // pumpPID.run(); // currently unused
   if (pressureSetPoint > 0) {
     // open Solenoid
     digitalWrite(valvePin, HIGH);
 
     // pump->set(pump_dimmer_output); // PID seems out of whack
-    setPressure();
+
+    int pumpValue;
+
+    if (pressure_smoothed > pressureSetPoint) {
+      pumpValue = 0;
+    } else {
+      float diff = pressureSetPoint - pressure_smoothed;
+      pumpValue = PUMP_RANGE / (1.f + exp(1.7f - diff / 0.9f));
+      if ((pumpValue - pump_dimmer_output2) > 10) {
+        pumpValue = pump_dimmer_output2 + 10;
+      }
+    }
+
+    pump_dimmer_output2 = pumpValue;
+    pump->set(pump_dimmer_output2);
+
   } else {
     pump->set(0);
 
@@ -192,65 +275,12 @@ void updatePump() {
   }
 }
 
-void updateAdvancedSettings() {
-  Serial.print(" advanced settings: ");
-  Serial.print("boiler_bb_range:");
-  Serial.print(boiler_bb_range);
-  Serial.print("boiler_PID_cicle:");
-  Serial.print(boiler_PID_cycle);
-  Serial.print("boiler_PID_KP:");
-  Serial.print(boiler_PID_KP);
-  Serial.print("boiler_PID_KI:");
-  Serial.print(boiler_PID_KI);
-  Serial.print("boiler_PID_KD:");
-  Serial.print(boiler_PID_KD);
-  Serial.print("pump_bb_range:");
-  Serial.print(pump_bb_range);
-  Serial.print("pump_PID_cicle:");
-  Serial.print(pump_PID_cycle);
-  Serial.print("pump_PID_KP:");
-  Serial.print(pump_PID_KP);
-  Serial.print("pump_PID_KI:");
-  Serial.print(pump_PID_KI);
-  Serial.print("pump_PID_KD:");
-  Serial.println(pump_PID_KD);
-
-  //if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
-  boilerPID.setBangBang(boiler_bb_range);
-  //set PID update interval to 1000ms
-  boilerPID.setTimeStep(boiler_PID_cycle);
-  boilerPID.setGains(boiler_PID_KP, boiler_PID_KI, boiler_PID_KD);
-
-  //if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
-  pumpPID.setBangBang(pump_bb_range);
-  //set PID update interval to 1000ms
-  pumpPID.setTimeStep(pump_PID_cycle);
-  pumpPID.setGains(pump_PID_KP, pump_PID_KI, pump_PID_KD);
+void updateBoiler() {
+  boilerPID.run();
+  MyTim->setPWM(boiler_relay_pin_channel, BOILER_RELAY_PIN, BOILER_RELAY_FREQ, boiler_relay_output);
 }
 
-float getPressure() {  //returns sensor pressure data
-                       // 5V/1024 = 1/204.8 (10 bit) or 6553.6 (15 bit)
-                       // voltageZero = 0.5V --> 102.4(10 bit) or 3276.8 (15 bit)
-                       // voltageMax = 4.5V --> 921.6 (10 bit) or 29491.2 (15 bit)
-                       // range 921.6 - 102.4 = 819.2 or 26214.4
-                       // pressure gauge range 0-1.2MPa - 0-12 bar
-                       // 1 bar = 68.27 or 2184.5
-
-  return ADS.getValue() / 1706.6f - 1.49f;
-}
-
-void setPressure() {
-  int pumpValue;
-
-  if (pressureSetPoint == 0 || pressure_read > pressureSetPoint) {
-    pumpValue = 0;
-  } else {
-    float diff = pressureSetPoint - pressure_read;
-    pumpValue = PUMP_RANGE / (1.f + exp(1.7f - diff/0.9f));
-  }
-
-  pump->set(pumpValue);
-}
+// message handling ----------------------
 
 int myIndexOF(const char *str, const char ch, int fromIndex) {
   const char *result = strchr(str + fromIndex, ch);
@@ -272,7 +302,16 @@ char *mySubString(const char *str, int start, int end) {
   return sub;
 }
 
-void readMessage() {
+bool readMessage(uint32_t now) {
+  if ((now - last_read_message_time) > MESSAGE_READ_PERIOD) {
+    parseMessage();
+    last_read_message_time = now;
+    return true;
+  }
+  return false;
+}
+
+void parseMessage() {
   char m[500] = "";
   if (screenSerial.available()) {
     Serial.println("received");
@@ -281,7 +320,7 @@ void readMessage() {
   }
   int messageSize = myIndexOF(m, '|', 0);
   if (messageSize > 0) {
-    //message is complete..unpack
+    // message is complete..unpack
     int cursor = 0;
     int endCursor = myIndexOF(m, ';', cursor);
     int sender = -1;
@@ -290,7 +329,7 @@ void readMessage() {
       cursor = endCursor + 1;
       endCursor = myIndexOF(m, ';', cursor);
     }
-    if (sender == 1) {  //command from the screen
+    if (sender == 1) {  // command from the screen
       if (endCursor > 0 && endCursor < messageSize) {
         float value = atof(mySubString(m, cursor, endCursor));
         temperatureSetPoint = value;
@@ -304,7 +343,7 @@ void readMessage() {
         cursor = endCursor + 1;
         endCursor = myIndexOF(m, ';', cursor);
       }
-    } else if (sender == 2) {  //advanced settings
+    } else if (sender == 2) {  // advanced settings
       if (endCursor > 0 && endCursor < messageSize) {
         float value = atof(mySubString(m, cursor, endCursor));
         boiler_bb_range = value;
@@ -380,12 +419,65 @@ void readMessage() {
   }
 }
 
-void sendStatus() {
-  char message[100] = "";
-  sprintf(message, "0;%.2f;%.2f;%d;|", temperature_read, pressure_read, digitalRead(valvePin));
-  Serial.print(" sent: ");
-  Serial.println(message);
-  screenSerial.println(message);
+void updateAdvancedSettings() {
+  Serial.print(" advanced settings: ");
+  Serial.print("boiler_bb_range:");
+  Serial.print(boiler_bb_range);
+  Serial.print("boiler_PID_cicle:");
+  Serial.print(boiler_PID_cycle);
+  Serial.print("boiler_PID_KP:");
+  Serial.print(boiler_PID_KP);
+  Serial.print("boiler_PID_KI:");
+  Serial.print(boiler_PID_KI);
+  Serial.print("boiler_PID_KD:");
+  Serial.print(boiler_PID_KD);
+  Serial.print("pump_bb_range:");
+  Serial.print(pump_bb_range);
+  Serial.print("pump_PID_cicle:");
+  Serial.print(pump_PID_cycle);
+  Serial.print("pump_PID_KP:");
+  Serial.print(pump_PID_KP);
+  Serial.print("pump_PID_KI:");
+  Serial.print(pump_PID_KI);
+  Serial.print("pump_PID_KD:");
+  Serial.println(pump_PID_KD);
+
+  // if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
+  boilerPID.setBangBang(boiler_bb_range);
+  // set PID update interval to 1000ms
+  boilerPID.setTimeStep(boiler_PID_cycle);
+  boilerPID.setGains(boiler_PID_KP, boiler_PID_KI, boiler_PID_KD);
+
+  // if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
+  // pumpPID.setBangBang(pump_bb_range);
+  // set PID update interval to 1000ms
+  // pumpPID.setTimeStep(pump_PID_cycle);
+  // pumpPID.setGains(pump_PID_KP, pump_PID_KI, pump_PID_KD);
+}
+
+bool sendStatus(uint32_t now) {
+  if ((now - last_sent_message_time) > MESSAGE_SEND_PERIOD) {
+    char message[100] = "";
+    sprintf(message, "0;%.2f;%.2f;%d;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%d;|", 
+      temperature_read, 
+      pressure_smoothed, 
+      digitalRead(valvePin),
+      boiler_relay_output,
+      pump_dimmer_output2,
+      temperatureSetPoint,
+      boiler_bb_range,
+      boiler_PID_cycle,
+      boiler_PID_KP,
+      boiler_PID_KI,
+      boiler_PID_KD,
+      loopCounter);
+    Serial.print(" sent: ");
+    Serial.println(message);
+    screenSerial.println(message);
+    last_sent_message_time = now;
+    return true;
+  }
+  return false;
 }
 
 // Debugging Stuff -----------------------
@@ -436,7 +528,7 @@ void scanI2C() {
 // https://github.com/stm32duino/Arduino_Core_STM32/blob/main/libraries/Wire/examples/i2c_scanner/i2c_scanner.ino
 // https://www.stm32duino.com/viewtopic.php?t=1760
 //
-//also looks like relay on solenoid causes DFU not to work well when trying. set brew on before switching to DFU helps
+// also looks like relay on solenoid causes DFU not to work well when trying. set brew on before switching to DFU helps
 //
 // trying this for setting PWM frequency for pin PB5 that we will use for boiler relay. hopefully it's timer is isolated from other functions
 // https://github.com/stm32duino/STM32Examples/blob/main/examples/Peripherals/HardwareTimer/All-in-one_setPWM/All-in-one_setPWM.ino
