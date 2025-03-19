@@ -7,7 +7,7 @@ double temperature_read = 0;
 double temperatureSetPoint = 0;
 double boiler_relay_output;
 double boiler_bb_range = 3;
-double boiler_PID_cicle = 1000;
+double boiler_PID_cycle = 1000;
 double boiler_PID_KP = 10;
 double boiler_PID_KI = 0.2;
 double boiler_PID_KD = 0.1;
@@ -16,7 +16,7 @@ double pressure_read = 0;
 double pressureSetPoint = 0;
 double pump_dimmer_output;
 double pump_bb_range = 1;
-double pump_PID_cicle = 100;
+double pump_PID_cycle = 100;
 double pump_PID_KP = 1;
 double pump_PID_KI = 0.1;
 double pump_PID_KD = 0.05;
@@ -39,12 +39,12 @@ ADS1115 ADS;
 #define zcPin PA15
 #define dimmerPin PB3
 #define ZC_MODE RISING
-#define PUMP_RANGE 255
+#define PUMP_RANGE 127
 PSM *pump;
 
 //pid settings and gains
 #define PUMP_OUTPUT_MIN 0
-#define PUMP_OUTPUT_MAX 255
+#define PUMP_OUTPUT_MAX 127
 
 // empirical values
 #define PUMP_KP 5
@@ -71,6 +71,8 @@ MAX6675 thermocouple(MAX6675_SCK, MAX6675_CS, MAX6675_SO);
 #define KP 10
 #define KI .2
 #define KD .1
+
+#define BOILER_PID_FREQ 30
 
 #define BOILER_RELAY_PIN PB5
 uint32_t boiler_relay_pin_channel;  //timer channel for the boiler pin
@@ -111,7 +113,7 @@ void setup() {
   //if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
   pumpPID.setBangBang(pump_bb_range);
   //set PID update interval to 1000ms
-  pumpPID.setTimeStep(pump_PID_cicle);
+  pumpPID.setTimeStep(pump_PID_cycle);
 
   //Solenoid --------------------
   pinMode(valvePin, OUTPUT);
@@ -127,7 +129,7 @@ void setup() {
   //if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
   boilerPID.setBangBang(boiler_bb_range);
   //set PID update interval to 1000ms
-  boilerPID.setTimeStep(boiler_PID_cicle);
+  boilerPID.setTimeStep(boiler_PID_cycle);
 
   // Automatically retrieve TIM instance and channel associated to pin
   // This is used to be compatible with all STM32 series automatically.
@@ -139,14 +141,11 @@ void setup() {
   // Configure and start PWM
   // MyTim->setPWM(boiler_relay_pin_channel, pin, 5, 10, NULL, NULL); // No callback required, we can simplify the function call
   // MyTim->setPWM(boiler_relay_pin_channel, BOILER_RELAY_PIN, 5, 10);  // 5 Hertz, 10% dutycycle
-  MyTim->setPWM(boiler_relay_pin_channel, BOILER_RELAY_PIN, 5, 0);
+  MyTim->setPWM(boiler_relay_pin_channel, BOILER_RELAY_PIN, BOILER_PID_FREQ, 0);
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-
-  Serial.print(" counter: ");
-  Serial.println(pump->getCounter());
 
   // --- read sensors ----
   temperature_read = thermocouple.readCelsius();
@@ -159,7 +158,7 @@ void loop() {
   boilerPID.run();
   Serial.print(" boiler output: ");
   Serial.print(boiler_relay_output);
-  MyTim->setPWM(boiler_relay_pin_channel, BOILER_RELAY_PIN, 5, boiler_relay_output);
+  MyTim->setPWM(boiler_relay_pin_channel, BOILER_RELAY_PIN, BOILER_PID_FREQ, boiler_relay_output);
 
   //Pump and Solenoid (coupled)
   pumpPID.run();
@@ -183,11 +182,10 @@ void updatePump() {
     // open Solenoid
     digitalWrite(valvePin, HIGH);
 
-    pump->set(pump_dimmer_output);
-    // digitalWrite(dimmerPin,HIGH);
+    // pump->set(pump_dimmer_output); // PID seems out of whack
+    setPressure();
   } else {
     pump->set(0);
-    // digitalWrite(dimmerPin,LOW);
 
     // close Solenoid
     digitalWrite(valvePin, LOW);
@@ -195,16 +193,38 @@ void updatePump() {
 }
 
 void updateAdvancedSettings() {
+  Serial.print(" advanced settings: ");
+  Serial.print("boiler_bb_range:");
+  Serial.print(boiler_bb_range);
+  Serial.print("boiler_PID_cicle:");
+  Serial.print(boiler_PID_cycle);
+  Serial.print("boiler_PID_KP:");
+  Serial.print(boiler_PID_KP);
+  Serial.print("boiler_PID_KI:");
+  Serial.print(boiler_PID_KI);
+  Serial.print("boiler_PID_KD:");
+  Serial.print(boiler_PID_KD);
+  Serial.print("pump_bb_range:");
+  Serial.print(pump_bb_range);
+  Serial.print("pump_PID_cicle:");
+  Serial.print(pump_PID_cycle);
+  Serial.print("pump_PID_KP:");
+  Serial.print(pump_PID_KP);
+  Serial.print("pump_PID_KI:");
+  Serial.print(pump_PID_KI);
+  Serial.print("pump_PID_KD:");
+  Serial.println(pump_PID_KD);
+
   //if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
   boilerPID.setBangBang(boiler_bb_range);
   //set PID update interval to 1000ms
-  boilerPID.setTimeStep(boiler_PID_cicle);
+  boilerPID.setTimeStep(boiler_PID_cycle);
   boilerPID.setGains(boiler_PID_KP, boiler_PID_KI, boiler_PID_KD);
 
   //if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
   pumpPID.setBangBang(pump_bb_range);
   //set PID update interval to 1000ms
-  pumpPID.setTimeStep(pump_PID_cicle);
+  pumpPID.setTimeStep(pump_PID_cycle);
   pumpPID.setGains(pump_PID_KP, pump_PID_KI, pump_PID_KD);
 }
 
@@ -217,6 +237,19 @@ float getPressure() {  //returns sensor pressure data
                        // 1 bar = 68.27 or 2184.5
 
   return ADS.getValue() / 1706.6f - 1.49f;
+}
+
+void setPressure() {
+  int pumpValue;
+
+  if (pressureSetPoint == 0 || pressure_read > pressureSetPoint) {
+    pumpValue = 0;
+  } else {
+    float diff = pressureSetPoint - pressure_read;
+    pumpValue = PUMP_RANGE / (1.f + exp(1.7f - diff/0.9f));
+  }
+
+  pump->set(pumpValue);
 }
 
 int myIndexOF(const char *str, const char ch, int fromIndex) {
@@ -240,7 +273,7 @@ char *mySubString(const char *str, int start, int end) {
 }
 
 void readMessage() {
-  char m[100] = "";
+  char m[500] = "";
   if (screenSerial.available()) {
     Serial.println("received");
     strcat(m, screenSerial.readStringUntil('\n').c_str());
@@ -281,7 +314,7 @@ void readMessage() {
 
       if (endCursor > 0 && endCursor < messageSize) {
         float value = atof(mySubString(m, cursor, endCursor));
-        boiler_PID_cicle = value;
+        boiler_PID_cycle = value;
         cursor = endCursor + 1;
         endCursor = myIndexOF(m, ';', cursor);
       }
@@ -316,7 +349,7 @@ void readMessage() {
 
       if (endCursor > 0 && endCursor < messageSize) {
         float value = atof(mySubString(m, cursor, endCursor));
-        pump_PID_cicle = value;
+        pump_PID_cycle = value;
         cursor = endCursor + 1;
         endCursor = myIndexOF(m, ';', cursor);
       }
@@ -349,7 +382,7 @@ void readMessage() {
 
 void sendStatus() {
   char message[100] = "";
-  sprintf(message, "0;%2f;%2f;%d;|", temperature_read, pressure_read, digitalRead(valvePin));
+  sprintf(message, "0;%.2f;%.2f;%d;|", temperature_read, pressure_read, digitalRead(valvePin));
   Serial.print(" sent: ");
   Serial.println(message);
   screenSerial.println(message);
@@ -402,6 +435,8 @@ void scanI2C() {
 // Wire library example
 // https://github.com/stm32duino/Arduino_Core_STM32/blob/main/libraries/Wire/examples/i2c_scanner/i2c_scanner.ino
 // https://www.stm32duino.com/viewtopic.php?t=1760
+//
+//also looks like relay on solenoid causes DFU not to work well when trying. set brew on before switching to DFU helps
 //
 // trying this for setting PWM frequency for pin PB5 that we will use for boiler relay. hopefully it's timer is isolated from other functions
 // https://github.com/stm32duino/STM32Examples/blob/main/examples/Peripherals/HardwareTimer/All-in-one_setPWM/All-in-one_setPWM.ino

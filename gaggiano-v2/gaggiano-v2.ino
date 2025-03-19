@@ -116,7 +116,7 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
  ******************************************************************************/
 
 struct GaggiaState state = { false, 98, 8.0, 134, 0, 0, false, false, false, false, false };
-struct AdvancedSettings advancedSettings = { false, 3, 1000, 10, 0.2, 0.1, 1, 100, 1, 0.1, 0.05 };
+struct AdvancedSettings advancedSettings = { false, false, 3, 1000, 10, 0.2, 0.1, 1, 100, 1, 0.1, 0.05 };
 
 HardwareSerial controllerSerial(2);
 
@@ -128,7 +128,7 @@ void setup() {
   Serial.begin(115200);
   // controllerSerial.begin(115200);  //default: RX19, TX20
   controllerSerial.begin(115200, SERIAL_8N1, 18, 17);  // TX_GPIO 17, RX_GPIO 18,  // works on receive
-  controllerSerial.setTimeout(50);
+  controllerSerial.setTimeout(200);
   Serial.println("LVGL Widgets Demo");
   controllerSerial.println("hello controller!");
   // Init touch device
@@ -179,10 +179,10 @@ void setup() {
     indev_drv.read_cb = my_touchpad_read;
     lv_indev_drv_register(&indev_drv);
 
-    initConfFile(&state,&advancedSettings);
+    initConfFile(&state, &advancedSettings);
     delay(500);
 
-    instantiateUI(&state,&advancedSettings);
+    instantiateUI(&state, &advancedSettings);
     delay(500);
 
     setupAndReadConfigFile();
@@ -255,8 +255,12 @@ void readMessage() {
   }
 }
 
+int lastSentCommand = 0;
 void sendCommand() {
+  int now = millis();
+  // if (state.hasCommandChanged || ((state.hasConfigChanged && (state.isBoilerOn || state.isBrewing || state.isSteaming))) || (now - lastSentCommand > 2000)) {
   if (state.hasCommandChanged || ((state.hasConfigChanged && (state.isBoilerOn || state.isBrewing || state.isSteaming)))) {
+    lastSentCommand = now;
     float temp = 0;
     if (state.isSteaming) {
       temp = state.steamSetPoint;
@@ -268,30 +272,36 @@ void sendCommand() {
       pressure = state.pressureSetPoint;
     }
     char message[100] = "";
-    sprintf(message, "1;%2f;%2f;|", temp, pressure);
+    sprintf(message, "1;%.2f;%.2f;|", temp, pressure);
     controllerSerial.println(message);
+    Serial.print(" sent: ");
     Serial.println(message);
     state.hasCommandChanged = false;
   }
 }
 
+int lastSentAdvancedSettings = 0;
 void sendAdvancedSettings() {
-  if (advancedSettings.userChanged) {
+  int now = millis();
+  // if (now - lastSentAdvancedSettings > 1000) {
+  if (advancedSettings.sendToController) {
+    lastSentAdvancedSettings = now;
     char message[500] = "";
-    sprintf(message, "2;%2f;%2f;%2f;%2f;%2f;%2f;%2f;%2f;%2f;%2f;|",
+    sprintf(message, "2;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;|",
             advancedSettings.boiler_bb_range,
-            advancedSettings.boiler_PID_cicle,
+            advancedSettings.boiler_PID_cycle,
             advancedSettings.boiler_PID_KP,
             advancedSettings.boiler_PID_KI,
             advancedSettings.boiler_PID_KD,
             advancedSettings.pump_bb_range,
-            advancedSettings.pump_PID_cicle,
+            advancedSettings.pump_PID_cycle,
             advancedSettings.pump_PID_KP,
             advancedSettings.pump_PID_KI,
             advancedSettings.pump_PID_KD);
     controllerSerial.println(message);
+    Serial.print(" sent: ");
     Serial.println(message);
-    advancedSettings.userChanged = false;
+    advancedSettings.sendToController = false;
   }
 }
 
@@ -299,7 +309,7 @@ int i = 0;
 void loop() {
   //inelegant optimization to minimize useless(from user perspective) granularity
   //helps ALOT with UI responsiveness
-  if (i < 40) {
+  if (i < 100) {
     i++;
   } else {
     readMessage();
@@ -308,6 +318,7 @@ void loop() {
   }
   lv_timer_handler(); /* let the GUI do its work */
   sendCommand();
+  sendAdvancedSettings();
   delay(5);
 }
 

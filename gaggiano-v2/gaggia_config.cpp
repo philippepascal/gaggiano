@@ -81,16 +81,17 @@ int setupAndReadConfigFile() {
       state->steamSetPoint = (float)values[2];
       state->hasConfigChanged = true;
       advancedSettings->boiler_bb_range = (float)values[3];
-      advancedSettings->boiler_PID_cicle = (float)values[4];
+      advancedSettings->boiler_PID_cycle = (float)values[4];
       advancedSettings->boiler_PID_KP = (float)values[5];
       advancedSettings->boiler_PID_KI = (float)values[6];
       advancedSettings->boiler_PID_KD = (float)values[7];
       advancedSettings->pump_bb_range = (float)values[8];
-      advancedSettings->pump_PID_cicle = (float)values[9];
+      advancedSettings->pump_PID_cycle = (float)values[9];
       advancedSettings->pump_PID_KP = (float)values[10];
       advancedSettings->pump_PID_KI = (float)values[11];
       advancedSettings->pump_PID_KD = (float)values[12];
       advancedSettings->userChanged = true;
+      advancedSettings->sendToController = true;
       Serial.println("state updated");
     } else {
       Serial.print("CSV parsing failed");
@@ -137,12 +138,12 @@ int writeConfigFile() {
           state->pressureSetPoint,
           state->steamSetPoint,
           advancedSettings->boiler_bb_range,
-          advancedSettings->boiler_PID_cicle,
+          advancedSettings->boiler_PID_cycle,
           advancedSettings->boiler_PID_KP,
           advancedSettings->boiler_PID_KI,
           advancedSettings->boiler_PID_KD,
           advancedSettings->pump_bb_range,
-          advancedSettings->pump_PID_cicle,
+          advancedSettings->pump_PID_cycle,
           advancedSettings->pump_PID_KP,
           advancedSettings->pump_PID_KI,
           advancedSettings->pump_PID_KD);

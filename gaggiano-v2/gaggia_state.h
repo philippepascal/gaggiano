@@ -22,13 +22,14 @@ typedef struct GaggiaState GaggiaStateT;
 
 struct AdvancedSettings {
   bool userChanged;
+  bool sendToController;
   double boiler_bb_range;
-  double boiler_PID_cicle;
+  double boiler_PID_cycle;
   double boiler_PID_KP;
   double boiler_PID_KI;
   double boiler_PID_KD;
   double pump_bb_range;
-  double pump_PID_cicle;
+  double pump_PID_cycle;
   double pump_PID_KP;
   double pump_PID_KI;
   double pump_PID_KD;
