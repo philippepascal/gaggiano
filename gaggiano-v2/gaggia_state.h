@@ -9,7 +9,7 @@ struct GaggiaState {
   float pressureSetPoint;
   float steamSetPoint;
   float steam_max_pressure;
-  float steam_pump_output_perc;
+  float steam_pump_output_percent;
   //real time read
   float tempRead;
   float pressureRead;
@@ -33,11 +33,11 @@ struct AdvancedSettings {
   double boiler_PID_KP;
   double boiler_PID_KI;
   double boiler_PID_KD;
-  double pump_bb_range;
-  double pump_PID_cycle;
-  double pump_PID_KP;
-  double pump_PID_KI;
-  double pump_PID_KD;
+  double pump_max_step_up;
+  double pump_KP;
+  double pump_KI;
+  double pump_KD;
+  double unused1;
 };
 typedef struct AdvancedSettings AdvancedSettingsT;
 

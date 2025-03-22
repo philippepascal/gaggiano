@@ -61,11 +61,11 @@ static lv_obj_t* boiler_PID_cycle_tf;
 static lv_obj_t* boiler_PID_KP_tf;
 static lv_obj_t* boiler_PID_KI_tf;
 static lv_obj_t* boiler_PID_KD_tf;
-static lv_obj_t* pump_bb_range_tf;
-static lv_obj_t* pump_PID_cycle_tf;
-static lv_obj_t* pump_PID_KP_tf;
-static lv_obj_t* pump_PID_KI_tf;
-static lv_obj_t* pump_PID_KD_tf;
+static lv_obj_t* pump_max_step_up_tf;
+static lv_obj_t* pump_KP_tf;
+static lv_obj_t* pump_KI_tf;
+static lv_obj_t* pump_KD_tf;
+static lv_obj_t* unused1_tf;
 static lv_obj_t* advancedSetBtn;
 
 static lv_obj_t* boilerBtn;
@@ -116,7 +116,6 @@ static void setting_field_changed(lv_event_t* e) {
     LV_LOG_WARN("Setting changed");
     lv_obj_clear_state(setBtn, LV_STATE_DISABLED);
     lv_obj_clear_state(advancedSetBtn, LV_STATE_DISABLED);
-    
   }
 }
 
@@ -135,7 +134,7 @@ static void setButtonClicked(lv_event_t* e) {
     state->pressureSetPoint = newPressureSetPoint;
     state->steamSetPoint = newSteamSetPoint;
     state->steam_max_pressure = newSteamMaxPress;
-    state->steam_pump_output_perc = newSteamPumpOutput;
+    state->steam_pump_output_percent = newSteamPumpOutput;
     state->hasConfigChanged = true;
     writeConfigFile();
     lv_obj_add_state(setBtn, LV_STATE_DISABLED);
@@ -163,11 +162,11 @@ static void advancedSetButtonClicked(lv_event_t* e) {
     advancedSettings->boiler_PID_KP = strtod(lv_textarea_get_text(boiler_PID_KP_tf), NULL);
     advancedSettings->boiler_PID_KI = strtod(lv_textarea_get_text(boiler_PID_KI_tf), NULL);
     advancedSettings->boiler_PID_KD = strtod(lv_textarea_get_text(boiler_PID_KD_tf), NULL);
-    advancedSettings->pump_bb_range = strtod(lv_textarea_get_text(pump_bb_range_tf), NULL);
-    advancedSettings->pump_PID_cycle = strtod(lv_textarea_get_text(pump_PID_cycle_tf), NULL);
-    advancedSettings->pump_PID_KP = strtod(lv_textarea_get_text(pump_PID_KP_tf), NULL);
-    advancedSettings->pump_PID_KI = strtod(lv_textarea_get_text(pump_PID_KI_tf), NULL);
-    advancedSettings->pump_PID_KD = strtod(lv_textarea_get_text(pump_PID_KD_tf), NULL);
+    advancedSettings->pump_max_step_up = strtod(lv_textarea_get_text(pump_max_step_up_tf), NULL);
+    advancedSettings->pump_KP = strtod(lv_textarea_get_text(pump_KP_tf), NULL);
+    advancedSettings->pump_KI = strtod(lv_textarea_get_text(pump_KI_tf), NULL);
+    advancedSettings->pump_KD = strtod(lv_textarea_get_text(pump_KD_tf), NULL);
+    advancedSettings->unused1 = strtod(lv_textarea_get_text(unused1_tf), NULL);
 
     advancedSettings->userChanged = true;
     advancedSettings->sendToController = true;
@@ -251,7 +250,7 @@ static void cleanBtnClicked(lv_event_t* e) {
 
   if (code == LV_EVENT_CLICKED) {
     LV_LOG_WARN("Clean Button Clicked");
-    if(state->isBrewing) {
+    if (state->isBrewing) {
       LV_LOG_USER("no cleaning while brewing");
     } else {
       state->isCleaning = true;
@@ -285,12 +284,16 @@ void updateUI() {
     lv_label_set_text_fmt(solenoid2Label, "OFF");
   }
 
-  lv_label_set_text_fmt(lastBrewTimeLabel, "%.2f",state->lastBrewTime);
+  lv_label_set_text_fmt(lastBrewTimeLabel, "%.2f", state->lastBrewTime);
 
   if (state->hasConfigChanged) {
     LV_LOG_WARN("updating config fields");
 
-    lv_label_set_text_fmt(tempSet2Label, "%.2f", state->boilerSetPoint);
+    if (state->isSteaming) {
+      lv_label_set_text_fmt(tempSet2Label, "%.2f", state->steamSetPoint);
+    } else {
+      lv_label_set_text_fmt(tempSet2Label, "%.2f", state->boilerSetPoint);
+    }
     lv_label_set_text_fmt(pressureSet2Label, "%.2f", state->pressureSetPoint);
 
     char t[100];
@@ -306,7 +309,7 @@ void updateUI() {
     sprintf(t, "%.2f", state->steam_max_pressure);
     lv_textarea_set_text(steam_max_pressure_tf, t);
 
-    sprintf(t, "%.2f", state->steam_pump_output_perc);
+    sprintf(t, "%.2f", state->steam_pump_output_percent);
     lv_textarea_set_text(steam_pump_output_perc_tf, t);
 
     //yuk, but setting text area emits a change event...
@@ -328,16 +331,16 @@ void updateUI() {
     lv_textarea_set_text(boiler_PID_KI_tf, t);
     sprintf(t, "%.2f", advancedSettings->boiler_PID_KD);
     lv_textarea_set_text(boiler_PID_KD_tf, t);
-    sprintf(t, "%.2f", advancedSettings->pump_bb_range);
-    lv_textarea_set_text(pump_bb_range_tf, t);
-    sprintf(t, "%.2f", advancedSettings->pump_PID_cycle);
-    lv_textarea_set_text(pump_PID_cycle_tf, t);
-    sprintf(t, "%.2f", advancedSettings->pump_PID_KP);
-    lv_textarea_set_text(pump_PID_KP_tf, t);
-    sprintf(t, "%.2f", advancedSettings->pump_PID_KI);
-    lv_textarea_set_text(pump_PID_KI_tf, t);
-    sprintf(t, "%.2f", advancedSettings->pump_PID_KD);
-    lv_textarea_set_text(pump_PID_KD_tf, t);
+    sprintf(t, "%.2f", advancedSettings->pump_max_step_up);
+    lv_textarea_set_text(pump_max_step_up_tf, t);
+    sprintf(t, "%.2f", advancedSettings->pump_KP);
+    lv_textarea_set_text(pump_KP_tf, t);
+    sprintf(t, "%.2f", advancedSettings->pump_KI);
+    lv_textarea_set_text(pump_KI_tf, t);
+    sprintf(t, "%.2f", advancedSettings->pump_KD);
+    lv_textarea_set_text(pump_KD_tf, t);
+    sprintf(t, "%.2f", advancedSettings->unused1);
+    lv_textarea_set_text(unused1_tf, t);
 
     //yuk, but setting text area emits a change event...
     lv_obj_add_state(advancedSetBtn, LV_STATE_DISABLED);
@@ -430,7 +433,6 @@ void instantiateUI(GaggiaStateT* s, AdvancedSettingsT* as) {
   advancedSettings_create(t3);
 
   LV_LOG_WARN("~~~~~~~~~~~~~~~~ did we get there ~~~~~~~~~~~~~~~~");
-
 }
 
 /**********************
@@ -607,7 +609,7 @@ static void settings_create(lv_obj_t* parent) {
   steam_pump_output_perc_tf = lv_textarea_create(panel1);
   lv_textarea_set_one_line(steam_pump_output_perc_tf, true);
   lv_obj_set_width(steam_pump_output_perc_tf, textFieldWidth);
-  sprintf(t, "%.2f", state->steam_pump_output_perc);
+  sprintf(t, "%.2f", state->steam_pump_output_percent);
   lv_textarea_set_text(steam_pump_output_perc_tf, t);
   lv_obj_add_event_cb(steam_pump_output_perc_tf, setting_field_changed, LV_EVENT_ALL, kb);
 
@@ -723,55 +725,55 @@ static void advancedSettings_create(lv_obj_t* parent) {
   lv_textarea_set_text(boiler_PID_KD_tf, t);
   lv_obj_add_event_cb(boiler_PID_KD_tf, setting_field_changed, LV_EVENT_ALL, kb);
 
-  lv_obj_t* pump_bb_range_label = lv_label_create(panel1);
-  lv_label_set_text(pump_bb_range_label, "pump_bb_range:");
+  lv_obj_t* pump_max_step_up_label = lv_label_create(panel1);
+  lv_label_set_text(pump_max_step_up_label, "pump_max_step_up:");
 
-  pump_bb_range_tf = lv_textarea_create(panel1);
-  lv_textarea_set_one_line(pump_bb_range_tf, true);
-  lv_obj_set_width(pump_bb_range_tf, textFieldWidth);
-  sprintf(t, "%.2f", advancedSettings->pump_bb_range);
-  lv_textarea_set_text(pump_bb_range_tf, t);
-  lv_obj_add_event_cb(pump_bb_range_tf, setting_field_changed, LV_EVENT_ALL, kb);
+  pump_max_step_up_tf = lv_textarea_create(panel1);
+  lv_textarea_set_one_line(pump_max_step_up_tf, true);
+  lv_obj_set_width(pump_max_step_up_tf, textFieldWidth);
+  sprintf(t, "%.2f", advancedSettings->pump_max_step_up);
+  lv_textarea_set_text(pump_max_step_up_tf, t);
+  lv_obj_add_event_cb(pump_max_step_up_tf, setting_field_changed, LV_EVENT_ALL, kb);
 
-  lv_obj_t* pump_PID_cicle_label = lv_label_create(panel1);
-  lv_label_set_text(pump_PID_cicle_label, "pump_PID_cicle:");
+  lv_obj_t* pump_KP_label = lv_label_create(panel1);
+  lv_label_set_text(pump_KP_label, "pump_KP:");
 
-  pump_PID_cycle_tf = lv_textarea_create(panel1);
-  lv_textarea_set_one_line(pump_PID_cycle_tf, true);
-  lv_obj_set_width(pump_PID_cycle_tf, textFieldWidth);
-  sprintf(t, "%.2f", advancedSettings->pump_PID_cycle);
-  lv_textarea_set_text(pump_PID_cycle_tf, t);
-  lv_obj_add_event_cb(pump_PID_cycle_tf, setting_field_changed, LV_EVENT_ALL, kb);
+  pump_KP_tf = lv_textarea_create(panel1);
+  lv_textarea_set_one_line(pump_KP_tf, true);
+  lv_obj_set_width(pump_KP_tf, textFieldWidth);
+  sprintf(t, "%.2f", advancedSettings->pump_KP);
+  lv_textarea_set_text(pump_KP_tf, t);
+  lv_obj_add_event_cb(pump_KP_tf, setting_field_changed, LV_EVENT_ALL, kb);
 
-  lv_obj_t* pump_PID_KP_label = lv_label_create(panel1);
-  lv_label_set_text(pump_PID_KP_label, "pump_PID_KP:");
+  lv_obj_t* pump_KI_label = lv_label_create(panel1);
+  lv_label_set_text(pump_KI_label, "pump_KI:");
 
-  pump_PID_KP_tf = lv_textarea_create(panel1);
-  lv_textarea_set_one_line(pump_PID_KP_tf, true);
-  lv_obj_set_width(pump_PID_KP_tf, textFieldWidth);
-  sprintf(t, "%.2f", advancedSettings->pump_PID_KP);
-  lv_textarea_set_text(pump_PID_KP_tf, t);
-  lv_obj_add_event_cb(pump_PID_KP_tf, setting_field_changed, LV_EVENT_ALL, kb);
+  pump_KI_tf = lv_textarea_create(panel1);
+  lv_textarea_set_one_line(pump_KI_tf, true);
+  lv_obj_set_width(pump_KI_tf, textFieldWidth);
+  sprintf(t, "%.2f", advancedSettings->pump_KI);
+  lv_textarea_set_text(pump_KI_tf, t);
+  lv_obj_add_event_cb(pump_KI_tf, setting_field_changed, LV_EVENT_ALL, kb);
 
-  lv_obj_t* pump_PID_KI_label = lv_label_create(panel1);
-  lv_label_set_text(pump_PID_KI_label, "pump_PID_KI:");
+  lv_obj_t* pump_KD_label = lv_label_create(panel1);
+  lv_label_set_text(pump_KD_label, "pump_KD:");
 
-  pump_PID_KI_tf = lv_textarea_create(panel1);
-  lv_textarea_set_one_line(pump_PID_KI_tf, true);
-  lv_obj_set_width(pump_PID_KI_tf, textFieldWidth);
-  sprintf(t, "%.2f", advancedSettings->pump_PID_KI);
-  lv_textarea_set_text(pump_PID_KI_tf, t);
-  lv_obj_add_event_cb(pump_PID_KI_tf, setting_field_changed, LV_EVENT_ALL, kb);
+  pump_KD_tf = lv_textarea_create(panel1);
+  lv_textarea_set_one_line(pump_KD_tf, true);
+  lv_obj_set_width(pump_KD_tf, textFieldWidth);
+  sprintf(t, "%.2f", advancedSettings->pump_KD);
+  lv_textarea_set_text(pump_KD_tf, t);
+  lv_obj_add_event_cb(pump_KD_tf, setting_field_changed, LV_EVENT_ALL, kb);
 
-  lv_obj_t* pump_PID_KD_label = lv_label_create(panel1);
-  lv_label_set_text(pump_PID_KD_label, "pump_PID_KD:");
+  lv_obj_t* unused1_label = lv_label_create(panel1);
+  lv_label_set_text(unused1_label, "unused1:");
 
-  pump_PID_KD_tf = lv_textarea_create(panel1);
-  lv_textarea_set_one_line(pump_PID_KD_tf, true);
-  lv_obj_set_width(pump_PID_KD_tf, textFieldWidth);
-  sprintf(t, "%.2f", advancedSettings->pump_PID_KD);
-  lv_textarea_set_text(pump_PID_KD_tf, t);
-  lv_obj_add_event_cb(pump_PID_KD_tf, setting_field_changed, LV_EVENT_ALL, kb);
+  unused1_tf = lv_textarea_create(panel1);
+  lv_textarea_set_one_line(unused1_tf, true);
+  lv_obj_set_width(unused1_tf, textFieldWidth);
+  sprintf(t, "%.2f", advancedSettings->unused1);
+  lv_textarea_set_text(unused1_tf, t);
+  lv_obj_add_event_cb(unused1_tf, setting_field_changed, LV_EVENT_ALL, kb);
 
   advancedSetBtn = lv_btn_create(panel1);
   lv_obj_t* advancedSetBtn_label = lv_label_create(advancedSetBtn);
@@ -800,16 +802,16 @@ static void advancedSettings_create(lv_obj_t* parent) {
   lv_obj_set_grid_cell(boiler_PID_KD_label, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 8, 1);
   lv_obj_set_grid_cell(boiler_PID_KD_tf, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 8, 1);
 
-  lv_obj_set_grid_cell(pump_bb_range_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(pump_bb_range_tf, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(pump_PID_cicle_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 2, 1);
-  lv_obj_set_grid_cell(pump_PID_cycle_tf, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 2, 1);
-  lv_obj_set_grid_cell(pump_PID_KP_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 4, 1);
-  lv_obj_set_grid_cell(pump_PID_KP_tf, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 4, 1);
-  lv_obj_set_grid_cell(pump_PID_KI_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 6, 1);
-  lv_obj_set_grid_cell(pump_PID_KI_tf, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 6, 1);
-  lv_obj_set_grid_cell(pump_PID_KD_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 8, 1);
-  lv_obj_set_grid_cell(pump_PID_KD_tf, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 8, 1);
+  lv_obj_set_grid_cell(pump_max_step_up_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_grid_cell(pump_max_step_up_tf, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_grid_cell(pump_KP_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 2, 1);
+  lv_obj_set_grid_cell(pump_KP_tf, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 2, 1);
+  lv_obj_set_grid_cell(pump_KI_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 4, 1);
+  lv_obj_set_grid_cell(pump_KI_tf, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 4, 1);
+  lv_obj_set_grid_cell(pump_KD_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 6, 1);
+  lv_obj_set_grid_cell(pump_KD_tf, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 6, 1);
+  lv_obj_set_grid_cell(unused1_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 8, 1);
+  lv_obj_set_grid_cell(unused1_tf, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 8, 1);
 
   lv_obj_set_grid_cell(advancedSetBtn, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 10, 1);
   lv_obj_set_grid_cell(advancedCancelBtn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 10, 1);

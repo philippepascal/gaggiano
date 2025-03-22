@@ -45,50 +45,27 @@ void initConfFile(GaggiaStateT* s, AdvancedSettingsT* as) {
 
 // ----------------------------------------------
 
-// File setupLogFile() {
-//   const char* path = "/gaggia";
-//   File gaggiaDir = fileSystem->open(path);
-//   if (!gaggiaDir) {
-//     Serial.print("can't open /gaggia, trying to create it");
-//     if (!fileSystem->mkdir(path)) {
-//       Serial.print("Dir creation failed...");
-//     } else {
-//       gaggiaDir = fileSystem->open(path);
-//       if (!gaggiaDir) {
-//         Serial.print("can't open /gaggia after creating it...");
-//         return NULL;
-//       }
-//     }
-//   }
-
-//   const char* fileName = "/gaggia/gaggia_logs.csv";
-//   logFile = fileSystem->open(fileName, FILE_APPEND);
-//   if (!logFile) {
-//     Serial.println("Failed to open file for appending");
-//     return NULL;
-//   } else {
-//     return logFile;
-//   }
-// }
-
-int logController(const char *message) {
+int logController(const char* message) {
   const char* fileName = "/gaggia/gaggia_logs.csv";
   File logFile = fileSystem->open(fileName, FILE_APPEND);
   if (!logFile) {
     Serial.println("Failed to open file for appending");
     return -1;
   } else {
-    if(logFile.size()==0) {
-      logFile.println("sender;temperature;pressure;valve;boilerOutput;pumpOutput;temperatureSet;boilerBBRange;boilerPIDPeriod;boilerPIDKP;boilerPIDKI;boilerPIDKD;counter;|");
-    }
     return logFile.println(message);
   }
   //no closing... yep. really low tech
 }
 
-int deleteLogsFile(){
+int deleteLogsFile() {
   const char* fileName = "/gaggia/gaggia_logs.csv";
-  return fileSystem->remove(fileName);
+
+  if (!fileSystem->remove(fileName)) {
+    Serial.println("Failed to delete logs");
+    return -1;
+  }
+  Serial.println("adding header to logs");
+  return logController("sender;temperature;pressure;valve;boilerOutput;pumpOutput;temperatureSet;boilerBBRange;boilerPIDPeriod;boilerPIDKP;boilerPIDKI;boilerPIDKD;counter;|");
 }
 
 // ----------------------------------------------
@@ -129,17 +106,19 @@ int setupAndReadConfigFile() {
       state->boilerSetPoint = (float)values[0];
       state->pressureSetPoint = (float)values[1];
       state->steamSetPoint = (float)values[2];
+      state->steam_max_pressure = (float)values[3];
+      state->steam_pump_output_percent = (float)values[4];
       state->hasConfigChanged = true;
-      advancedSettings->boiler_bb_range = (float)values[3];
-      advancedSettings->boiler_PID_cycle = (float)values[4];
-      advancedSettings->boiler_PID_KP = (float)values[5];
-      advancedSettings->boiler_PID_KI = (float)values[6];
-      advancedSettings->boiler_PID_KD = (float)values[7];
-      advancedSettings->pump_bb_range = (float)values[8];
-      advancedSettings->pump_PID_cycle = (float)values[9];
-      advancedSettings->pump_PID_KP = (float)values[10];
-      advancedSettings->pump_PID_KI = (float)values[11];
-      advancedSettings->pump_PID_KD = (float)values[12];
+      advancedSettings->boiler_bb_range = (float)values[5];
+      advancedSettings->boiler_PID_cycle = (float)values[6];
+      advancedSettings->boiler_PID_KP = (float)values[7];
+      advancedSettings->boiler_PID_KI = (float)values[8];
+      advancedSettings->boiler_PID_KD = (float)values[9];
+      advancedSettings->pump_max_step_up = (float)values[10];
+      advancedSettings->pump_KP = (float)values[11];
+      advancedSettings->pump_KI = (float)values[12];
+      advancedSettings->pump_KD = (float)values[13];
+      advancedSettings->unused1 = (float)values[14];
       advancedSettings->userChanged = true;
       advancedSettings->sendToController = true;
       Serial.println("state updated");
@@ -173,30 +152,34 @@ int writeConfigFile() {
                         "boilerSetPoint,%f\n"
                         "pressureSetPoint,%f\n"
                         "steamSetPoint,%f\n\n"
+                        "steam_max_pressure,%f\n\n"
+                        "steam_pump_output_percent,%f\n\n"
                         "boiler_bb_range,%f\n"
                         "boiler_PID_cicle,%f\n"
                         "boiler_PID_KP,%f\n"
                         "boiler_PID_KI,%f\n"
                         "boiler_PID_KD,%f\n"
-                        "pump_bb_range,%f\n"
-                        "pump_PID_cicle,%f\n"
-                        "pump_PID_KP,%f\n"
-                        "pump_PID_KI,%f\n"
-                        "pump_PID_KD,%f\n";
+                        "pump_max_step_up,%f\n"
+                        "pump_KP,%f\n"
+                        "pump_KI,%f\n"
+                        "pump_KD,%f\n"
+                        "unused1,%f\n";
   sprintf(buffer, csv_str,
           state->boilerSetPoint,
           state->pressureSetPoint,
           state->steamSetPoint,
+          state->steam_max_pressure,
+          state->steam_pump_output_percent,
           advancedSettings->boiler_bb_range,
           advancedSettings->boiler_PID_cycle,
           advancedSettings->boiler_PID_KP,
           advancedSettings->boiler_PID_KI,
           advancedSettings->boiler_PID_KD,
-          advancedSettings->pump_bb_range,
-          advancedSettings->pump_PID_cycle,
-          advancedSettings->pump_PID_KP,
-          advancedSettings->pump_PID_KI,
-          advancedSettings->pump_PID_KD);
+          advancedSettings->pump_max_step_up,
+          advancedSettings->pump_KP,
+          advancedSettings->pump_KI,
+          advancedSettings->pump_KD,
+          advancedSettings->unused1);
   Serial.println("writing to file");
   Serial.println(buffer);
   return writeConfigFile(buffer);

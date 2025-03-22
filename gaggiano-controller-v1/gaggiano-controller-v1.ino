@@ -34,11 +34,12 @@ double boiler_PID_KD = 0.1;
 
 double pressureSetPoint = 0;
 double pressureOutputPercent = 0;
-double pump_bb_range = 1;
-double pump_PID_cycle = 100;
-double pump_PID_KP = 1;
-double pump_PID_KI = 0.1;
-double pump_PID_KD = 0.05;
+
+double pump_max_step_up = 0.2;
+double pump_KP = 1;
+double pump_KI = 1.7;
+double pump_KD = 0.9;
+double unused1 = 0;
 
 // AD1115 for pressure ------------------
 
@@ -64,17 +65,6 @@ SimpleKalmanFilter smoothTemperature(0.25f, 0.25f, 0.01f);
 #define PUMP_RANGE 127
 #define PUMP_LOW_MODE 30
 PSM *pump;
-
-// // pid settings and gains
-// #define PUMP_OUTPUT_MIN 0
-// #define PUMP_OUTPUT_MAX 127
-
-// // empirical values
-// #define PUMP_KP 5
-// #define PUMP_KI .1
-// #define PUMP_KD .05
-// input/output variables passed by reference, so they are updated automatically
-// AutoPID pumpPID(&pressure_read, &pressureSetPoint, &pump_dimmer_output, PUMP_OUTPUT_MIN, PUMP_OUTPUT_MAX, PUMP_KP, PUMP_KI, PUMP_KD);
 
 // boiler thermo couple -----------------
 
@@ -139,12 +129,6 @@ void setup() {
   ADS.setMode(0);      // continuous mode
   ADS.readADC(0);      // first read to trigger
 
-  // Pump replaced with more "manual" control
-  // if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
-  // pumpPID.setBangBang(pump_bb_range);
-  // set PID update interval to 1000ms
-  // pumpPID.setTimeStep(pump_PID_cycle);
-
   // Solenoid --------------------
   pinMode(valvePin, OUTPUT);
   // just in case
@@ -165,6 +149,7 @@ void setup() {
   // This is used to be compatible with all STM32 series automatically.
   TIM_TypeDef *Instance = (TIM_TypeDef *)pinmap_peripheral(digitalPinToPinName(BOILER_RELAY_PIN), PinMap_PWM);
   boiler_relay_pin_channel = STM_PIN_CHANNEL(pinmap_function(digitalPinToPinName(BOILER_RELAY_PIN), PinMap_PWM));
+
   // Instantiate HardwareTimer object. Thanks to 'new' instantiation, HardwareTimer is not destructed when setup() function is finished.
   MyTim = new HardwareTimer(Instance);
 
@@ -181,7 +166,7 @@ void loop() {
 
   // --- read sensors ----
   bool tempUpdated = readTemperature(loopStart);
-  bool pressuerUpdated = readPressure(loopStart);
+  bool pressureUpdated = readPressure(loopStart);
 
   //----------------------
   readMessage(loopStart);
@@ -190,7 +175,7 @@ void loop() {
   if (tempUpdated) updateBoiler();
 
   // Pump and Solenoid (coupled)
-  if (pressuerUpdated) updatePump();
+  if (pressureUpdated) updatePump();
 
   //----------------------
   sendStatus(loopStart);
@@ -206,11 +191,8 @@ void loop() {
 
 bool readPressure(uint32_t now) {
   if ((now - last_pressure_read_time) > PRESSURE_READ_PERIOD) {
-    // float elapsedTimeSec = elapsedTime / 1000.f;
     pressure_read = getPressure();
-    // double previousSmoothedPressure = pressure_smoothed;
     pressure_smoothed = smoothPressure.updateEstimate(pressure_read);
-    // double ressureChangeSpeed = (currentState.smoothedPressure - previousSmoothedPressure) / elapsedTimeSec;
     last_pressure_read_time = now;
     return true;
   }
@@ -259,15 +241,15 @@ void updatePump() {
       pumpValue = 0;
     } else {
       int p = pressureOutputPercent;
-      if (pressureOutputPercent > 20) {  // just safety, solenoid is closed!
-        p = 20;
+      if (pressureOutputPercent > 10) {  // just safety, solenoid is closed!
+        p = 10;
       }
       pumpValue = (p / 100) * PUMP_RANGE;
     }
 
     pump_dimmer_output2 = pumpValue;
     pump->set(pump_dimmer_output2);
-    
+
   } else if (pressureSetPoint > 0) {
     // open Solenoid
     digitalWrite(valvePin, HIGH);
@@ -278,9 +260,9 @@ void updatePump() {
       pumpValue = 0;
     } else {
       float diff = pressureSetPoint - pressure_smoothed;
-      pumpValue = PUMP_RANGE / (1.f + exp(1.7f - diff / 0.9f));
-      if ((pumpValue - pump_dimmer_output2) > 1) {
-        pumpValue = pump_dimmer_output2 + 0.2;
+      pumpValue = PUMP_RANGE / (pump_KP + exp(pump_KI - diff / pump_KD));
+      if ((pressure_smoothed < (pressureSetPoint / 2)) && ((pumpValue - pump_dimmer_output2) > pump_max_step_up)) {  //should only happen for low pressures...
+        pumpValue = pump_dimmer_output2 + pump_max_step_up;
       }
     }
 
@@ -378,11 +360,11 @@ void parseMessage() {
       if (cursor > 0) cursor = getNextFloat(&boiler_PID_KP, m, messageSize, cursor);
       if (cursor > 0) cursor = getNextFloat(&boiler_PID_KI, m, messageSize, cursor);
       if (cursor > 0) cursor = getNextFloat(&boiler_PID_KD, m, messageSize, cursor);
-      if (cursor > 0) cursor = getNextFloat(&pump_bb_range, m, messageSize, cursor);
-      if (cursor > 0) cursor = getNextFloat(&pump_PID_cycle, m, messageSize, cursor);
-      if (cursor > 0) cursor = getNextFloat(&pump_PID_KP, m, messageSize, cursor);
-      if (cursor > 0) cursor = getNextFloat(&pump_PID_KI, m, messageSize, cursor);
-      if (cursor > 0) cursor = getNextFloat(&pump_PID_KD, m, messageSize, cursor);
+      if (cursor > 0) cursor = getNextFloat(&pump_max_step_up, m, messageSize, cursor);
+      if (cursor > 0) cursor = getNextFloat(&pump_KP, m, messageSize, cursor);
+      if (cursor > 0) cursor = getNextFloat(&pump_KI, m, messageSize, cursor);
+      if (cursor > 0) cursor = getNextFloat(&pump_KD, m, messageSize, cursor);
+      if (cursor > 0) cursor = getNextFloat(&unused1, m, messageSize, cursor);
 
       updateAdvancedSettings();
     }
@@ -402,27 +384,21 @@ void updateAdvancedSettings() {
   Serial.print("boiler_PID_KD:");
   Serial.print(boiler_PID_KD);
   Serial.print("pump_bb_range:");
-  Serial.print(pump_bb_range);
+  Serial.print(pump_max_step_up);
   Serial.print("pump_PID_cicle:");
-  Serial.print(pump_PID_cycle);
+  Serial.print(pump_KP);
   Serial.print("pump_PID_KP:");
-  Serial.print(pump_PID_KP);
+  Serial.print(pump_KI);
   Serial.print("pump_PID_KI:");
-  Serial.print(pump_PID_KI);
+  Serial.print(pump_KD);
   Serial.print("pump_PID_KD:");
-  Serial.println(pump_PID_KD);
+  Serial.println(unused1);
 
   // if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
   boilerPID.setBangBang(boiler_bb_range);
   // set PID update interval to 1000ms
   boilerPID.setTimeStep(boiler_PID_cycle);
   boilerPID.setGains(boiler_PID_KP, boiler_PID_KI, boiler_PID_KD);
-
-  // if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
-  // pumpPID.setBangBang(pump_bb_range);
-  // set PID update interval to 1000ms
-  // pumpPID.setTimeStep(pump_PID_cycle);
-  // pumpPID.setGains(pump_PID_KP, pump_PID_KI, pump_PID_KD);
 }
 
 bool sendStatus(uint32_t now) {

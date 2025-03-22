@@ -189,6 +189,7 @@ void setup() {
     Serial.println("init UI done");
 
     setupAndReadConfigFile();
+    Serial.println("Setup and Read Config Done");
     deleteLogsFile();
 
     Serial.println("Setup done");
@@ -362,11 +363,11 @@ void sendAdvancedSettings() {
             advancedSettings.boiler_PID_KP,
             advancedSettings.boiler_PID_KI,
             advancedSettings.boiler_PID_KD,
-            advancedSettings.pump_bb_range,
-            advancedSettings.pump_PID_cycle,
-            advancedSettings.pump_PID_KP,
-            advancedSettings.pump_PID_KI,
-            advancedSettings.pump_PID_KD);
+            advancedSettings.pump_max_step_up,
+            advancedSettings.pump_KP,
+            advancedSettings.pump_KI,
+            advancedSettings.pump_KD,
+            advancedSettings.unused1);
     controllerSerial.println(message);
     Serial.print(" sent: ");
     Serial.println(message);
