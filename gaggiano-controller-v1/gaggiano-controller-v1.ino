@@ -9,6 +9,7 @@
 
 // readings and outputs
 double temperature_read = 0;
+double temperature_smoothed = 0;
 double boiler_relay_output;
 
 double pressure_read = 0;
@@ -32,6 +33,7 @@ double boiler_PID_KI = 0.2;
 double boiler_PID_KD = 0.1;
 
 double pressureSetPoint = 0;
+double pressureOutputPercent = 0;
 double pump_bb_range = 1;
 double pump_PID_cycle = 100;
 double pump_PID_KP = 1;
@@ -47,6 +49,7 @@ ADS1115 ADS;
 #define PRESSURE_READ_PERIOD 10
 
 SimpleKalmanFilter smoothPressure(0.6f, 0.6f, 0.1f);
+SimpleKalmanFilter smoothTemperature(0.25f, 0.25f, 0.01f);
 
 // Solenoid Valve -----------------------
 
@@ -59,6 +62,7 @@ SimpleKalmanFilter smoothPressure(0.6f, 0.6f, 0.1f);
 #define dimmerPin PB3
 #define ZC_MODE RISING
 #define PUMP_RANGE 127
+#define PUMP_LOW_MODE 30
 PSM *pump;
 
 // // pid settings and gains
@@ -100,7 +104,8 @@ uint32_t boiler_relay_pin_channel;  // timer channel for the boiler pin
 HardwareTimer *MyTim;               // timer for the boiler pin
 
 // input/output variables passed by reference, so they are updated automatically
-AutoPID boilerPID(&temperature_read, &temperatureSetPoint, &boiler_relay_output, OUTPUT_MIN, OUTPUT_MAX, KP, KI, KD);
+// AutoPID boilerPID(&temperature_read, &temperatureSetPoint, &boiler_relay_output, OUTPUT_MIN, OUTPUT_MAX, KP, KI, KD);
+AutoPID boilerPID(&temperature_smoothed, &temperatureSetPoint, &boiler_relay_output, OUTPUT_MIN, OUTPUT_MAX, KP, KI, KD);
 
 // ----------- messaging ---------------
 
@@ -175,17 +180,17 @@ void loop() {
   uint32_t loopStart = millis();
 
   // --- read sensors ----
-  bool tempChanged = readTemperature(loopStart);
-  bool pressureChanged = readPressure(loopStart);
+  bool tempUpdated = readTemperature(loopStart);
+  bool pressuerUpdated = readPressure(loopStart);
 
   //----------------------
   readMessage(loopStart);
 
   // Boiler PID -----------
-  if (tempChanged) updateBoiler();
+  if (tempUpdated) updateBoiler();
 
   // Pump and Solenoid (coupled)
-  if (pressureChanged) updatePump();
+  if (pressuerUpdated) updatePump();
 
   //----------------------
   sendStatus(loopStart);
@@ -237,6 +242,7 @@ bool readTemperature(uint32_t now) {
     if (newReading > 1 || newReading < 200)  // not meant to run at freezing or too hot temperatures, so this should never be 0, just skip this reading.
     {
       temperature_read = newReading;
+      temperature_smoothed = smoothTemperature.updateEstimate(temperature_read);
     }
     last_temp_read_time = now;
     return true;
@@ -250,17 +256,19 @@ void updatePump() {
     // open Solenoid
     digitalWrite(valvePin, HIGH);
 
-    // pump->set(pump_dimmer_output); // PID seems out of whack
-
     int pumpValue;
 
     if (pressure_smoothed > pressureSetPoint) {
       pumpValue = 0;
     } else {
-      float diff = pressureSetPoint - pressure_smoothed;
-      pumpValue = PUMP_RANGE / (1.f + exp(1.7f - diff / 0.9f));
-      if ((pumpValue - pump_dimmer_output2) > 10) {
-        pumpValue = pump_dimmer_output2 + 10;
+      if (pressureOutputPercent > 0) {
+        pumpValue = (pressureOutputPercent / 100) * PUMP_RANGE;
+      } else {
+        float diff = pressureSetPoint - pressure_smoothed;
+        pumpValue = PUMP_RANGE / (1.f + exp(1.7f - diff / 0.9f));
+        if ((pumpValue - pump_dimmer_output2) > 10) {
+          pumpValue = pump_dimmer_output2 + 1;
+        }
       }
     }
 
@@ -268,6 +276,7 @@ void updatePump() {
     pump->set(pump_dimmer_output2);
 
   } else {
+    pump_dimmer_output2 = 0;
     pump->set(0);
 
     // close Solenoid
@@ -278,6 +287,7 @@ void updatePump() {
 void updateBoiler() {
   boilerPID.run();
   MyTim->setPWM(boiler_relay_pin_channel, BOILER_RELAY_PIN, BOILER_RELAY_FREQ, boiler_relay_output);
+  // MyTim->setPWM(boiler_relay_pin_channel, BOILER_RELAY_PIN, BOILER_RELAY_FREQ, 50); // for testing frequency
 }
 
 // message handling ----------------------
@@ -311,6 +321,16 @@ bool readMessage(uint32_t now) {
   return false;
 }
 
+int getNextFloat(double *variable, char *message, int messageSize, int cursor) {
+  int endCursor = myIndexOF(message, ';', cursor);
+  if (endCursor > 0 && endCursor < messageSize) {
+    *variable = atof(mySubString(message, cursor, endCursor));
+    return endCursor + 1;
+  } else {
+    return -1;
+  }
+}
+
 void parseMessage() {
   char m[500] = "";
   if (screenSerial.available()) {
@@ -327,92 +347,30 @@ void parseMessage() {
     if (endCursor > 0 && endCursor < messageSize) {
       sender = atoi(mySubString(m, cursor, endCursor));
       cursor = endCursor + 1;
-      endCursor = myIndexOF(m, ';', cursor);
     }
-    if (sender == 1) {  // command from the screen
-      if (endCursor > 0 && endCursor < messageSize) {
-        float value = atof(mySubString(m, cursor, endCursor));
-        temperatureSetPoint = value;
-        cursor = endCursor + 1;
-        endCursor = myIndexOF(m, ';', cursor);
-      }
-
-      if (endCursor > 0 && endCursor < messageSize) {
-        float value = atof(mySubString(m, cursor, endCursor));
-        pressureSetPoint = value;
-        cursor = endCursor + 1;
-        endCursor = myIndexOF(m, ';', cursor);
-      }
-    } else if (sender == 2) {  // advanced settings
-      if (endCursor > 0 && endCursor < messageSize) {
-        float value = atof(mySubString(m, cursor, endCursor));
-        boiler_bb_range = value;
-        cursor = endCursor + 1;
-        endCursor = myIndexOF(m, ';', cursor);
-      }
-
-      if (endCursor > 0 && endCursor < messageSize) {
-        float value = atof(mySubString(m, cursor, endCursor));
-        boiler_PID_cycle = value;
-        cursor = endCursor + 1;
-        endCursor = myIndexOF(m, ';', cursor);
-      }
-
-      if (endCursor > 0 && endCursor < messageSize) {
-        float value = atof(mySubString(m, cursor, endCursor));
-        boiler_PID_KP = value;
-        cursor = endCursor + 1;
-        endCursor = myIndexOF(m, ';', cursor);
-      }
-
-      if (endCursor > 0 && endCursor < messageSize) {
-        float value = atof(mySubString(m, cursor, endCursor));
-        boiler_PID_KI = value;
-        cursor = endCursor + 1;
-        endCursor = myIndexOF(m, ';', cursor);
-      }
-
-      if (endCursor > 0 && endCursor < messageSize) {
-        float value = atof(mySubString(m, cursor, endCursor));
-        boiler_PID_KD = value;
-        cursor = endCursor + 1;
-        endCursor = myIndexOF(m, ';', cursor);
-      }
-
-      if (endCursor > 0 && endCursor < messageSize) {
-        float value = atof(mySubString(m, cursor, endCursor));
-        pump_bb_range = value;
-        cursor = endCursor + 1;
-        endCursor = myIndexOF(m, ';', cursor);
-      }
-
-      if (endCursor > 0 && endCursor < messageSize) {
-        float value = atof(mySubString(m, cursor, endCursor));
-        pump_PID_cycle = value;
-        cursor = endCursor + 1;
-        endCursor = myIndexOF(m, ';', cursor);
-      }
-
-      if (endCursor > 0 && endCursor < messageSize) {
-        float value = atof(mySubString(m, cursor, endCursor));
-        pump_PID_KP = value;
-        cursor = endCursor + 1;
-        endCursor = myIndexOF(m, ';', cursor);
-      }
-
-      if (endCursor > 0 && endCursor < messageSize) {
-        float value = atof(mySubString(m, cursor, endCursor));
-        pump_PID_KI = value;
-        cursor = endCursor + 1;
-        endCursor = myIndexOF(m, ';', cursor);
-      }
-
-      if (endCursor > 0 && endCursor < messageSize) {
-        float value = atof(mySubString(m, cursor, endCursor));
-        pump_PID_KD = value;
-        cursor = endCursor + 1;
-        endCursor = myIndexOF(m, ';', cursor);
-      }
+    if (sender == 1) {  // simple brew command from the screen
+      cursor = getNextFloat(&temperatureSetPoint, m, messageSize, cursor);
+      if (cursor > 0) cursor = getNextFloat(&pressureSetPoint, m, messageSize, cursor);
+      pressureOutputPercent = 0;
+      Serial.print("temperatureSetPoint ");
+      Serial.print(temperatureSetPoint);
+      Serial.print(" pressureSetPoint ");
+      Serial.println(pressureSetPoint);
+    } else if (sender == 2) {  // special steam command (not by pressure, but by pump output)
+      cursor = getNextFloat(&temperatureSetPoint, m, messageSize, cursor);
+      if (cursor > 0) cursor = getNextFloat(&pressureSetPoint, m, messageSize, cursor);  //max pressure
+      if (cursor > 0) cursor = getNextFloat(&pressureOutputPercent, m, messageSize, cursor);
+    } else if (sender == 9) {  // advanced settings
+      cursor = getNextFloat(&boiler_bb_range, m, messageSize, cursor);
+      if (cursor > 0) cursor = getNextFloat(&boiler_PID_cycle, m, messageSize, cursor);
+      if (cursor > 0) cursor = getNextFloat(&boiler_PID_KP, m, messageSize, cursor);
+      if (cursor > 0) cursor = getNextFloat(&boiler_PID_KI, m, messageSize, cursor);
+      if (cursor > 0) cursor = getNextFloat(&boiler_PID_KD, m, messageSize, cursor);
+      if (cursor > 0) cursor = getNextFloat(&pump_bb_range, m, messageSize, cursor);
+      if (cursor > 0) cursor = getNextFloat(&pump_PID_cycle, m, messageSize, cursor);
+      if (cursor > 0) cursor = getNextFloat(&pump_PID_KP, m, messageSize, cursor);
+      if (cursor > 0) cursor = getNextFloat(&pump_PID_KI, m, messageSize, cursor);
+      if (cursor > 0) cursor = getNextFloat(&pump_PID_KD, m, messageSize, cursor);
 
       updateAdvancedSettings();
     }
@@ -458,19 +416,20 @@ void updateAdvancedSettings() {
 bool sendStatus(uint32_t now) {
   if ((now - last_sent_message_time) > MESSAGE_SEND_PERIOD) {
     char message[100] = "";
-    sprintf(message, "0;%.2f;%.2f;%d;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%d;|", 
-      temperature_read, 
-      pressure_smoothed, 
-      digitalRead(valvePin),
-      boiler_relay_output,
-      pump_dimmer_output2,
-      temperatureSetPoint,
-      boiler_bb_range,
-      boiler_PID_cycle,
-      boiler_PID_KP,
-      boiler_PID_KI,
-      boiler_PID_KD,
-      loopCounter);
+    sprintf(message, "0;%.2f;%.2f;%d;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%d;|",
+            // temperature_read,
+            temperature_smoothed,
+            pressure_smoothed,
+            digitalRead(valvePin),
+            boiler_relay_output,
+            pump_dimmer_output2,
+            temperatureSetPoint,
+            boiler_bb_range,
+            boiler_PID_cycle,
+            boiler_PID_KP,
+            boiler_PID_KI,
+            boiler_PID_KD,
+            loopCounter);
     Serial.print(" sent: ");
     Serial.println(message);
     screenSerial.println(message);

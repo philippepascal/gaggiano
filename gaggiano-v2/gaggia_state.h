@@ -8,15 +8,20 @@ struct GaggiaState {
   float boilerSetPoint;
   float pressureSetPoint;
   float steamSetPoint;
+  float steam_max_pressure;
+  float steam_pump_output_perc;
   //real time read
   float tempRead;
   float pressureRead;
   bool isSolenoidOn;
+  float lastBrewTime;
   //real time set
   bool hasCommandChanged;
   bool isBoilerOn;
   bool isBrewing;
   bool isSteaming;
+  bool isCleaning;
+  bool cleanLogs;
 };
 typedef struct GaggiaState GaggiaStateT;
 

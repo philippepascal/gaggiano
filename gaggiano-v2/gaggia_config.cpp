@@ -80,6 +80,12 @@ int logController(const char *message) {
   } else {
     return logFile.println(message);
   }
+  //no closing... yep. really low tech
+}
+
+int deleteLogsFile(){
+  const char* fileName = "/gaggia/gaggia_logs.csv";
+  return fileSystem->remove(fileName);
 }
 
 // ----------------------------------------------

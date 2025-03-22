@@ -3,8 +3,28 @@ coffee is decent, pressure control does something, though the readout on the scr
 - let's add the use of Kalman filters to smooth out readings.
 - increased greatly loop frequency to allow for many pressure readings.
 temperature control seem iffy too. PID doesn't seem to find a way to stabilize at the right temp. often fall to bang bang range before bumping too high.
-it would be real nice to see full logs of controller: all messages, with included readings, and outputs over time. would require logging on the screen in the SD card. maybe need to create new log file at every start.
-logging would also probably require to not skip messages if several are logged in. multiple message reading and averaging for display might be good
+look into kalman filter
+
+- it would be real nice to see full logs of controller: all messages, with included readings, and outputs over time. would require logging on the screen in the SD card. maybe need to create new log file at every start.
+- logging would also probably require to not skip messages if several are logged in. multiple message reading and averaging for display might be good
+
 channelling sometimes, already has a simple way to ease in pressure, not sure if it works great
-steam pressure declines a lot, and PID instability doesn't help. should look at how to maintain a bit of pressure when steaming
-cleaning cycle would be nice to have also, easily lifted from gaggiuino
+- steam pressure declines a lot, and PID instability doesn't help. should look at how to maintain a bit of pressure when steaming
+- cleaning cycle would be nice to have also, easily lifted from gaggiuino
+
+brew cycle:
+1. instanciate pump low until pressure changes (detect water)
+    this can't be done in screen...need special function and message
+2. if blooming:
+2.a. run pump low just enough to add a bit of water
+2.b. wait blooming time
+3. increase pump smoothly till brew pressure reached
+    also needs to be done in controller. but probably ok on all brew cycles
+4. run pump on PID until timer done, or button pressed
+5. display brew run time for reference to set timer
+
+- reset logs!!
+
+timer on brew
+ - start with display brew time
+blooming!

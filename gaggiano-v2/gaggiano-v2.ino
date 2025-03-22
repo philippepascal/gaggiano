@@ -115,10 +115,10 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
  * Global variables
  ******************************************************************************/
 
-struct GaggiaState state = { false, 98, 8.0, 134, 0, 0, false, false, false, false, false };
+struct GaggiaState state = { false, 98, 8.0, 134, 0, 0, 0, 0, false, 0, false, false, false, false, false, false };
 struct AdvancedSettings advancedSettings = { false, false, 3, 1000, 10, 0.2, 0.1, 1, 100, 1, 0.1, 0.05 };
 bool isControllerLoggingOn = false;
-// File controllerLogFile;
+int startBrewTime = 0;
 
 HardwareSerial controllerSerial(2);
 
@@ -183,11 +183,13 @@ void setup() {
 
     initConfFile(&state, &advancedSettings);
     delay(500);
-
+    Serial.println("init conf done");
     instantiateUI(&state, &advancedSettings);
     delay(500);
+    Serial.println("init UI done");
 
     setupAndReadConfigFile();
+    deleteLogsFile();
 
     Serial.println("Setup done");
   }
@@ -289,13 +291,62 @@ void sendCommand() {
       isControllerLoggingOn = false;
       // }
     }
-    char message[100] = "";
-    sprintf(message, "1;%.2f;%.2f;|", temp, pressure);
-    controllerSerial.println(message);
-    Serial.print(" sent: ");
-    Serial.println(message);
+
+    if (state.isCleaning) {
+      if (state.isBrewing) {
+        //no no no
+        state.isCleaning = false;
+      } else {
+        //blocks everything while cleaning
+        sendSimpleBrewCommand(temp, 8);
+        delay(500);
+        sendSimpleBrewCommand(temp, 0);
+        delay(500);
+        sendSimpleBrewCommand(temp, 8);
+        delay(500);
+        sendSimpleBrewCommand(temp, 0);
+        delay(500);
+        sendSimpleBrewCommand(temp, 8);
+        delay(500);
+        sendSimpleBrewCommand(temp, 0);
+        state.isCleaning = false;
+      }
+    } else if (state.isSteaming) {
+      sendSteamCommand(temp, 1, 20);
+    } else {
+      sendSimpleBrewCommand(temp, pressure);
+      if (state.isBrewing) {
+        startBrewTime = millis();
+      } else {
+        state.lastBrewTime = (millis() - startBrewTime)/1000;
+      }
+    }
+
+    if (state.cleanLogs) {
+      if (!deleteLogsFile()) {
+        Serial.println("deleting Log File failed");
+      }
+      state.cleanLogs = false;
+    }
+
     state.hasCommandChanged = false;
   }
+}
+
+void sendSimpleBrewCommand(double temp, double pressure) {
+  char message[100] = "";
+  sprintf(message, "1;%.2f;%.2f;|", temp, pressure);
+  controllerSerial.println(message);
+  Serial.print(" sent: ");
+  Serial.println(message);
+}
+
+void sendSteamCommand(double temp, double maxPressure, double pumpOutputPercent) {
+  char message[200] = "";
+  sprintf(message, "2;%.2f;%.2f;%.2f;|", temp, maxPressure, pumpOutputPercent);
+  controllerSerial.println(message);
+  Serial.print(" sent: ");
+  Serial.println(message);
 }
 
 int lastSentAdvancedSettings = 0;
@@ -305,7 +356,7 @@ void sendAdvancedSettings() {
   if (advancedSettings.sendToController) {
     lastSentAdvancedSettings = now;
     char message[500] = "";
-    sprintf(message, "2;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;|",
+    sprintf(message, "9;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;|",
             advancedSettings.boiler_bb_range,
             advancedSettings.boiler_PID_cycle,
             advancedSettings.boiler_PID_KP,

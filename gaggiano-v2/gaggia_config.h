@@ -23,3 +23,4 @@ int writeConfigFile();
 
 // File setupLogFile();
 int logController(const char *message);
+int deleteLogsFile();
