@@ -43,6 +43,47 @@ void initConfFile(GaggiaStateT* s, AdvancedSettingsT* as) {
   fileSystem = &SD;
 }
 
+// ----------------------------------------------
+
+// File setupLogFile() {
+//   const char* path = "/gaggia";
+//   File gaggiaDir = fileSystem->open(path);
+//   if (!gaggiaDir) {
+//     Serial.print("can't open /gaggia, trying to create it");
+//     if (!fileSystem->mkdir(path)) {
+//       Serial.print("Dir creation failed...");
+//     } else {
+//       gaggiaDir = fileSystem->open(path);
+//       if (!gaggiaDir) {
+//         Serial.print("can't open /gaggia after creating it...");
+//         return NULL;
+//       }
+//     }
+//   }
+
+//   const char* fileName = "/gaggia/gaggia_logs.csv";
+//   logFile = fileSystem->open(fileName, FILE_APPEND);
+//   if (!logFile) {
+//     Serial.println("Failed to open file for appending");
+//     return NULL;
+//   } else {
+//     return logFile;
+//   }
+// }
+
+int logController(const char *message) {
+  const char* fileName = "/gaggia/gaggia_logs.csv";
+  File logFile = fileSystem->open(fileName, FILE_APPEND);
+  if (!logFile) {
+    Serial.println("Failed to open file for appending");
+    return -1;
+  } else {
+    return logFile.println(message);
+  }
+}
+
+// ----------------------------------------------
+
 int setupAndReadConfigFile() {
 
   const char* path = "/gaggia";

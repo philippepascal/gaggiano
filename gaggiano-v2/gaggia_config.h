@@ -1,5 +1,6 @@
 
 #include "gaggia_state.h"
+
 //remember SD library doesn't necesserily support all format. FAT works.
 #define REASSIGN_PINS
 #define SD_sck 12
@@ -19,3 +20,6 @@
 void initConfFile(GaggiaStateT *state, AdvancedSettingsT *advancedSettings);
 int setupAndReadConfigFile();
 int writeConfigFile();
+
+// File setupLogFile();
+int logController(const char *message);

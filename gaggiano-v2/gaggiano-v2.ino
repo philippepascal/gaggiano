@@ -117,9 +117,10 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
 
 struct GaggiaState state = { false, 98, 8.0, 134, 0, 0, false, false, false, false, false };
 struct AdvancedSettings advancedSettings = { false, false, 3, 1000, 10, 0.2, 0.1, 1, 100, 1, 0.1, 0.05 };
+bool isControllerLoggingOn = false;
+// File controllerLogFile;
 
 HardwareSerial controllerSerial(2);
-
 
 void setup() {
   // controllerSerial.begin(115200,SERIAL_8N1, 18, 19); //TX 19??
@@ -131,7 +132,7 @@ void setup() {
   controllerSerial.setTimeout(50);
   Serial.println("LVGL Widgets Demo");
   controllerSerial.println("hello controller!");
-  delay(5000); //safe wait for controller to be ready
+  delay(5000);  //safe wait for controller to be ready
   // Init touch device
 
 
@@ -218,6 +219,11 @@ void readMessage() {
     Serial.println("received");
     strcat(m, controllerSerial.readStringUntil('\n').c_str());
     Serial.println(m);
+    if (isControllerLoggingOn) {
+      Serial.print("logging is on ");
+      int res = logController(m);
+      Serial.println(res);
+    }
   }
   int messageSize = myIndexOF(m, '|', 0);
   if (messageSize > 0) {
@@ -271,6 +277,17 @@ void sendCommand() {
     float pressure = 0;
     if (state.isBrewing) {
       pressure = state.pressureSetPoint;
+    }
+    if (state.isBoilerOn || state.isBrewing || state.isSteaming) {
+      // controllerLogFile = setupLogFile();
+      // if (controllerLogFile) {
+      isControllerLoggingOn = true;
+      // }
+    } else {
+      // if (isControllerLoggingOn) {
+      // controllerLogFile.close();
+      isControllerLoggingOn = false;
+      // }
     }
     char message[100] = "";
     sprintf(message, "1;%.2f;%.2f;|", temp, pressure);
