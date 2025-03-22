@@ -252,23 +252,35 @@ bool readTemperature(uint32_t now) {
 
 void updatePump() {
   // pumpPID.run(); // currently unused
-  if (pressureSetPoint > 0) {
+
+  double pumpValue;
+  if (pressureOutputPercent > 0) {
+    if (pressure_smoothed > pressureSetPoint) {
+      pumpValue = 0;
+    } else {
+      int p = pressureOutputPercent;
+      if (pressureOutputPercent > 20) {  // just safety, solenoid is closed!
+        p = 20;
+      }
+      pumpValue = (p / 100) * PUMP_RANGE;
+    }
+
+    pump_dimmer_output2 = pumpValue;
+    pump->set(pump_dimmer_output2);
+    
+  } else if (pressureSetPoint > 0) {
     // open Solenoid
     digitalWrite(valvePin, HIGH);
 
-    int pumpValue;
+    double pumpValue;
 
     if (pressure_smoothed > pressureSetPoint) {
       pumpValue = 0;
     } else {
-      if (pressureOutputPercent > 0) {
-        pumpValue = (pressureOutputPercent / 100) * PUMP_RANGE;
-      } else {
-        float diff = pressureSetPoint - pressure_smoothed;
-        pumpValue = PUMP_RANGE / (1.f + exp(1.7f - diff / 0.9f));
-        if ((pumpValue - pump_dimmer_output2) > 10) {
-          pumpValue = pump_dimmer_output2 + 1;
-        }
+      float diff = pressureSetPoint - pressure_smoothed;
+      pumpValue = PUMP_RANGE / (1.f + exp(1.7f - diff / 0.9f));
+      if ((pumpValue - pump_dimmer_output2) > 1) {
+        pumpValue = pump_dimmer_output2 + 0.2;
       }
     }
 

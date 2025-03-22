@@ -78,6 +78,9 @@ int logController(const char *message) {
     Serial.println("Failed to open file for appending");
     return -1;
   } else {
+    if(logFile.size()==0) {
+      logFile.println("sender;temperature;pressure;valve;boilerOutput;pumpOutput;temperatureSet;boilerBBRange;boilerPIDPeriod;boilerPIDKP;boilerPIDKI;boilerPIDKD;counter;|");
+    }
     return logFile.println(message);
   }
   //no closing... yep. really low tech
