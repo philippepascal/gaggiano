@@ -134,12 +134,8 @@ void setup() {
   Serial.println("LVGL Widgets Demo");
   delay(10);
 
-  initConfFile(&state, &advancedSettings);
-  delay(500);
-  Serial.println("init conf done");
-
   controllerSerial.println("hello controller!");
-  delay(5000);  //safe wait for controller to be ready
+  delay(10);  //safe wait for controller to be ready
 
   // Init touch device
 
@@ -150,17 +146,12 @@ void setup() {
   pinMode(TFT_BL, OUTPUT);
   digitalWrite(TFT_BL, HIGH);
 #endif
-  gfx->fillScreen(RED);
-  delay(500);
-  gfx->fillScreen(GREEN);
-  delay(500);
-  gfx->fillScreen(BLUE);
-  delay(500);
-  gfx->fillScreen(BLACK);
-  delay(500);
+
   lv_init();
   delay(10);
+
   touch_init();
+
   screenWidth = gfx->width();
   screenHeight = gfx->height();
 #ifdef ESP32
@@ -189,7 +180,16 @@ void setup() {
     indev_drv.read_cb = my_touchpad_read;
     lv_indev_drv_register(&indev_drv);
 
-    instantiateUI(&state, &advancedSettings,writeConfigFile);
+    initConfFile(&state, &advancedSettings);
+    delay(10);
+    Serial.println("init conf done");
+
+    Serial.println(" ~~~~~~~~~~~~~ calling display Frank ");
+    displayFrankBmp(bmpDrawCallback, 800, 480);
+
+    delay(1000);
+
+    instantiateUI(&state, &advancedSettings, writeConfigFile);
     delay(500);
     Serial.println("init UI done");
 

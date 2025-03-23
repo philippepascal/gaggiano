@@ -72,7 +72,9 @@ int deleteLogsFile() {
 int setupAndReadConfigFile() {
 
   const char* path = "/gaggia";
+  Serial.println("about to open config file....");
   File gaggiaDir = fileSystem->open(path);
+  Serial.println("opened config file....");
   if (!gaggiaDir) {
     Serial.print("can't open /gaggia, trying to create it");
     if (!fileSystem->mkdir(path)) {
@@ -203,6 +205,11 @@ int displayFrankBmp(BMP_DRAW_CALLBACK* bmpDrawCallback, int16_t width, int16_t h
       0 /* x */, 0 /* y */, width /* widthLimit */, height /* heightLimit */);
 
     file.close();
+
+  Serial.println("about to open config file....");
+  File gaggiaDir = fileSystem->open("/gaggia");
+  Serial.println("opened config file....");
+
     return 1;
   }
 }
