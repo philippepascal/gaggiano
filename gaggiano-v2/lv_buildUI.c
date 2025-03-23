@@ -26,6 +26,7 @@
  *  STATIC PROTOTYPES
  **********************/
 
+static int (*writeConfigFile)();
 static void basic_create(lv_obj_t* parent);
 static void settings_create(lv_obj_t* parent);
 static void advancedSettings_create(lv_obj_t* parent);
@@ -349,9 +350,10 @@ void updateUI() {
   }
 }
 
-void instantiateUI(GaggiaStateT* s, AdvancedSettingsT* as) {
+void instantiateUI(GaggiaStateT* s, AdvancedSettingsT* as,int (*f)()) {
   state = s;
   advancedSettings = as;
+  writeConfigFile = f;
 
   lv_log_register_print_cb(my_log_cb);
 

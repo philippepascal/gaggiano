@@ -29,6 +29,7 @@
 #include <lvgl.h>
 #include "lv_buildUI.h"
 #include "gaggia_state.h"
+#include "gaggia_config.h"
 /*******************************************************************************
  ******************************************************************************/
 #include <Arduino_GFX_Library.h>
@@ -188,7 +189,7 @@ void setup() {
     indev_drv.read_cb = my_touchpad_read;
     lv_indev_drv_register(&indev_drv);
 
-    instantiateUI(&state, &advancedSettings);
+    instantiateUI(&state, &advancedSettings,writeConfigFile);
     delay(500);
     Serial.println("init UI done");
 
@@ -198,6 +199,12 @@ void setup() {
 
     Serial.println("Setup done");
   }
+}
+
+// pixel drawing callback
+static void bmpDrawCallback(int16_t x, int16_t y, uint16_t *bitmap, int16_t w, int16_t h) {
+  // Serial.printf("Draw pos = %d, %d. size = %d x %d\n", x, y, w, h);
+  gfx->draw16bitRGBBitmap(x, y, bitmap, w, h);
 }
 
 int myIndexOF(const char *str, const char ch, int fromIndex) {

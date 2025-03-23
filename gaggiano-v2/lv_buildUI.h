@@ -17,22 +17,23 @@ extern "C" {
 //adding arduino for using serial.print
 #include "Arduino.h"
 #include <lvgl.h>
-#include "gaggia_config.h"
+#include "gaggia_state.h"
 
-
-/*********************
+  /*********************
  *      DEFINES
  *********************/
-/**********************
+  /**********************
  *      TYPEDEFS
  **********************/
 
-/**********************
+  /**********************
  * GLOBAL PROTOTYPES
  **********************/
-void instantiateUI(GaggiaStateT *state,AdvancedSettingsT* advancedSettings);
-void updateUI();
-/**********************
+  void instantiateUI(GaggiaStateT* state,
+                     AdvancedSettingsT* advancedSettings,
+                     int (*writeConfigFile)());
+  void updateUI();
+  /**********************
  *      MACROS
  **********************/
 

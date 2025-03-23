@@ -1,6 +1,4 @@
-extern "C" {
 #include "gaggia_config.h"
-}
 #include <CSV_Parser.h>
 #include <FS.h>
 #include <SD.h>
