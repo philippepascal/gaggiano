@@ -32,9 +32,10 @@ blooming!
 
  - add pump settings to advanced settings
  - persist steam settings
-complete logs with additional settings
  - fix set temp on front panel when steaming
-fix last brew time random showings
-no header on logs
+- no header on logs
  - fix sudden drop in pump output. combined with gradual increase, causes massive "holes" in pressure profile
+
+fix last brew time random showings
 sometimes comms stop. no idea what is happening.
+complete logs with additional settings or may
