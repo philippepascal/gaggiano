@@ -131,8 +131,15 @@ void setup() {
   controllerSerial.begin(115200, SERIAL_8N1, 18, 17);  // TX_GPIO 17, RX_GPIO 18,  // works on receive
   controllerSerial.setTimeout(50);
   Serial.println("LVGL Widgets Demo");
+  delay(10);
+
+  initConfFile(&state, &advancedSettings);
+  delay(500);
+  Serial.println("init conf done");
+
   controllerSerial.println("hello controller!");
   delay(5000);  //safe wait for controller to be ready
+
   // Init touch device
 
 
@@ -181,9 +188,6 @@ void setup() {
     indev_drv.read_cb = my_touchpad_read;
     lv_indev_drv_register(&indev_drv);
 
-    initConfFile(&state, &advancedSettings);
-    delay(500);
-    Serial.println("init conf done");
     instantiateUI(&state, &advancedSettings);
     delay(500);
     Serial.println("init UI done");
@@ -319,7 +323,7 @@ void sendCommand() {
       if (state.isBrewing) {
         startBrewTime = millis();
       } else {
-        state.lastBrewTime = (millis() - startBrewTime)/1000;
+        state.lastBrewTime = (millis() - startBrewTime) / 1000;
       }
     }
 

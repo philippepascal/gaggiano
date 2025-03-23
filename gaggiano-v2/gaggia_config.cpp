@@ -5,6 +5,7 @@ extern "C" {
 #include <FS.h>
 #include <SD.h>
 #include <SPI.h>
+#include "BmpClass.h"
 
 static fs::FS* fileSystem;
 static GaggiaStateT* state;
@@ -183,4 +184,27 @@ int writeConfigFile() {
   Serial.println("writing to file");
   Serial.println(buffer);
   return writeConfigFile(buffer);
+}
+
+// -----------------------------------
+
+static BmpClass bmpClass;
+
+int displayFrankBmp(BMP_DRAW_CALLBACK* bmpDrawCallback, int16_t width, int16_t height) {
+  const char* fileName = "/gaggia/frank.bmp";
+
+  Serial.println("about to open frank file");
+  File file = fileSystem->open(fileName, FILE_READ);
+  if (!file) {
+    Serial.println("Failed to open frank for displaying");
+    return -1;
+  } else {
+    Serial.println("displaying frank");
+    bmpClass.draw(
+      &file, bmpDrawCallback, false /* useBigEndian */,
+      0 /* x */, 0 /* y */, width /* widthLimit */, height /* heightLimit */);
+
+    file.close();
+    return 1;
+  }
 }
