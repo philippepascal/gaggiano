@@ -243,9 +243,7 @@ void readMessage() {
     strcat(m, controllerSerial.readStringUntil('\n').c_str());
     Serial.println(m);
     if (isControllerLoggingOn) {
-      Serial.print("logging is on ");
       int res = logController(m);
-      Serial.println(res);
     }
   }
   int messageSize = myIndexOF(m, '|', 0);
@@ -302,9 +300,10 @@ void sendCommand() {
     }
     state.cleanLogs = false;
   }
-
+  Serial.print(" currentPhase ");
+  Serial.println(currentPhase);
   bool timerTrigger = false;
-  int nextPhase = 0;
+  int nextPhase = -1;
   switch (currentPhase) {
     case PHASE_OFF:
     case PHASE_HEAT:
@@ -341,6 +340,8 @@ void sendCommand() {
       break;
   }
 
+  Serial.print(" nextPhase ");
+  Serial.println(nextPhase);
   isControllerLoggingOn = true;
   switch (nextPhase) {
     case PHASE_OFF:
@@ -400,7 +401,7 @@ void sendCommand() {
     nextPhase = currentPhase;
   }
 
-  currentPhase = nextPhase;
+  if(nextPhase != -1) currentPhase = nextPhase;
   state.hasCommandChanged = false;
 }
 
