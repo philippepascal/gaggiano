@@ -10,6 +10,10 @@ struct GaggiaState {
   float steamSetPoint;
   float steam_max_pressure;
   float steam_pump_output_percent;
+  float blooming_pressure;
+  float blooming_fill_time;
+  float blooming_wait_time;
+  float brew_timer;
   //real time read
   float tempRead;
   float pressureRead;

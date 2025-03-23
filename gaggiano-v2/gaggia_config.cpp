@@ -109,17 +109,21 @@ int setupAndReadConfigFile() {
       state->steamSetPoint = (float)values[2];
       state->steam_max_pressure = (float)values[3];
       state->steam_pump_output_percent = (float)values[4];
+      state->blooming_pressure = (float)values[5];
+      state->blooming_fill_time = (float)values[6];
+      state->blooming_wait_time = (float)values[7];
+      state->brew_timer = (float)values[8];
       state->hasConfigChanged = true;
-      advancedSettings->boiler_bb_range = (float)values[5];
-      advancedSettings->boiler_PID_cycle = (float)values[6];
-      advancedSettings->boiler_PID_KP = (float)values[7];
-      advancedSettings->boiler_PID_KI = (float)values[8];
-      advancedSettings->boiler_PID_KD = (float)values[9];
-      advancedSettings->pump_max_step_up = (float)values[10];
-      advancedSettings->pump_KP = (float)values[11];
-      advancedSettings->pump_KI = (float)values[12];
-      advancedSettings->pump_KD = (float)values[13];
-      advancedSettings->unused1 = (float)values[14];
+      advancedSettings->boiler_bb_range = (float)values[9];
+      advancedSettings->boiler_PID_cycle = (float)values[10];
+      advancedSettings->boiler_PID_KP = (float)values[11];
+      advancedSettings->boiler_PID_KI = (float)values[12];
+      advancedSettings->boiler_PID_KD = (float)values[13];
+      advancedSettings->pump_max_step_up = (float)values[14];
+      advancedSettings->pump_KP = (float)values[15];
+      advancedSettings->pump_KI = (float)values[16];
+      advancedSettings->pump_KD = (float)values[17];
+      advancedSettings->unused1 = (float)values[18];
       advancedSettings->userChanged = true;
       advancedSettings->sendToController = true;
       Serial.println("state updated");
@@ -155,6 +159,10 @@ int writeConfigFile() {
                         "steamSetPoint,%f\n\n"
                         "steam_max_pressure,%f\n\n"
                         "steam_pump_output_percent,%f\n\n"
+                        "blooming_pressure,%f\n\n"
+                        "blooming_fill_time,%f\n\n"
+                        "blooming_wait_time,%f\n\n"
+                        "brew_timer,%f\n\n"
                         "boiler_bb_range,%f\n"
                         "boiler_PID_cicle,%f\n"
                         "boiler_PID_KP,%f\n"
@@ -171,6 +179,10 @@ int writeConfigFile() {
           state->steamSetPoint,
           state->steam_max_pressure,
           state->steam_pump_output_percent,
+          state->blooming_pressure,
+          state->blooming_fill_time,
+          state->blooming_wait_time,
+          state->brew_timer,
           advancedSettings->boiler_bb_range,
           advancedSettings->boiler_PID_cycle,
           advancedSettings->boiler_PID_KP,

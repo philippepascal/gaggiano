@@ -53,6 +53,10 @@ static lv_obj_t* brew_pressure_tf;
 static lv_obj_t* steam_temp_tf;
 static lv_obj_t* steam_max_pressure_tf;
 static lv_obj_t* steam_pump_output_perc_tf;
+static lv_obj_t* blooming_pressure_tf;
+static lv_obj_t* blooming_fill_time_tf;
+static lv_obj_t* blooming_wait_time_tf;
+static lv_obj_t* brew_timer_tf;
 static lv_obj_t* setBtn;
 static lv_obj_t* cleanBtn;
 static lv_obj_t* clearLogsBtn;
@@ -131,11 +135,19 @@ static void setButtonClicked(lv_event_t* e) {
     double newSteamSetPoint = strtod(lv_textarea_get_text(steam_temp_tf), NULL);
     double newSteamMaxPress = strtod(lv_textarea_get_text(steam_max_pressure_tf), NULL);
     double newSteamPumpOutput = strtod(lv_textarea_get_text(steam_pump_output_perc_tf), NULL);
+    double newblooming_pressure = strtod(lv_textarea_get_text(blooming_pressure_tf), NULL);
+    double newblooming_fill_time = strtod(lv_textarea_get_text(blooming_fill_time_tf), NULL);
+    double newblooming_wait_time = strtod(lv_textarea_get_text(blooming_wait_time_tf), NULL);
+    double newbrew_timer = strtod(lv_textarea_get_text(brew_timer_tf), NULL);
     state->boilerSetPoint = newBoilerSetPoint;
     state->pressureSetPoint = newPressureSetPoint;
     state->steamSetPoint = newSteamSetPoint;
     state->steam_max_pressure = newSteamMaxPress;
     state->steam_pump_output_percent = newSteamPumpOutput;
+    state->blooming_pressure = newblooming_pressure;
+    state->blooming_fill_time = newblooming_fill_time;
+    state->blooming_wait_time = newblooming_wait_time;
+    state->brew_timer = newbrew_timer;
     state->hasConfigChanged = true;
     writeConfigFile();
     lv_obj_add_state(setBtn, LV_STATE_DISABLED);
@@ -313,6 +325,18 @@ void updateUI() {
     sprintf(t, "%.2f", state->steam_pump_output_percent);
     lv_textarea_set_text(steam_pump_output_perc_tf, t);
 
+    sprintf(t, "%.2f", state->blooming_pressure);
+    lv_textarea_set_text(blooming_pressure_tf, t);
+
+    sprintf(t, "%.2f", state->blooming_fill_time);
+    lv_textarea_set_text(blooming_fill_time_tf, t);
+
+    sprintf(t, "%.2f", state->blooming_wait_time);
+    lv_textarea_set_text(blooming_wait_time_tf, t);
+
+    sprintf(t, "%.2f", state->brew_timer);
+    lv_textarea_set_text(brew_timer_tf, t);
+
     //yuk, but setting text area emits a change event...
     lv_obj_add_state(setBtn, LV_STATE_DISABLED);
 
@@ -350,7 +374,7 @@ void updateUI() {
   }
 }
 
-void instantiateUI(GaggiaStateT* s, AdvancedSettingsT* as,int (*f)()) {
+void instantiateUI(GaggiaStateT* s, AdvancedSettingsT* as, int (*f)()) {
   state = s;
   advancedSettings = as;
   writeConfigFile = f;
@@ -615,6 +639,46 @@ static void settings_create(lv_obj_t* parent) {
   lv_textarea_set_text(steam_pump_output_perc_tf, t);
   lv_obj_add_event_cb(steam_pump_output_perc_tf, setting_field_changed, LV_EVENT_ALL, kb);
 
+  lv_obj_t* blooming_pressure_label = lv_label_create(panel1);
+  lv_label_set_text(blooming_pressure_label, "blooming_pressure:");
+
+  blooming_pressure_tf = lv_textarea_create(panel1);
+  lv_textarea_set_one_line(blooming_pressure_tf, true);
+  lv_obj_set_width(blooming_pressure_tf, textFieldWidth);
+  sprintf(t, "%.2f", state->blooming_pressure);
+  lv_textarea_set_text(blooming_pressure_tf, t);
+  lv_obj_add_event_cb(blooming_pressure_tf, setting_field_changed, LV_EVENT_ALL, kb);
+
+  lv_obj_t* blooming_fill_time_label = lv_label_create(panel1);
+  lv_label_set_text(blooming_fill_time_label, "blooming_fill_time:");
+
+  blooming_fill_time_tf = lv_textarea_create(panel1);
+  lv_textarea_set_one_line(blooming_fill_time_tf, true);
+  lv_obj_set_width(blooming_fill_time_tf, textFieldWidth);
+  sprintf(t, "%.2f", state->blooming_fill_time);
+  lv_textarea_set_text(blooming_fill_time_tf, t);
+  lv_obj_add_event_cb(blooming_fill_time_tf, setting_field_changed, LV_EVENT_ALL, kb);
+
+  lv_obj_t* blooming_wait_time_label = lv_label_create(panel1);
+  lv_label_set_text(blooming_wait_time_label, "blooming_wait_time:");
+
+  blooming_wait_time_tf = lv_textarea_create(panel1);
+  lv_textarea_set_one_line(blooming_wait_time_tf, true);
+  lv_obj_set_width(blooming_wait_time_tf, textFieldWidth);
+  sprintf(t, "%.2f", state->blooming_wait_time);
+  lv_textarea_set_text(blooming_wait_time_tf, t);
+  lv_obj_add_event_cb(blooming_wait_time_tf, setting_field_changed, LV_EVENT_ALL, kb);
+
+  lv_obj_t* brew_timer_label = lv_label_create(panel1);
+  lv_label_set_text(brew_timer_label, "brew_timer:");
+
+  brew_timer_tf = lv_textarea_create(panel1);
+  lv_textarea_set_one_line(brew_timer_tf, true);
+  lv_obj_set_width(brew_timer_tf, textFieldWidth);
+  sprintf(t, "%.2f", state->brew_timer);
+  lv_textarea_set_text(brew_timer_tf, t);
+  lv_obj_add_event_cb(brew_timer_tf, setting_field_changed, LV_EVENT_ALL, kb);
+
   setBtn = lv_btn_create(panel1);
   lv_obj_t* setBtn_label = lv_label_create(setBtn);
   lv_label_set_text(setBtn_label, "Set");
@@ -638,7 +702,7 @@ static void settings_create(lv_obj_t* parent) {
   lv_label_set_text(clearLogsBtn_label, "Clear Logs");
   lv_obj_add_event_cb(clearLogsBtn, clearLogsBtnClicked, LV_EVENT_ALL, kb);
 
-  static lv_coord_t grid_panel1_col_dsc[] = { LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t grid_panel1_col_dsc[] = { LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
   static lv_coord_t grid_panel1_row_dsc[] = { LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
 
   lv_obj_set_grid_dsc_array(panel1, grid_panel1_col_dsc, grid_panel1_row_dsc);
@@ -651,14 +715,23 @@ static void settings_create(lv_obj_t* parent) {
   lv_obj_set_grid_cell(steam_temp_tf, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 4, 1);
   lv_obj_set_grid_cell(steam_max_pressure_labl, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 6, 1);
   lv_obj_set_grid_cell(steam_max_pressure_tf, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 6, 1);
-  lv_obj_set_grid_cell(steam_pump_output_perc_label, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 8, 1);
-  lv_obj_set_grid_cell(steam_pump_output_perc_tf, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 8, 1);
+  lv_obj_set_grid_cell(brew_timer_label, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 8, 1);
+  lv_obj_set_grid_cell(brew_timer_tf, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 8, 1);
 
   lv_obj_set_grid_cell(setBtn, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 10, 1);
   lv_obj_set_grid_cell(cancelBtn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 10, 1);
 
-  lv_obj_set_grid_cell(cleanBtn, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(clearLogsBtn, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 2, 1);
+  lv_obj_set_grid_cell(steam_pump_output_perc_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_grid_cell(steam_pump_output_perc_tf, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_grid_cell(blooming_pressure_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 2, 1);
+  lv_obj_set_grid_cell(blooming_pressure_tf, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 2, 1);
+  lv_obj_set_grid_cell(blooming_fill_time_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 4, 1);
+  lv_obj_set_grid_cell(blooming_fill_time_tf, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 4, 1);
+  lv_obj_set_grid_cell(blooming_wait_time_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 6, 1);
+  lv_obj_set_grid_cell(blooming_wait_time_tf, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 6, 1);
+
+  lv_obj_set_grid_cell(cleanBtn, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 10, 1);
+  lv_obj_set_grid_cell(clearLogsBtn, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 10, 1);
 }
 
 
