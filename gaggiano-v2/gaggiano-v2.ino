@@ -330,7 +330,10 @@ void sendCommand() {
       if (state.isBrewing) {
         startBrewTime = millis();
       } else {
-        state.lastBrewTime = (millis() - startBrewTime) / 1000;
+        if (startBrewTime != 0) {
+          state.lastBrewTime = (millis() - startBrewTime) / 1000;
+          startBrewTime = 0;
+        }
       }
     }
 
