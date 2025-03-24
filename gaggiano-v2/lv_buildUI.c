@@ -212,6 +212,7 @@ static void boilerButtonClicked(lv_event_t* e) {
       LV_LOG_USER("stopping boiler (and steam)");
       state->isBoilerOn = false;
       lv_obj_clear_state(steamBtn, LV_STATE_CHECKED);
+      lv_imgbtn_set_state(steamBtn, LV_IMGBTN_STATE_RELEASED);
       state->isSteaming = false;
       state->hasCommandChanged = true;
     }
@@ -247,6 +248,7 @@ static void steamButtonClicked(lv_event_t* e) {
       LV_LOG_USER("starting steam (and boiler)");
       state->isBoilerOn = true;
       lv_obj_add_state(boilerBtn, LV_STATE_CHECKED);
+      lv_imgbtn_set_state(boilerBtn, LV_IMGBTN_STATE_CHECKED_RELEASED);
       state->isSteaming = true;
       state->hasCommandChanged = true;
     } else {
@@ -286,8 +288,16 @@ static void clearLogsBtnClicked(lv_event_t* e) {
 void my_log_cb(const char* buf) {
   my_log(buf);
 }
+
 void updateUI() {
   LV_LOG_TRACE("updating real time fields");
+
+  if (state->isSteaming)
+    lv_label_set_text_fmt(tempSet2Label, "%.2f", state->steamSetPoint);
+  else
+    lv_label_set_text_fmt(tempSet2Label, "%.2f", state->boilerSetPoint);
+  lv_label_set_text_fmt(pressureSet2Label, "%.2f", state->pressureSetPoint);
+
   lv_label_set_text_fmt(tempRead2Label, "%.2f", state->tempRead);
   lv_label_set_text_fmt(pressureRead2Label, "%.2f", state->pressureRead);
 
@@ -299,15 +309,43 @@ void updateUI() {
 
   lv_label_set_text_fmt(lastBrewTimeLabel, "%.2f", state->lastBrewTime);
 
+  // update buttons
+  if (lv_obj_get_state(brewBtn) & LV_STATE_CHECKED) {
+    if (!state->isBrewing) {
+      lv_obj_clear_state(brewBtn, LV_STATE_CHECKED);
+      lv_imgbtn_set_state(brewBtn, LV_IMGBTN_STATE_RELEASED);
+    }
+  } else {
+    if (state->isBrewing) {
+      lv_obj_add_state(brewBtn, LV_STATE_CHECKED);
+      lv_imgbtn_set_state(brewBtn, LV_IMGBTN_STATE_CHECKED_RELEASED);
+    }
+  }
+  if (lv_obj_get_state(steamBtn) & LV_STATE_CHECKED) {
+    if (!state->isSteaming) {
+      lv_obj_clear_state(steamBtn, LV_STATE_CHECKED);
+      lv_imgbtn_set_state(steamBtn, LV_IMGBTN_STATE_RELEASED);
+    }
+  } else {
+    if (state->isSteaming) {
+      lv_obj_add_state(steamBtn, LV_STATE_CHECKED);
+      lv_imgbtn_set_state(steamBtn, LV_IMGBTN_STATE_CHECKED_RELEASED);
+    }
+  }
+  if (lv_obj_get_state(boilerBtn) & LV_STATE_CHECKED) {
+    if (!state->isBoilerOn) {
+      lv_obj_clear_state(boilerBtn, LV_STATE_CHECKED);
+      lv_imgbtn_set_state(boilerBtn, LV_IMGBTN_STATE_RELEASED);
+    }
+  } else {
+    if (state->isBoilerOn) {
+      lv_obj_add_state(boilerBtn, LV_STATE_CHECKED);
+      lv_imgbtn_set_state(boilerBtn, LV_IMGBTN_STATE_CHECKED_RELEASED);
+    }
+  }
+
   if (state->hasConfigChanged) {
     LV_LOG_WARN("updating config fields");
-
-    if (state->isSteaming) {
-      lv_label_set_text_fmt(tempSet2Label, "%.2f", state->steamSetPoint);
-    } else {
-      lv_label_set_text_fmt(tempSet2Label, "%.2f", state->boilerSetPoint);
-    }
-    lv_label_set_text_fmt(pressureSet2Label, "%.2f", state->pressureSetPoint);
 
     char t[100];
     sprintf(t, "%.2f", state->boilerSetPoint);
@@ -428,21 +466,12 @@ void instantiateUI(GaggiaStateT* s, AdvancedSettingsT* as, int (*f)()) {
   lv_obj_t* tab_btns = lv_tabview_get_tab_btns(tv);
   lv_obj_set_style_pad_left(tab_btns, LV_HOR_RES / 2, 0);
   lv_obj_t* logo = lv_img_create(tab_btns);
-  LV_IMG_DECLARE(img_lvgl_logo);
-  lv_img_set_src(logo, &img_lvgl_logo);
+  LV_IMG_DECLARE(logoMainScreen);
+  lv_img_set_src(logo, &logoMainScreen);
   lv_obj_align(logo, LV_ALIGN_LEFT_MID, -LV_HOR_RES / 2 + 25, 0);
 
-  lv_obj_t* label = lv_label_create(tab_btns);
-  lv_obj_add_style(label, &style_title, 0);
-  lv_label_set_text(label, "Gaggiano Basic V2");
-  lv_obj_align_to(label, logo, LV_ALIGN_OUT_RIGHT_TOP, 10, 0);
 
-  label = lv_label_create(tab_btns);
-  lv_label_set_text(label, "In Development");
-  lv_obj_add_style(label, &style_text_muted, 0);
-  lv_obj_align_to(label, logo, LV_ALIGN_OUT_RIGHT_BOTTOM, 10, 0);
-
-  lv_obj_t* t1 = lv_tabview_add_tab(tv, "Gaggia Basic");
+  lv_obj_t* t1 = lv_tabview_add_tab(tv, "Brew");
   lv_obj_t* t2 = lv_tabview_add_tab(tv, "Settings");
   lv_obj_t* t3 = lv_tabview_add_tab(tv, "Advanced");
 
@@ -467,33 +496,46 @@ void instantiateUI(GaggiaStateT* s, AdvancedSettingsT* as, int (*f)()) {
 
 static void basic_create(lv_obj_t* parent) {
 
-  boilerBtn = lv_btn_create(parent);
-  //lv_obj_add_event_cb(boilerBtn, event_handler, LV_EVENT_ALL, NULL);
+  LV_IMG_DECLARE(boiler);
+  LV_IMG_DECLARE(boilerRed);
+  LV_IMG_DECLARE(brew);
+  LV_IMG_DECLARE(brewRed);
+  LV_IMG_DECLARE(steam);
+  LV_IMG_DECLARE(steamRed);
+
+  // boilerBtn = lv_btn_create(parent);
+  boilerBtn = lv_imgbtn_create(parent);
+  lv_imgbtn_set_src(boilerBtn, LV_IMGBTN_STATE_RELEASED, NULL, &boiler, NULL);
+  lv_imgbtn_set_src(boilerBtn, LV_IMGBTN_STATE_CHECKED_RELEASED, NULL, &boilerRed, NULL);
   lv_obj_add_flag(boilerBtn, LV_OBJ_FLAG_CHECKABLE);
-  lv_obj_set_height(boilerBtn, 100);
-  lv_obj_set_width(boilerBtn, 100);
+  // lv_obj_set_height(boilerBtn, 200);
+  // lv_obj_set_width(boilerBtn, 200);
   lv_obj_add_event_cb(boilerBtn, boilerButtonClicked, LV_EVENT_ALL, NULL);
 
-  lv_obj_t* boilerBtnLabel = lv_label_create(boilerBtn);
-  lv_label_set_text(boilerBtnLabel, "Boiler");
-  lv_obj_center(boilerBtnLabel);
+  // lv_obj_t* boilerBtnLabel = lv_label_create(boilerBtn);
+  // lv_label_set_text(boilerBtnLabel, "Boiler");
+  // lv_obj_center(boilerBtnLabel);
 
-  brewBtn = lv_btn_create(parent);
-  //lv_obj_add_event_cb(boilerBtn, event_handler, LV_EVENT_ALL, NULL);
+  // brewBtn = lv_btn_create(parent);
+  brewBtn = lv_imgbtn_create(parent);
+  lv_imgbtn_set_src(brewBtn, LV_IMGBTN_STATE_RELEASED, NULL, &brew, NULL);
+  lv_imgbtn_set_src(brewBtn, LV_IMGBTN_STATE_CHECKED_RELEASED, NULL, &brewRed, NULL);
   lv_obj_add_flag(brewBtn, LV_OBJ_FLAG_CHECKABLE);
-  lv_obj_set_height(brewBtn, 100);
-  lv_obj_set_width(brewBtn, 100);
+  // lv_obj_set_height(brewBtn, 100);
+  // lv_obj_set_width(brewBtn, 100);
   lv_obj_add_event_cb(brewBtn, brewButtonClicked, LV_EVENT_ALL, NULL);
 
-  lv_obj_t* brewBtnLabel = lv_label_create(brewBtn);
-  lv_label_set_text(brewBtnLabel, "Brew");
-  lv_obj_center(brewBtnLabel);
+  // lv_obj_t* brewBtnLabel = lv_label_create(brewBtn);
+  // lv_label_set_text(brewBtnLabel, "Brew");
+  // lv_obj_center(brewBtnLabel);
 
-  steamBtn = lv_btn_create(parent);
-  //lv_obj_add_event_cb(boilerBtn, event_handler, LV_EVENT_ALL, NULL);
+  // steamBtn = lv_btn_create(parent);
+  steamBtn = lv_imgbtn_create(parent);
+  lv_imgbtn_set_src(steamBtn, LV_IMGBTN_STATE_RELEASED, NULL, &steam, NULL);
+  lv_imgbtn_set_src(steamBtn, LV_IMGBTN_STATE_CHECKED_RELEASED, NULL, &steamRed, NULL);
   lv_obj_add_flag(steamBtn, LV_OBJ_FLAG_CHECKABLE);
-  lv_obj_set_height(steamBtn, 100);
-  lv_obj_set_width(steamBtn, 100);
+  // lv_obj_set_height(steamBtn, 100);
+  // lv_obj_set_width(steamBtn, 100);
   lv_obj_add_event_cb(steamBtn, steamButtonClicked, LV_EVENT_ALL, NULL);
 
   lv_obj_t* steamBtnLabel = lv_label_create(steamBtn);

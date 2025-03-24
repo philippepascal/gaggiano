@@ -17,16 +17,16 @@
 // #define TOUCH_MAP_Y2 320
 
 /* uncomment for GT911 */
- #define TOUCH_GT911
- #define TOUCH_GT911_SCL 20
- #define TOUCH_GT911_SDA 19
- #define TOUCH_GT911_INT -1
- #define TOUCH_GT911_RST 38
- #define TOUCH_GT911_ROTATION ROTATION_NORMAL
- #define TOUCH_MAP_X1 480
- #define TOUCH_MAP_X2 0
- #define TOUCH_MAP_Y1 272
- #define TOUCH_MAP_Y2 0
+#define TOUCH_GT911
+#define TOUCH_GT911_SCL 20
+#define TOUCH_GT911_SDA 19
+#define TOUCH_GT911_INT -1
+#define TOUCH_GT911_RST 38
+#define TOUCH_GT911_ROTATION ROTATION_NORMAL
+#define TOUCH_MAP_X1 480
+#define TOUCH_MAP_X2 0
+#define TOUCH_MAP_Y1 272
+#define TOUCH_MAP_Y2 0
 
 /* uncomment for XPT2046 */
 // #define TOUCH_XPT2046
@@ -62,10 +62,8 @@ XPT2046_Touchscreen ts(TOUCH_XPT2046_CS, TOUCH_XPT2046_INT);
 #endif
 
 #if defined(TOUCH_FT6X36)
-void touch(TPoint p, TEvent e)
-{
-  if (e != TEvent::Tap && e != TEvent::DragStart && e != TEvent::DragMove && e != TEvent::DragEnd)
-  {
+void touch(TPoint p, TEvent e) {
+  if (e != TEvent::Tap && e != TEvent::DragStart && e != TEvent::DragMove && e != TEvent::DragEnd) {
     return;
   }
   // translation logic depends on screen rotation
@@ -76,34 +74,32 @@ void touch(TPoint p, TEvent e)
   touch_last_x = map(p.x, TOUCH_MAP_X1, TOUCH_MAP_X2, 0, gfx->width());
   touch_last_y = map(p.y, TOUCH_MAP_Y1, TOUCH_MAP_Y2, 0, gfx->height());
 #endif
-  switch (e)
-  {
-  case TEvent::Tap:
-    Serial.println("Tap");
-    touch_touched_flag = true;
-    touch_released_flag = true;
-    break;
-  case TEvent::DragStart:
-    Serial.println("DragStart");
-    touch_touched_flag = true;
-    break;
-  case TEvent::DragMove:
-    Serial.println("DragMove");
-    touch_touched_flag = true;
-    break;
-  case TEvent::DragEnd:
-    Serial.println("DragEnd");
-    touch_released_flag = true;
-    break;
-  default:
-    Serial.println("UNKNOWN");
-    break;
+  switch (e) {
+    case TEvent::Tap:
+      Serial.println("Tap");
+      touch_touched_flag = true;
+      touch_released_flag = true;
+      break;
+    case TEvent::DragStart:
+      Serial.println("DragStart");
+      touch_touched_flag = true;
+      break;
+    case TEvent::DragMove:
+      Serial.println("DragMove");
+      touch_touched_flag = true;
+      break;
+    case TEvent::DragEnd:
+      Serial.println("DragEnd");
+      touch_released_flag = true;
+      break;
+    default:
+      Serial.println("UNKNOWN");
+      break;
   }
 }
 #endif
 
-void touch_init()
-{
+void touch_init() {
 #if defined(TOUCH_FT6X36)
   Wire.begin(TOUCH_FT6X36_SDA, TOUCH_FT6X36_SCL);
   ts.begin();
@@ -122,8 +118,7 @@ void touch_init()
 #endif
 }
 
-bool touch_has_signal()
-{
+bool touch_has_signal() {
 #if defined(TOUCH_FT6X36)
   ts.loop();
   return touch_touched_flag || touch_released_flag;
@@ -139,23 +134,18 @@ bool touch_has_signal()
 #endif
 }
 
-bool touch_touched()
-{
+bool touch_touched() {
 #if defined(TOUCH_FT6X36)
-  if (touch_touched_flag)
-  {
+  if (touch_touched_flag) {
     touch_touched_flag = false;
     return true;
-  }
-  else
-  {
+  } else {
     return false;
   }
 
 #elif defined(TOUCH_GT911)
   ts.read();
-  if (ts.isTouched)
-  {
+  if (ts.isTouched) {
 #if defined(TOUCH_SWAP_XY)
     touch_last_x = map(ts.points[0].y, TOUCH_MAP_X1, TOUCH_MAP_X2, 0, gfx->width() - 1);
     touch_last_y = map(ts.points[0].x, TOUCH_MAP_Y1, TOUCH_MAP_Y2, 0, gfx->height() - 1);
@@ -164,15 +154,12 @@ bool touch_touched()
     touch_last_y = map(ts.points[0].y, TOUCH_MAP_Y1, TOUCH_MAP_Y2, 0, gfx->height() - 1);
 #endif
     return true;
-  }
-  else
-  {
+  } else {
     return false;
   }
 
 #elif defined(TOUCH_XPT2046)
-  if (ts.touched())
-  {
+  if (ts.touched()) {
     TS_Point p = ts.getPoint();
 #if defined(TOUCH_SWAP_XY)
     touch_last_x = map(p.y, TOUCH_MAP_X1, TOUCH_MAP_X2, 0, gfx->width() - 1);
@@ -182,9 +169,7 @@ bool touch_touched()
     touch_last_y = map(p.y, TOUCH_MAP_Y1, TOUCH_MAP_Y2, 0, gfx->height() - 1);
 #endif
     return true;
-  }
-  else
-  {
+  } else {
     return false;
   }
 
@@ -193,16 +178,12 @@ bool touch_touched()
 #endif
 }
 
-bool touch_released()
-{
+bool touch_released() {
 #if defined(TOUCH_FT6X36)
-  if (touch_released_flag)
-  {
+  if (touch_released_flag) {
     touch_released_flag = false;
     return true;
-  }
-  else
-  {
+  } else {
     return false;
   }
 
