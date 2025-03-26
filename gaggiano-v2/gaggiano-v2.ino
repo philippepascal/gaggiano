@@ -196,10 +196,10 @@ void setup() {
     Serial.println(" ~~~~~~~~~~~~~ calling display Frank ");
     displayFrankBmp(bmpDrawCallback, 800, 480);
 
-    delay(1000);
+    delay(1500);
 
-    instantiateUI(&state, &advancedSettings, writeConfigFile);
-    delay(500);
+    instantiateUI(&state, &advancedSettings, writeConfigFile, listProfiles, getCurrentProfile);
+    delay(50);
     Serial.println("init UI done");
 
     setupAndReadConfigFile();
@@ -342,7 +342,8 @@ void sendCommand() {
       }
       break;
     case PHASE_BREW:
-      if (!state.isBrewing || ((timerStartTime > 0) && ((now - timerStartTime) >= 1000 * state.brew_timer))) {
+      if (!state.isBrewing || ((state.brew_timer > 0) && ((now - timerStartTime) >= 1000 * state.brew_timer))) {
+        state.isBrewing = false;
         if (state.isSteaming) sendNewCommand = PHASE_STEAM;
         else if (state.isBoilerOn) sendNewCommand = PHASE_HEAT;
         else sendNewCommand = PHASE_OFF;
@@ -363,13 +364,15 @@ void sendCommand() {
           sendSimpleBrewCommand(0, 0);
           if (currentPhase == PHASE_BREW) {
             state.lastBrewTime = (now - timerStartTime) / 1000;
-            state.isBrewing = false;
           }
           timerStartTime = 0;
         }
         break;
       case PHASE_HEAT:
         sendSimpleBrewCommand(state.boilerSetPoint, 0);
+        if (currentPhase == PHASE_BREW) {
+          state.lastBrewTime = (now - timerStartTime) / 1000;
+        }
         timerStartTime = 0;
         break;
       case PHASE_BLOOM_FILL:
@@ -390,6 +393,9 @@ void sendCommand() {
         break;
       case PHASE_STEAM:
         sendSteamCommand(state.steamSetPoint, 1, 20);
+        if (currentPhase == PHASE_BREW) {
+          state.lastBrewTime = (now - timerStartTime) / 1000;
+        }
         timerStartTime = 0;
         break;
     }
@@ -401,15 +407,15 @@ void sendCommand() {
         temp = state.steamSetPoint;
       }
       sendSimpleBrewCommand(temp, 8);
-      delay(500);
+      delay(1000);
       sendSimpleBrewCommand(temp, 0);
-      delay(500);
+      delay(1000);
       sendSimpleBrewCommand(temp, 8);
-      delay(500);
+      delay(1000);
       sendSimpleBrewCommand(temp, 0);
-      delay(500);
+      delay(1000);
       sendSimpleBrewCommand(temp, 8);
-      delay(500);
+      delay(1000);
       sendSimpleBrewCommand(temp, 0);
       state.isCleaning = false;
       sendNewCommand = currentPhase;

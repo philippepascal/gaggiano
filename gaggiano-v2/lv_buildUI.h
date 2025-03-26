@@ -31,7 +31,9 @@ extern "C" {
  **********************/
   void instantiateUI(GaggiaStateT* state,
                      AdvancedSettingsT* advancedSettings,
-                     int (*writeConfigFile)());
+                     int (*writeConfigFile)(),
+                     char* (*lp)(),
+                     char* (*gcp)());
   void updateUI();
   /**********************
  *      MACROS

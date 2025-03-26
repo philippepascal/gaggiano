@@ -26,3 +26,6 @@ int logController(const char *message);
 int deleteLogsFile();
 
 int displayFrankBmp(BMP_DRAW_CALLBACK *bmpDrawCallback, int16_t width, int16_t height);
+
+char* listProfiles();
+char* getCurrentProfile();

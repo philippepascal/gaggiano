@@ -218,10 +218,57 @@ int displayFrankBmp(BMP_DRAW_CALLBACK* bmpDrawCallback, int16_t width, int16_t h
 
     file.close();
 
-  Serial.println("about to open config file....");
-  File gaggiaDir = fileSystem->open("/gaggia");
-  Serial.println("opened config file....");
+    Serial.println("about to open config file....");
+    File gaggiaDir = fileSystem->open("/gaggia");
+    Serial.println("opened config file....");
 
     return 1;
   }
+}
+
+// --------------------------------
+
+char* listProfiles() {
+  const char* path = "/gaggia/profiles";
+  File profilesDir = fileSystem->open(path);
+  if (!profilesDir) {
+    Serial.print("can't open /gaggia/profiles");
+    return NULL;
+  }
+  char buffer[500];
+  int index = 0;
+  while (true) {
+    File entry = profilesDir.openNextFile();
+    if (!entry) {
+      // no more files
+      break;
+    }
+    const char* profileName = entry.name();
+    entry.close();
+    Serial.print(" ------- profile Name: ");
+    Serial.println(profileName);
+    int length = strlen(profileName);
+    strncpy(buffer + index, profileName, length);
+    buffer[index + length] = ';';
+    index = index + length + 1;
+  }
+  buffer[index] = '\0';  // Ensure null termination
+
+  Serial.print(" ------- profile Names: ");
+  Serial.println(buffer);
+  return buffer;
+}
+
+char* getCurrentProfile() {
+  const char* path = "/gaggia/currentProfile";
+
+  File file = fileSystem->open(path);
+  if (!file) {
+    Serial.print("can't open /gaggia/currentProfile");
+    return NULL;
+  }
+  String data = file.readString();
+  char buffer[500];
+  data.toCharArray(buffer, data.length() + 2);
+  return buffer;
 }

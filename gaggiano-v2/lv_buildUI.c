@@ -27,6 +27,8 @@
  **********************/
 
 static int (*writeConfigFile)();
+static char* (*listProfiles)();
+static char* (*getCurrentProfile)();
 static void basic_create(lv_obj_t* parent);
 static void settings_create(lv_obj_t* parent);
 static void advancedSettings_create(lv_obj_t* parent);
@@ -47,6 +49,8 @@ static lv_obj_t* pressureSet2Label;
 static lv_obj_t* pressureRead2Label;
 static lv_obj_t* solenoid2Label;
 static lv_obj_t* lastBrewTimeLabel;
+
+static lv_obj_t* fileList;
 
 static lv_obj_t* brew_temp_tf;
 static lv_obj_t* brew_pressure_tf;
@@ -124,7 +128,16 @@ static void setting_field_changed(lv_event_t* e) {
   }
 }
 
-
+static void tab_changed(lv_event_t* e) {
+  lv_event_code_t code = lv_event_get_code(e);
+  if (code == LV_EVENT_VALUE_CHANGED) {
+    if (lv_tabview_get_tab_act(tv) == 1) {
+      //profile is selected.
+      LV_LOG_WARN(" ---------- Profile Selected ----------");
+      updateProfileTab();
+    }
+  }
+}
 static void setButtonClicked(lv_event_t* e) {
   lv_event_code_t code = lv_event_get_code(e);
 
@@ -412,10 +425,12 @@ void updateUI() {
   }
 }
 
-void instantiateUI(GaggiaStateT* s, AdvancedSettingsT* as, int (*f)()) {
+void instantiateUI(GaggiaStateT* s, AdvancedSettingsT* as, int (*f)(), char* (*lp)(), char* (*gcp)()) {
   state = s;
   advancedSettings = as;
   writeConfigFile = f;
+  listProfiles = lp;
+  getCurrentProfile = gcp;
 
   lv_log_register_print_cb(my_log_cb);
 
@@ -440,7 +455,7 @@ void instantiateUI(GaggiaStateT* s, AdvancedSettingsT* as, int (*f)()) {
 
 
 #if LV_USE_THEME_DEFAULT
-  lv_theme_default_init(NULL, lv_palette_main(LV_PALETTE_BLUE), lv_palette_main(LV_PALETTE_RED), LV_THEME_DEFAULT_DARK,
+  lv_theme_default_init(NULL, lv_palette_main(LV_PALETTE_GREY), lv_palette_main(LV_PALETTE_RED), LV_THEME_DEFAULT_DARK,
                         font_normal);
 #endif
 
@@ -459,6 +474,7 @@ void instantiateUI(GaggiaStateT* s, AdvancedSettingsT* as, int (*f)()) {
   lv_style_set_radius(&style_bullet, LV_RADIUS_CIRCLE);
 
   tv = lv_tabview_create(lv_scr_act(), LV_DIR_TOP, tab_h);
+  lv_obj_add_event_cb(tv, tab_changed, LV_EVENT_ALL, NULL);
 
   lv_obj_set_style_text_font(lv_scr_act(), font_normal, 0);
 
@@ -472,27 +488,124 @@ void instantiateUI(GaggiaStateT* s, AdvancedSettingsT* as, int (*f)()) {
 
 
   lv_obj_t* t1 = lv_tabview_add_tab(tv, "Brew");
+  lv_obj_t* t4 = lv_tabview_add_tab(tv, "Profile");
   lv_obj_t* t2 = lv_tabview_add_tab(tv, "Settings");
   lv_obj_t* t3 = lv_tabview_add_tab(tv, "Advanced");
 
-  LV_LOG_WARN("~~~~~~~~~~~~~~~~ did we get there ~~~~~~~~~~~~~~~~");
 
   basic_create(t1);
-
-  LV_LOG_WARN("~~~~~~~~~~~~~~~~ did we get there ~~~~~~~~~~~~~~~~");
-
+  profile_create(t4);
   settings_create(t2);
-
-  LV_LOG_WARN("~~~~~~~~~~~~~~~~ did we get there ~~~~~~~~~~~~~~~~");
-
   advancedSettings_create(t3);
-
-  LV_LOG_WARN("~~~~~~~~~~~~~~~~ did we get there ~~~~~~~~~~~~~~~~");
 }
 
 /**********************
  *   STATIC FUNCTIONS
  **********************/
+
+int myIndexOf(const char* str, const char ch, int fromIndex) {
+  const char* result = strchr(str + fromIndex, ch);
+  if (result == NULL) {
+    return -1;  // Substring not found
+  } else {
+    return result - str;  // Calculate the index
+  }
+}
+
+char* mySubString(const char* str, int start, int end) {
+  char* sub = (char*)malloc(sizeof(char) * (end - start));
+  if (sub == NULL) {
+    return NULL;
+  }
+
+  strncpy(sub, str + start, (end - start));
+  sub[(end - start)] = '\0';
+
+  return sub;
+}
+
+void updateProfileTab() {
+  LV_LOG_WARN(" --------- about to call listProfiles");
+  const char* profileNames = listProfiles();
+  LV_LOG_WARN(" --------- called listProfiles");
+  LV_LOG_WARN(profileNames);
+  LV_LOG_WARN(strlen(profileNames));
+  LV_LOG_WARN(" --------- is profile Name NULL or empty?"); //yep!! 
+  int start = 0;
+  int end = myIndexOf(profileNames, ';', start);
+  int index = 0;
+  while (end > 0) {
+    const char* profileName = mySubString(profileNames, start, end);
+    LV_LOG_WARN(" ----------  profile");
+    LV_LOG_WARN(profileName);
+    lv_obj_t* child = lv_obj_get_child(fileList, index);
+    lv_label_set_text(child, profileNames);
+    start = end + 1;
+    end = myIndexOf(profileNames, ';', start);
+    index++;
+  } 
+  for(;index < 10;index++) {
+    lv_obj_t* child = lv_obj_get_child(fileList, index);
+    lv_label_set_text(child, "N/A");
+  }
+
+
+}
+
+static void profile_create(lv_obj_t* parent) {
+
+  fileList = lv_list_create(parent);
+  // lv_obj_set_size(fileList, lv_pct(60), lv_pct(100));
+  lv_obj_set_style_pad_row(fileList, 5, 0);
+
+  lv_obj_t* lbl;
+  int i;
+  for (i = 0; i < 10; i++) {
+    lbl = lv_label_create(fileList);
+    lv_obj_set_width(lbl, lv_pct(100));
+    lv_obj_set_height(lbl, 30);
+    lv_obj_add_flag(lbl, LV_OBJ_FLAG_CLICKABLE);
+    // lv_obj_add_event_cb(lbl, profile_selected, LV_EVENT_ALL, NULL);
+    lv_label_set_text(lbl, "N/A");
+  }
+
+  lv_obj_t* kb = lv_keyboard_create(lv_scr_act());
+  lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
+
+  lv_obj_t* fileName_tf = lv_textarea_create(parent);
+  lv_textarea_set_one_line(fileName_tf, true);
+  lv_obj_add_event_cb(fileName_tf, setting_field_changed, LV_EVENT_ALL, kb);
+
+  lv_obj_t* fileName_btn = lv_btn_create(parent);
+  // lv_obj_add_event_cb(boilerBtn, fileName_btn_clicked, LV_EVENT_ALL, NULL);
+  lv_obj_t* fileName_btn_lbl = lv_label_create(fileName_btn);
+  lv_label_set_text(fileName_btn_lbl, "Rename");
+  lv_obj_center(fileName_btn_lbl);
+
+  lv_obj_t* duplicate_btn = lv_btn_create(parent);
+  // lv_obj_add_event_cb(boilerBtn, duplicate_btn_clicked, LV_EVENT_ALL, NULL);
+  lv_obj_t* duplicate_btn_lbl = lv_label_create(duplicate_btn);
+  lv_label_set_text(duplicate_btn_lbl, "Duplicate");
+  lv_obj_center(duplicate_btn_lbl);
+
+  lv_obj_t* delete_btn = lv_btn_create(parent);
+  // lv_obj_add_event_cb(delete_btn, delete_btn_clicked, LV_EVENT_ALL, NULL);
+  lv_obj_t* delete_btn_lbl = lv_label_create(delete_btn);
+  lv_label_set_text(delete_btn_lbl, "Delete");
+  lv_obj_center(delete_btn_lbl);
+
+  static lv_coord_t grid_main_col_dsc[] = { LV_GRID_FR(1), 10, LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t grid_main_row_dsc[] = { LV_GRID_FR(1), 10, LV_GRID_FR(1), 10, LV_GRID_FR(1), 10, LV_GRID_FR(1), LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
+
+  lv_obj_set_grid_dsc_array(parent, grid_main_col_dsc, grid_main_row_dsc);
+
+  lv_obj_set_grid_cell(fileList, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 0, 8);
+
+  lv_obj_set_grid_cell(fileName_tf, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+  lv_obj_set_grid_cell(fileName_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 2, 1);
+  lv_obj_set_grid_cell(duplicate_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 4, 1);
+  lv_obj_set_grid_cell(delete_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 6, 1);
+}
 
 static void basic_create(lv_obj_t* parent) {
 
@@ -508,8 +621,9 @@ static void basic_create(lv_obj_t* parent) {
   lv_imgbtn_set_src(boilerBtn, LV_IMGBTN_STATE_RELEASED, NULL, &boiler, NULL);
   lv_imgbtn_set_src(boilerBtn, LV_IMGBTN_STATE_CHECKED_RELEASED, NULL, &boilerRed, NULL);
   lv_obj_add_flag(boilerBtn, LV_OBJ_FLAG_CHECKABLE);
-  // lv_obj_set_height(boilerBtn, 200);
-  // lv_obj_set_width(boilerBtn, 200);
+  lv_obj_set_height(boilerBtn, 150);
+  lv_obj_set_width(boilerBtn, 150);
+  lv_obj_align(boilerBtn, LV_ALIGN_CENTER, 0, 0);
   lv_obj_add_event_cb(boilerBtn, boilerButtonClicked, LV_EVENT_ALL, NULL);
 
   // lv_obj_t* boilerBtnLabel = lv_label_create(boilerBtn);
@@ -521,8 +635,9 @@ static void basic_create(lv_obj_t* parent) {
   lv_imgbtn_set_src(brewBtn, LV_IMGBTN_STATE_RELEASED, NULL, &brew, NULL);
   lv_imgbtn_set_src(brewBtn, LV_IMGBTN_STATE_CHECKED_RELEASED, NULL, &brewRed, NULL);
   lv_obj_add_flag(brewBtn, LV_OBJ_FLAG_CHECKABLE);
-  // lv_obj_set_height(brewBtn, 100);
-  // lv_obj_set_width(brewBtn, 100);
+  lv_obj_set_height(brewBtn, 150);
+  lv_obj_set_width(brewBtn, 150);
+  lv_obj_align(brewBtn, LV_ALIGN_CENTER, 0, 0);
   lv_obj_add_event_cb(brewBtn, brewButtonClicked, LV_EVENT_ALL, NULL);
 
   // lv_obj_t* brewBtnLabel = lv_label_create(brewBtn);
@@ -534,13 +649,14 @@ static void basic_create(lv_obj_t* parent) {
   lv_imgbtn_set_src(steamBtn, LV_IMGBTN_STATE_RELEASED, NULL, &steam, NULL);
   lv_imgbtn_set_src(steamBtn, LV_IMGBTN_STATE_CHECKED_RELEASED, NULL, &steamRed, NULL);
   lv_obj_add_flag(steamBtn, LV_OBJ_FLAG_CHECKABLE);
-  // lv_obj_set_height(steamBtn, 100);
-  // lv_obj_set_width(steamBtn, 100);
+  lv_obj_set_height(steamBtn, 150);
+  lv_obj_set_width(steamBtn, 150);
+  lv_obj_align(steamBtn, LV_ALIGN_CENTER, 0, 0);
   lv_obj_add_event_cb(steamBtn, steamButtonClicked, LV_EVENT_ALL, NULL);
 
-  lv_obj_t* steamBtnLabel = lv_label_create(steamBtn);
-  lv_label_set_text(steamBtnLabel, "Steam");
-  lv_obj_center(steamBtnLabel);
+  // lv_obj_t* steamBtnLabel = lv_label_create(steamBtn);
+  // lv_label_set_text(steamBtnLabel, "Steam");
+  // lv_obj_center(steamBtnLabel);
 
   lv_obj_t* panel1 = lv_obj_create(parent);
   lv_obj_set_height(panel1, LV_SIZE_CONTENT);
@@ -609,9 +725,9 @@ static void basic_create(lv_obj_t* parent) {
 
   lv_obj_set_grid_dsc_array(parent, grid_main_col_dsc, grid_main_row_dsc);
 
-  lv_obj_set_grid_cell(boilerBtn, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
-  lv_obj_set_grid_cell(brewBtn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
-  lv_obj_set_grid_cell(steamBtn, LV_GRID_ALIGN_STRETCH, 4, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+  lv_obj_set_grid_cell(boilerBtn, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_grid_cell(brewBtn, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_grid_cell(steamBtn, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 0, 1);
   lv_obj_set_grid_cell(panel1, LV_GRID_ALIGN_STRETCH, 0, 5, LV_GRID_ALIGN_STRETCH, 1, 1);
 }
 
