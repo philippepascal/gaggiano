@@ -33,7 +33,9 @@ extern "C" {
                      AdvancedSettingsT* advancedSettings,
                      int (*writeConfigFile)(),
                      char* (*lp)(),
-                     char* (*gcp)());
+                     char* (*gcp)(),
+                     int (*wcp)(const char* profileName),
+                     int (*setupAndReadConfigFile)());
   void updateUI();
   /**********************
  *      MACROS

@@ -29,3 +29,4 @@ int displayFrankBmp(BMP_DRAW_CALLBACK *bmpDrawCallback, int16_t width, int16_t h
 
 char* listProfiles();
 char* getCurrentProfile();
+int writeCurrentProfile(const char* profileName);

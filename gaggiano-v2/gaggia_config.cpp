@@ -71,7 +71,8 @@ int deleteLogsFile() {
 
 int setupAndReadConfigFile() {
 
-  const char* path = "/gaggia";
+  // const char* path = "/gaggia";
+  const char* path = "/gaggia/profiles";
   Serial.println("about to open config file....");
   File gaggiaDir = fileSystem->open(path);
   Serial.println("opened config file....");
@@ -88,7 +89,12 @@ int setupAndReadConfigFile() {
     }
   }
 
-  const char* fileName = "/gaggia/gaggia_settings.csv";
+  // const char* fileName = "/gaggia/gaggia_settings.csv";
+  const char* cp = getCurrentProfile();
+  char* fileName = (char*)malloc(30 * sizeof(char));
+  strcpy(fileName, path);
+  strcat(fileName, cp);
+  Serial.print("~~~~~~~~~ opening selected profile in setup");
   File file = fileSystem->open(fileName);
   if (!file) {
     Serial.println("Failed to open file for reading, trying to create it with default values");
@@ -136,7 +142,13 @@ int setupAndReadConfigFile() {
 }
 
 int writeConfigFile(const char* content) {
-  const char* fileName = "/gaggia/gaggia_settings.csv";
+  const char* path = "/gaggia/profiles";
+  // const char* fileName = "/gaggia/gaggia_settings.csv";
+  const char* cp = getCurrentProfile();
+  char* fileName = (char*)malloc(30 * sizeof(char));
+  strcpy(fileName, path);
+  strcat(fileName, cp);
+  Serial.print("~~~~~~~~~ opening selected profile to write its content");
   File file = fileSystem->open(fileName, FILE_WRITE);
   if (!file) {
     Serial.println("Failed to open file for writing");
@@ -235,7 +247,7 @@ char* listProfiles() {
     Serial.print("can't open /gaggia/profiles");
     return NULL;
   }
-  char *buffer = (char *)malloc(sizeof(char) * 500);
+  char* buffer = (char*)malloc(sizeof(char) * 500);
   int index = 0;
   while (true) {
     File entry = profilesDir.openNextFile();
@@ -259,18 +271,38 @@ char* listProfiles() {
   return buffer;
 }
 
+int writeCurrentProfile(const char* fileName) {
+  const char* path = "/gaggia/selectedProfile";
+
+  File file = fileSystem->open(path, FILE_WRITE);
+  if (!file) {
+    Serial.print("can't open /gaggia/selectedProfile to write");
+    return -1;
+  }
+  if (file.print(fileName)) {
+    Serial.println("File written");
+  } else {
+    Serial.println("Write failed");
+  }
+  file.close();
+  return 1;
+}
+
 char* getCurrentProfile() {
   const char* path = "/gaggia/selectedProfile";
 
   File file = fileSystem->open(path);
   if (!file) {
-    Serial.print("can't open /gaggia/selectedProfile");
-    return NULL;
+    Serial.print("can't open /gaggia/selectedProfile,creating it");
+    char* defaultFile = "default.csv";
+    writeCurrentProfile(defaultFile);
+    return defaultFile;
   }
   String data = file.readString();
-  char *buffer = (char *)malloc(sizeof(char) * (data.length()+1));
+  char* buffer = (char*)malloc(sizeof(char) * (data.length() + 1));
   data.toCharArray(buffer, data.length() + 1);
   buffer[data.length()] = '\0';  // Ensure null termination
+  file.close();
   Serial.print(" ------- selected profile: ");
   Serial.println(buffer);
   return buffer;

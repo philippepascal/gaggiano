@@ -198,7 +198,13 @@ void setup() {
 
     delay(1500);
 
-    instantiateUI(&state, &advancedSettings, writeConfigFile, listProfiles, getCurrentProfile);
+    instantiateUI(&state,
+                  &advancedSettings, 
+                  writeConfigFile, 
+                  listProfiles, 
+                  getCurrentProfile,
+                  writeCurrentProfile,
+                  setupAndReadConfigFile);
     delay(50);
     Serial.println("init UI done");
 
@@ -314,7 +320,7 @@ void sendCommand() {
         else sendNewCommand = PHASE_OFF;
       }
       if (sendNewCommand == PHASE_BREW) {
-        if (state.brew_timer > 0) { //until we have a bloom button... without it we can't use brewBtn for both bloom and brew
+        if (state.brew_timer > 0) {  //until we have a bloom button... without it we can't use brewBtn for both bloom and brew
           if (state.blooming_wait_time > 0 && state.blooming_fill_time > 0 && state.blooming_pressure > 0) {
             sendNewCommand = PHASE_BLOOM_FILL;
           }

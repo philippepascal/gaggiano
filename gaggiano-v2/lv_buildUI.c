@@ -29,6 +29,9 @@
 static int (*writeConfigFile)();
 static char* (*listProfiles)();
 static char* (*getCurrentProfile)();
+static int (*writeCurrentProfile)(const char* profileName);
+static int (*setupAndReadConfigFile)();
+
 static void basic_create(lv_obj_t* parent);
 static void settings_create(lv_obj_t* parent);
 static void advancedSettings_create(lv_obj_t* parent);
@@ -296,6 +299,19 @@ static void clearLogsBtnClicked(lv_event_t* e) {
     state->cleanLogs = true;
   }
 }
+static void profile_selected(lv_event_t* e) {
+  lv_event_code_t code = lv_event_get_code(e);
+  if (code == LV_EVENT_CLICKED) {
+  LV_LOG_WARN("profile label Clicked");
+    const char* clickedProfileName = lv_label_get_text(lv_event_get_target(e));
+    if (strlen(clickedProfileName) > 0) {
+      lv_textarea_set_text(fileName_tf, clickedProfileName);
+      //lv_textarea_get_text(fileName_tf);
+      writeCurrentProfile(clickedProfileName);
+      setupAndReadConfigFile();
+    }
+  }
+}
 /**********************
  *   GLOBAL FUNCTIONS
  **********************/
@@ -427,12 +443,20 @@ void updateUI() {
   }
 }
 
-void instantiateUI(GaggiaStateT* s, AdvancedSettingsT* as, int (*f)(), char* (*lp)(), char* (*gcp)()) {
+void instantiateUI(GaggiaStateT* s,
+                   AdvancedSettingsT* as,
+                   int (*f)(),
+                   char* (*lp)(),
+                   char* (*gcp)(),
+                   int (*wcp)(const char* profileName),
+                   int (*sarcf)()) {
   state = s;
   advancedSettings = as;
   writeConfigFile = f;
   listProfiles = lp;
   getCurrentProfile = gcp;
+  writeCurrentProfile = wcp;
+  setupAndReadConfigFile = sarcf;
 
   lv_log_register_print_cb(my_log_cb);
 
@@ -547,9 +571,6 @@ void updateProfileTab() {
   }
 
   const char* fn = getCurrentProfile();
-  LV_LOG_WARN(fn);
-  lv_textarea_set_one_line(fileName_tf, true); 
-  
   lv_textarea_set_text(fileName_tf, fn);
 }
 
@@ -566,8 +587,8 @@ static void profile_create(lv_obj_t* parent) {
     lv_obj_set_width(lbl, lv_pct(100));
     lv_obj_set_height(lbl, 30);
     lv_obj_add_flag(lbl, LV_OBJ_FLAG_CLICKABLE);
-    // lv_obj_add_event_cb(lbl, profile_selected, LV_EVENT_ALL, NULL);
-    lv_label_set_text(lbl, "N/A");
+    lv_obj_add_event_cb(lbl, profile_selected, LV_EVENT_ALL, NULL);
+    lv_label_set_text(lbl, "");
   }
 
   lv_obj_t* kb = lv_keyboard_create(lv_scr_act());
