@@ -235,7 +235,7 @@ char* listProfiles() {
     Serial.print("can't open /gaggia/profiles");
     return NULL;
   }
-  char buffer[500];
+  char *buffer = (char *)malloc(sizeof(char) * 500);
   int index = 0;
   while (true) {
     File entry = profilesDir.openNextFile();
@@ -260,15 +260,18 @@ char* listProfiles() {
 }
 
 char* getCurrentProfile() {
-  const char* path = "/gaggia/currentProfile";
+  const char* path = "/gaggia/selectedProfile";
 
   File file = fileSystem->open(path);
   if (!file) {
-    Serial.print("can't open /gaggia/currentProfile");
+    Serial.print("can't open /gaggia/selectedProfile");
     return NULL;
   }
   String data = file.readString();
-  char buffer[500];
-  data.toCharArray(buffer, data.length() + 2);
+  char *buffer = (char *)malloc(sizeof(char) * (data.length()+1));
+  data.toCharArray(buffer, data.length() + 1);
+  buffer[data.length()] = '\0';  // Ensure null termination
+  Serial.print(" ------- selected profile: ");
+  Serial.println(buffer);
   return buffer;
 }

@@ -314,8 +314,10 @@ void sendCommand() {
         else sendNewCommand = PHASE_OFF;
       }
       if (sendNewCommand == PHASE_BREW) {
-        if (state.blooming_wait_time > 0 && state.blooming_fill_time > 0 && state.blooming_pressure > 0) {
-          sendNewCommand = PHASE_BLOOM_FILL;
+        if (state.brew_timer > 0) { //until we have a bloom button... without it we can't use brewBtn for both bloom and brew
+          if (state.blooming_wait_time > 0 && state.blooming_fill_time > 0 && state.blooming_pressure > 0) {
+            sendNewCommand = PHASE_BLOOM_FILL;
+          }
         }
       }
       break;
@@ -333,7 +335,14 @@ void sendCommand() {
     case PHASE_BLOOM_WAIT:
       if (state.isBrewing) {
         if ((now - timerStartTime) >= 1000 * state.blooming_wait_time) {
-          sendNewCommand = PHASE_BREW;
+          if (state.brew_timer > 0) {
+            sendNewCommand = PHASE_BREW;
+          } else {
+            state.isBrewing = false;
+            if (state.isSteaming) sendNewCommand = PHASE_STEAM;
+            else if (state.isBoilerOn) sendNewCommand = PHASE_HEAT;
+            else sendNewCommand = PHASE_OFF;
+          }
         }
       } else {
         if (state.isSteaming) sendNewCommand = PHASE_STEAM;
@@ -385,11 +394,7 @@ void sendCommand() {
         break;
       case PHASE_BREW:
         sendSimpleBrewCommand(state.boilerSetPoint, state.pressureSetPoint);
-        if (state.brew_timer > 0) {
-          timerStartTime = now;
-        } else {
-          timerStartTime = 0;
-        }
+        timerStartTime = now;
         break;
       case PHASE_STEAM:
         sendSteamCommand(state.steamSetPoint, 1, 20);

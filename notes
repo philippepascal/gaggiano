@@ -1,3 +1,11 @@
+sometimes comms stop. no idea what is happening.
+complete logs with additional settings or maybe hash of settings to compare with UI
+nicer UI?
+do I need to stop at detect pressure with special command? blooming fill time might not be consistent if first or subsequent shot
+
+
+---------------Below is done:
+
 current state:
 coffee is decent, pressure control does something, though the readout on the screen is all over the place. need to figure out frequency of updates as controller sends more than screen receives
 - let's add the use of Kalman filters to smooth out readings.
@@ -23,6 +31,12 @@ brew cycle:
 4. run pump on PID until timer done, or button pressed
 5. display brew run time for reference to set timer
 
+1.send special prime command: temp + pressure at which to stop pump but not before running a few seconds at desired pressure to add water
+2.when pressure read reached desired, controller has already stopped, screen move to blooming
+3.if blooming time >0 wait that amount of time
+4.resume with simple brewing
+
+
 - reset logs!!
 
 
@@ -36,6 +50,7 @@ blooming!
 - no header on logs
  - fix sudden drop in pump output. combined with gradual increase, causes massive "holes" in pressure profile
 
-fix last brew time random showings
+ - fix last brew time random showings
+
 sometimes comms stop. no idea what is happening.
-complete logs with additional settings or may
+complete logs with additional settings or maybe hash of settings to compare with UI

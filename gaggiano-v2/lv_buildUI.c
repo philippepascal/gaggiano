@@ -36,6 +36,7 @@ static void profile_create(lv_obj_t* parent);
 static void analytics_create(lv_obj_t* parent);
 static void shop_create(lv_obj_t* parent);
 static void color_changer_create(lv_obj_t* parent);
+static void updateProfileTab();
 
 /**********************
  *  STATIC VARIABLES
@@ -51,6 +52,7 @@ static lv_obj_t* solenoid2Label;
 static lv_obj_t* lastBrewTimeLabel;
 
 static lv_obj_t* fileList;
+static lv_obj_t* fileName_tf;
 
 static lv_obj_t* brew_temp_tf;
 static lv_obj_t* brew_pressure_tf;
@@ -525,31 +527,30 @@ char* mySubString(const char* str, int start, int end) {
 }
 
 void updateProfileTab() {
-  LV_LOG_WARN(" --------- about to call listProfiles");
   const char* profileNames = listProfiles();
-  LV_LOG_WARN(" --------- called listProfiles");
   LV_LOG_WARN(profileNames);
-  LV_LOG_WARN(strlen(profileNames));
-  LV_LOG_WARN(" --------- is profile Name NULL or empty?"); //yep!! 
   int start = 0;
   int end = myIndexOf(profileNames, ';', start);
   int index = 0;
   while (end > 0) {
     const char* profileName = mySubString(profileNames, start, end);
-    LV_LOG_WARN(" ----------  profile");
     LV_LOG_WARN(profileName);
     lv_obj_t* child = lv_obj_get_child(fileList, index);
-    lv_label_set_text(child, profileNames);
+    lv_label_set_text(child, profileName);
     start = end + 1;
     end = myIndexOf(profileNames, ';', start);
     index++;
-  } 
-  for(;index < 10;index++) {
+  }
+  for (; index < 10; index++) {
     lv_obj_t* child = lv_obj_get_child(fileList, index);
     lv_label_set_text(child, "N/A");
   }
 
-
+  const char* fn = getCurrentProfile();
+  LV_LOG_WARN(fn);
+  lv_textarea_set_one_line(fileName_tf, true); 
+  
+  lv_textarea_set_text(fileName_tf, fn);
 }
 
 static void profile_create(lv_obj_t* parent) {
@@ -572,7 +573,7 @@ static void profile_create(lv_obj_t* parent) {
   lv_obj_t* kb = lv_keyboard_create(lv_scr_act());
   lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
 
-  lv_obj_t* fileName_tf = lv_textarea_create(parent);
+  fileName_tf = lv_textarea_create(parent);
   lv_textarea_set_one_line(fileName_tf, true);
   lv_obj_add_event_cb(fileName_tf, setting_field_changed, LV_EVENT_ALL, kb);
 
