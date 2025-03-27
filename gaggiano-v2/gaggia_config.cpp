@@ -90,9 +90,10 @@ int setupAndReadConfigFile() {
   }
 
   // const char* fileName = "/gaggia/gaggia_settings.csv";
+  const char* path2 = "/gaggia/profiles/";
   const char* cp = getCurrentProfile();
   char* fileName = (char*)malloc(30 * sizeof(char));
-  strcpy(fileName, path);
+  strcpy(fileName, path2);
   strcat(fileName, cp);
   Serial.print("~~~~~~~~~ opening selected profile in setup");
   File file = fileSystem->open(fileName);
@@ -142,7 +143,7 @@ int setupAndReadConfigFile() {
 }
 
 int writeConfigFile(const char* content) {
-  const char* path = "/gaggia/profiles";
+  const char* path = "/gaggia/profiles/";
   // const char* fileName = "/gaggia/gaggia_settings.csv";
   const char* cp = getCurrentProfile();
   char* fileName = (char*)malloc(30 * sizeof(char));

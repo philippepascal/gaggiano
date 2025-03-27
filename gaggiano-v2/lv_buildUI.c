@@ -567,7 +567,7 @@ void updateProfileTab() {
   }
   for (; index < 10; index++) {
     lv_obj_t* child = lv_obj_get_child(fileList, index);
-    lv_label_set_text(child, "N/A");
+    lv_label_set_text(child, "");
   }
 
   const char* fn = getCurrentProfile();
