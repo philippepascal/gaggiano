@@ -394,15 +394,33 @@ void sendCommand() {
         timerStartTime = 0;
         break;
       case PHASE_BLOOM_FILL:
-        sendSimpleBrewCommand(state.boilerSetPoint, state.blooming_pressure);
+        float temp = 0;
+        if(state.isBoilerOn) {
+          temp = state.boilerSetPoint;
+        } else if(state.isSteaming) {
+          temp = state.steamSetPoint;
+        }
+        sendSimpleBrewCommand(temp, state.blooming_pressure);
         timerStartTime = now;
         break;
       case PHASE_BLOOM_WAIT:
-        sendSimpleBrewCommand(state.boilerSetPoint, 0);
+        float temp = 0;
+        if(state.isBoilerOn) {
+          temp = state.boilerSetPoint;
+        } else if(state.isSteaming) {
+          temp = state.steamSetPoint;
+        }
+        sendSimpleBrewCommand(temp, 0);
         timerStartTime = now;
         break;
       case PHASE_BREW:
-        sendSimpleBrewCommand(state.boilerSetPoint, state.pressureSetPoint);
+        float temp = 0;
+        if(state.isBoilerOn) {
+          temp = state.boilerSetPoint;
+        } else if(state.isSteaming) {
+          temp = state.steamSetPoint;
+        }
+        sendSimpleBrewCommand(temp, state.pressureSetPoint);
         timerStartTime = now;
         break;
       case PHASE_STEAM:
@@ -421,15 +439,23 @@ void sendCommand() {
         temp = state.steamSetPoint;
       }
       sendSimpleBrewCommand(temp, 8);
-      delay(1000);
+      delay(2000);
       sendSimpleBrewCommand(temp, 0);
-      delay(1000);
+      delay(2000);
       sendSimpleBrewCommand(temp, 8);
-      delay(1000);
+      delay(2000);
       sendSimpleBrewCommand(temp, 0);
-      delay(1000);
+      delay(2000);
       sendSimpleBrewCommand(temp, 8);
-      delay(1000);
+      delay(2000);
+      sendSimpleBrewCommand(temp, 0);
+      delay(2000);
+      sendSimpleBrewCommand(temp, 8);
+      delay(2000);
+      sendSimpleBrewCommand(temp, 0);
+      delay(2000);
+      sendSimpleBrewCommand(temp, 8);
+      delay(2000);
       sendSimpleBrewCommand(temp, 0);
       state.isCleaning = false;
       sendNewCommand = currentPhase;
