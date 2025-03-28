@@ -1,0 +1,10 @@
+{
+  "additionalFiles": "../..,../../..,../../..,../../..,../..,../..,../..,../..,../..,../..,../..,../..,../..,../..,../..,../../../../../../../../../../../../..,../../../../../../../../../../../../..,../..,../..,../..,../..,../..,../..,../..,../..",
+  "builtInLibrariesFolders": "/Users/philippepascal/Library/Arduino15/libraries",
+  "compiler.optimization_flags": "-Os",
+  "customBuildProperties": "build.warn_data_percentage=75",
+  "fqbn": "esp32:esp32:esp32s3:UploadSpeed=460800,USBMode=hwcdc,CDCOnBoot=default,MSCOnBoot=default,DFUOnBoot=default,UploadMode=default,CPUFreq=240,FlashMode=qio,FlashSize=16M,PartitionScheme=default,DebugLevel=none,PSRAM=opi,LoopCore=1,EventsCore=1,EraseFlash=none,JTAGAdapter=default",
+  "hardwareFolders": "/Users/philippepascal/Library/Arduino15/packages",
+  "otherLibrariesFolders": "/Users/philippepascal/repos/Arduino/libraries",
+  "sketchLocation": "/Users/philippepascal/repos/Arduino/gaggiano-v2"
+}

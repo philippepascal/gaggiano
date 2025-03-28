@@ -375,6 +375,7 @@ void sendCommand() {
     Serial.print(currentPhase);
     Serial.print(" nextPhase ");
     Serial.println(sendNewCommand);
+    float temp = 0;
     switch (sendNewCommand) {
       case PHASE_OFF:
         if (currentPhase != PHASE_OFF) {
@@ -394,7 +395,6 @@ void sendCommand() {
         timerStartTime = 0;
         break;
       case PHASE_BLOOM_FILL:
-        float temp = 0;
         if(state.isBoilerOn) {
           temp = state.boilerSetPoint;
         } else if(state.isSteaming) {
@@ -404,7 +404,6 @@ void sendCommand() {
         timerStartTime = now;
         break;
       case PHASE_BLOOM_WAIT:
-        float temp = 0;
         if(state.isBoilerOn) {
           temp = state.boilerSetPoint;
         } else if(state.isSteaming) {
@@ -414,7 +413,6 @@ void sendCommand() {
         timerStartTime = now;
         break;
       case PHASE_BREW:
-        float temp = 0;
         if(state.isBoilerOn) {
           temp = state.boilerSetPoint;
         } else if(state.isSteaming) {
