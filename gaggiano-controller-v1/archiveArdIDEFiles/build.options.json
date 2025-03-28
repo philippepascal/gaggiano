@@ -1,0 +1,10 @@
+{
+  "additionalFiles": "../..,../..",
+  "builtInLibrariesFolders": "/Users/philippepascal/Library/Arduino15/libraries",
+  "compiler.optimization_flags": "{build.flags.optimize} {build.flags.debug}",
+  "customBuildProperties": "build.warn_data_percentage=75",
+  "fqbn": "STMicroelectronics:stm32:GenF4:pnum=GENERIC_F411CEUX,xserial=generic,usb=CDCgen,xusb=FS,opt=osstd,dbg=none,rtlib=nanofp,upload_method=dfuMethod",
+  "hardwareFolders": "/Users/philippepascal/Library/Arduino15/packages",
+  "otherLibrariesFolders": "/Users/philippepascal/repos/Arduino/libraries",
+  "sketchLocation": "/Users/philippepascal/repos/Arduino/gaggiano-controller-v1"
+}
