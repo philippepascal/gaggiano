@@ -35,7 +35,10 @@ extern "C" {
                      char* (*lp)(),
                      char* (*gcp)(),
                      int (*wcp)(const char* profileName),
-                     int (*setupAndReadConfigFile)());
+                     int (*setupAndReadConfigFile)(),
+                     int (*renameProfile)(const char* newName),
+                     bool (*deleteProfile)(const char* profileToDelete),
+                     int (*duplicateProfile)());
   void updateUI();
   /**********************
  *      MACROS

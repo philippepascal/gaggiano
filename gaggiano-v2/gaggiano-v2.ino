@@ -204,7 +204,10 @@ void setup() {
                   listProfiles, 
                   getCurrentProfile,
                   writeCurrentProfile,
-                  setupAndReadConfigFile);
+                  setupAndReadConfigFile,
+                  renameProfile,
+                  deleteProfile,
+                  duplicateProfile);
     delay(50);
     Serial.println("init UI done");
 

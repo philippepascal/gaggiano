@@ -9,6 +9,9 @@ static fs::FS* fileSystem;
 static GaggiaStateT* state;
 static AdvancedSettingsT* advancedSettings;
 
+static const char* profilesPath = "/gaggia/profiles";
+static const char* profilesPathPrefix = "/gaggia/profiles/";
+
 void initConfFile(GaggiaStateT* s, AdvancedSettingsT* as) {
   state = s;
   advancedSettings = as;
@@ -70,30 +73,26 @@ int deleteLogsFile() {
 // ----------------------------------------------
 
 int setupAndReadConfigFile() {
-
-  // const char* path = "/gaggia";
-  const char* path = "/gaggia/profiles";
   Serial.println("about to open config file....");
-  File gaggiaDir = fileSystem->open(path);
+  File gaggiaDir = fileSystem->open(profilesPath);
   Serial.println("opened config file....");
   if (!gaggiaDir) {
-    Serial.print("can't open /gaggia, trying to create it");
-    if (!fileSystem->mkdir(path)) {
+    Serial.print("can't open profilesPath, trying to create it");
+    if (!fileSystem->mkdir(profilesPath)) {
       Serial.print("Dir creation failed...");
     } else {
-      gaggiaDir = fileSystem->open(path);
+      gaggiaDir = fileSystem->open(profilesPath);
       if (!gaggiaDir) {
-        Serial.print("can't open /gaggia after creating it...");
+        Serial.print("can't open profilesPath after creating it...");
         return -1;
       }
     }
   }
 
   // const char* fileName = "/gaggia/gaggia_settings.csv";
-  const char* path2 = "/gaggia/profiles/";
   const char* cp = getCurrentProfile();
   char* fileName = (char*)malloc(30 * sizeof(char));
-  strcpy(fileName, path2);
+  strcpy(fileName, profilesPathPrefix);
   strcat(fileName, cp);
   Serial.print("~~~~~~~~~ opening selected profile in setup");
   File file = fileSystem->open(fileName);
@@ -142,13 +141,18 @@ int setupAndReadConfigFile() {
   }
 }
 
-int writeConfigFile(const char* content) {
-  const char* path = "/gaggia/profiles/";
-  // const char* fileName = "/gaggia/gaggia_settings.csv";
-  const char* cp = getCurrentProfile();
-  char* fileName = (char*)malloc(30 * sizeof(char));
-  strcpy(fileName, path);
-  strcat(fileName, cp);
+// int writeConfigFile(const char* content) {
+//   // const char* fileName = "/gaggia/gaggia_settings.csv";
+//   const char* cp = getCurrentProfile();
+//   char* fileName = (char*)malloc(30 * sizeof(char));
+//   strcpy(fileName, profilesPathPrefix);
+//   strcat(fileName, cp);
+
+//   return writeConfigFile(fileName,content);
+// }
+
+
+int writeFile(const char* fileName, const char* content) {
   Serial.print("~~~~~~~~~ opening selected profile to write its content");
   File file = fileSystem->open(fileName, FILE_WRITE);
   if (!file) {
@@ -164,18 +168,18 @@ int writeConfigFile(const char* content) {
   return 1;
 }
 
-int writeConfigFile() {
+int writeGrivenConfigFile(const char* fileName) {
   char buffer[500];
   const char* csv_str = "key,value\n"
                         "boilerSetPoint,%f\n"
                         "pressureSetPoint,%f\n"
-                        "steamSetPoint,%f\n\n"
-                        "steam_max_pressure,%f\n\n"
-                        "steam_pump_output_percent,%f\n\n"
-                        "blooming_pressure,%f\n\n"
-                        "blooming_fill_time,%f\n\n"
-                        "blooming_wait_time,%f\n\n"
-                        "brew_timer,%f\n\n"
+                        "steamSetPoint,%f\n"
+                        "steam_max_pressure,%f\n"
+                        "steam_pump_output_percent,%f\n"
+                        "blooming_pressure,%f\n"
+                        "blooming_fill_time,%f\n"
+                        "blooming_wait_time,%f\n"
+                        "brew_timer,%f\n"
                         "boiler_bb_range,%f\n"
                         "boiler_PID_cicle,%f\n"
                         "boiler_PID_KP,%f\n"
@@ -208,7 +212,17 @@ int writeConfigFile() {
           advancedSettings->unused1);
   Serial.println("writing to file");
   Serial.println(buffer);
-  return writeConfigFile(buffer);
+
+  return writeFile(fileName,buffer);
+}
+
+int writeConfigFile() {
+  const char* cp = getCurrentProfile();
+  char* fileName = (char*)malloc(30 * sizeof(char));
+  strcpy(fileName, profilesPathPrefix);
+  strcat(fileName, cp);
+
+  return writeGrivenConfigFile(fileName);
 }
 
 // -----------------------------------
@@ -242,10 +256,10 @@ int displayFrankBmp(BMP_DRAW_CALLBACK* bmpDrawCallback, int16_t width, int16_t h
 // --------------------------------
 
 char* listProfiles() {
-  const char* path = "/gaggia/profiles";
-  File profilesDir = fileSystem->open(path);
+  File profilesDir = fileSystem->open(profilesPath);
   if (!profilesDir) {
-    Serial.print("can't open /gaggia/profiles");
+    Serial.print("can't open ");
+    Serial.print(profilesPath);
     return NULL;
   }
   char* buffer = (char*)malloc(sizeof(char) * 500);
@@ -307,4 +321,41 @@ char* getCurrentProfile() {
   Serial.print(" ------- selected profile: ");
   Serial.println(buffer);
   return buffer;
+}
+
+int renameProfile(const char* newName) {
+  const char* cp = getCurrentProfile();
+  char* currentFileName = (char*)malloc(30 * sizeof(char));
+  strcpy(currentFileName, profilesPathPrefix);
+  strcat(currentFileName, cp);
+
+  char* newFileName = (char*)malloc(30 * sizeof(char));
+  strcpy(newFileName, profilesPathPrefix);
+  strcat(newFileName, newName);
+
+  if(!fileSystem->rename(currentFileName,newFileName)) {
+    return -1;
+  }
+
+  return writeCurrentProfile(newName);
+}
+
+bool deleteProfile(const char* profileToDelete) {
+  char* fileToDelete = (char*)malloc(30 * sizeof(char));
+  strcpy(fileToDelete, profilesPathPrefix);
+  strcat(fileToDelete, profileToDelete);
+  Serial.print("file to delete is ");
+  Serial.println(fileToDelete);
+  return fileSystem->remove(fileToDelete);
+}
+
+int duplicateProfile() {
+  const char* cp = getCurrentProfile();
+  char* dupFileName = (char*)malloc(30 * sizeof(char));
+  strcpy(dupFileName, profilesPathPrefix);
+  strcat(dupFileName, cp);
+  strcat(dupFileName, "-c");
+
+  return writeGrivenConfigFile(dupFileName);
+
 }

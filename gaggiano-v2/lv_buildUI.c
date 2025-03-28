@@ -26,11 +26,25 @@
  *  STATIC PROTOTYPES
  **********************/
 
+/*Create an AZERTY keyboard map*/
+static const char* kb_num_map[] = { "1", "2", "3", LV_SYMBOL_BACKSPACE, "\n",
+                                    "4", "5", "6", " ", "\n",
+                                    "7", "8", "9", ".", "\n",
+                                    LV_SYMBOL_CLOSE, LV_SYMBOL_OK, NULL };
+
+static const lv_btnmatrix_ctrl_t kb_num_ctrl[] = { 1, 1, 1, 1,
+                                                   1, 1, 1, 1,
+                                                   1, 1, 1, 1,
+                                                   2, 2 };
+
 static int (*writeConfigFile)();
 static char* (*listProfiles)();
 static char* (*getCurrentProfile)();
 static int (*writeCurrentProfile)(const char* profileName);
 static int (*setupAndReadConfigFile)();
+static int (*renameProfile)(const char* newName);
+static bool (*deleteProfile)(const char* profileToDelete);
+static int (*duplicateProfile)();
 
 static void basic_create(lv_obj_t* parent);
 static void settings_create(lv_obj_t* parent);
@@ -56,6 +70,9 @@ static lv_obj_t* lastBrewTimeLabel;
 
 static lv_obj_t* fileList;
 static lv_obj_t* fileName_tf;
+static lv_obj_t* fileName_btn;
+static lv_obj_t* duplicate_btn;
+static lv_obj_t* delete_btn;
 
 static lv_obj_t* brew_temp_tf;
 static lv_obj_t* brew_pressure_tf;
@@ -96,8 +113,33 @@ static lv_style_t style_icon;
 static lv_style_t style_bullet;
 
 /**********************
- *      MACROS
+ *      UTILS
  **********************/
+
+
+int myIndexOf(const char* str, const char ch, int fromIndex) {
+  const char* result = strchr(str + fromIndex, ch);
+  if (result == NULL) {
+    return -1;  // Substring not found
+  } else {
+    return result - str;  // Calculate the index
+  }
+}
+
+char* mySubString(const char* str, int start, int end) {
+  char* sub = (char*)malloc(sizeof(char) * (end - start));
+  if (sub == NULL) {
+    return NULL;
+  }
+
+  strncpy(sub, str + start, (end - start));
+  sub[(end - start)] = '\0';
+
+  return sub;
+}
+
+
+
 /**********************
  *      EVENT HANDLING
  **********************/
@@ -302,13 +344,81 @@ static void clearLogsBtnClicked(lv_event_t* e) {
 static void profile_selected(lv_event_t* e) {
   lv_event_code_t code = lv_event_get_code(e);
   if (code == LV_EVENT_CLICKED) {
-  LV_LOG_WARN("profile label Clicked");
+    LV_LOG_WARN("profile label Clicked");
     const char* clickedProfileName = lv_label_get_text(lv_event_get_target(e));
     if (strlen(clickedProfileName) > 0) {
       lv_textarea_set_text(fileName_tf, clickedProfileName);
-      //lv_textarea_get_text(fileName_tf);
       writeCurrentProfile(clickedProfileName);
       setupAndReadConfigFile();
+    }
+  }
+}
+
+void updateProfileTab() {
+  const char* profileNames = listProfiles();
+  LV_LOG_WARN(profileNames);
+  int start = 0;
+  int end = myIndexOf(profileNames, ';', start);
+  int index = 0;
+  while (end > 0) {
+    const char* profileName = mySubString(profileNames, start, end);
+    LV_LOG_WARN(profileName);
+    lv_obj_t* child = lv_obj_get_child(fileList, index);
+    lv_label_set_text(child, profileName);
+    start = end + 1;
+    end = myIndexOf(profileNames, ';', start);
+    index++;
+  }
+  for (; index < 10; index++) {
+    lv_obj_t* child = lv_obj_get_child(fileList, index);
+    lv_label_set_text(child, "");
+  }
+
+  const char* fn = getCurrentProfile();
+  lv_textarea_set_text(fileName_tf, fn);
+}
+
+static void fileName_btn_clicked(lv_event_t* e) {
+  lv_event_code_t code = lv_event_get_code(e);
+  if (code == LV_EVENT_CLICKED) {
+    LV_LOG_WARN("rename Clicked");
+    const char* newProfileName = lv_textarea_get_text(fileName_tf);
+    if (strlen(newProfileName) > 0) {
+      renameProfile(newProfileName);
+      updateProfileTab();
+    }
+  }
+}
+static void duplicate_btn_clicked(lv_event_t* e) {
+  lv_event_code_t code = lv_event_get_code(e);
+  if (code == LV_EVENT_CLICKED) {
+    LV_LOG_WARN("duplicate Clicked");
+    duplicateProfile();
+    updateProfileTab();
+  }
+}
+static void delete_btn_clicked(lv_event_t* e) {
+  lv_event_code_t code = lv_event_get_code(e);
+  if (code == LV_EVENT_CLICKED) {
+    LV_LOG_WARN("delete Clicked");
+    const char* profileToDelete = lv_textarea_get_text(fileName_tf);
+    if (strlen(profileToDelete) > 0) {
+      LV_LOG_WARN("delete this profile");
+      LV_LOG_WARN(profileToDelete);
+      deleteProfile(profileToDelete);
+      LV_LOG_WARN("profile deleted, now selecting default");
+
+      //select new default
+      lv_obj_t* child = lv_obj_get_child(fileList, 0);
+      LV_LOG_WARN("picked first in the list");
+      const char* newProfileName = lv_label_get_text(child);
+      if (strlen(newProfileName) > 0) {
+        LV_LOG_WARN("new selected profile will be");
+        LV_LOG_WARN("newProfileName");
+        writeCurrentProfile(newProfileName);
+        setupAndReadConfigFile();
+      }
+      updateProfileTab();
     }
   }
 }
@@ -449,7 +559,10 @@ void instantiateUI(GaggiaStateT* s,
                    char* (*lp)(),
                    char* (*gcp)(),
                    int (*wcp)(const char* profileName),
-                   int (*sarcf)()) {
+                   int (*sarcf)(),
+                   int (*rp)(const char* newName),
+                   bool (*dp)(const char* profileToDelete),
+                   int (*dupp)()) {
   state = s;
   advancedSettings = as;
   writeConfigFile = f;
@@ -457,6 +570,9 @@ void instantiateUI(GaggiaStateT* s,
   getCurrentProfile = gcp;
   writeCurrentProfile = wcp;
   setupAndReadConfigFile = sarcf;
+  renameProfile = rp;
+  deleteProfile = dp;
+  duplicateProfile = dupp;
 
   lv_log_register_print_cb(my_log_cb);
 
@@ -529,51 +645,6 @@ void instantiateUI(GaggiaStateT* s,
  *   STATIC FUNCTIONS
  **********************/
 
-int myIndexOf(const char* str, const char ch, int fromIndex) {
-  const char* result = strchr(str + fromIndex, ch);
-  if (result == NULL) {
-    return -1;  // Substring not found
-  } else {
-    return result - str;  // Calculate the index
-  }
-}
-
-char* mySubString(const char* str, int start, int end) {
-  char* sub = (char*)malloc(sizeof(char) * (end - start));
-  if (sub == NULL) {
-    return NULL;
-  }
-
-  strncpy(sub, str + start, (end - start));
-  sub[(end - start)] = '\0';
-
-  return sub;
-}
-
-void updateProfileTab() {
-  const char* profileNames = listProfiles();
-  LV_LOG_WARN(profileNames);
-  int start = 0;
-  int end = myIndexOf(profileNames, ';', start);
-  int index = 0;
-  while (end > 0) {
-    const char* profileName = mySubString(profileNames, start, end);
-    LV_LOG_WARN(profileName);
-    lv_obj_t* child = lv_obj_get_child(fileList, index);
-    lv_label_set_text(child, profileName);
-    start = end + 1;
-    end = myIndexOf(profileNames, ';', start);
-    index++;
-  }
-  for (; index < 10; index++) {
-    lv_obj_t* child = lv_obj_get_child(fileList, index);
-    lv_label_set_text(child, "");
-  }
-
-  const char* fn = getCurrentProfile();
-  lv_textarea_set_text(fileName_tf, fn);
-}
-
 static void profile_create(lv_obj_t* parent) {
 
   fileList = lv_list_create(parent);
@@ -598,35 +669,35 @@ static void profile_create(lv_obj_t* parent) {
   lv_textarea_set_one_line(fileName_tf, true);
   lv_obj_add_event_cb(fileName_tf, setting_field_changed, LV_EVENT_ALL, kb);
 
-  lv_obj_t* fileName_btn = lv_btn_create(parent);
-  // lv_obj_add_event_cb(boilerBtn, fileName_btn_clicked, LV_EVENT_ALL, NULL);
+  fileName_btn = lv_btn_create(parent);
+  lv_obj_add_event_cb(fileName_btn, fileName_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_t* fileName_btn_lbl = lv_label_create(fileName_btn);
   lv_label_set_text(fileName_btn_lbl, "Rename");
   lv_obj_center(fileName_btn_lbl);
 
-  lv_obj_t* duplicate_btn = lv_btn_create(parent);
-  // lv_obj_add_event_cb(boilerBtn, duplicate_btn_clicked, LV_EVENT_ALL, NULL);
+  duplicate_btn = lv_btn_create(parent);
+  lv_obj_add_event_cb(duplicate_btn, duplicate_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_t* duplicate_btn_lbl = lv_label_create(duplicate_btn);
   lv_label_set_text(duplicate_btn_lbl, "Duplicate");
   lv_obj_center(duplicate_btn_lbl);
 
-  lv_obj_t* delete_btn = lv_btn_create(parent);
-  // lv_obj_add_event_cb(delete_btn, delete_btn_clicked, LV_EVENT_ALL, NULL);
+  delete_btn = lv_btn_create(parent);
+  lv_obj_add_event_cb(delete_btn, delete_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_t* delete_btn_lbl = lv_label_create(delete_btn);
   lv_label_set_text(delete_btn_lbl, "Delete");
   lv_obj_center(delete_btn_lbl);
 
   static lv_coord_t grid_main_col_dsc[] = { LV_GRID_FR(1), 10, LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
-  static lv_coord_t grid_main_row_dsc[] = { LV_GRID_FR(1), 10, LV_GRID_FR(1), 10, LV_GRID_FR(1), 10, LV_GRID_FR(1), LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t grid_main_row_dsc[] = { LV_GRID_FR(1), 10, LV_GRID_FR(1), 10, LV_GRID_FR(1), 10, LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
 
   lv_obj_set_grid_dsc_array(parent, grid_main_col_dsc, grid_main_row_dsc);
 
-  lv_obj_set_grid_cell(fileList, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 0, 8);
+  lv_obj_set_grid_cell(fileList, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 0, 7);
 
-  lv_obj_set_grid_cell(fileName_tf, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
-  lv_obj_set_grid_cell(fileName_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 2, 1);
-  lv_obj_set_grid_cell(duplicate_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 4, 1);
-  lv_obj_set_grid_cell(delete_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 6, 1);
+  lv_obj_set_grid_cell(fileName_tf, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_grid_cell(fileName_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_CENTER, 2, 1);
+  lv_obj_set_grid_cell(duplicate_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_CENTER, 4, 1);
+  lv_obj_set_grid_cell(delete_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_CENTER, 6, 1);
 }
 
 static void basic_create(lv_obj_t* parent) {
@@ -770,6 +841,8 @@ static void settings_create(lv_obj_t* parent) {
 
   lv_obj_t* kb = lv_keyboard_create(lv_scr_act());
   lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
+  lv_keyboard_set_map(kb, LV_KEYBOARD_MODE_USER_1, kb_num_map, kb_num_ctrl);
+  lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_USER_1);
 
   brew_temp_tf = lv_textarea_create(panel1);
   lv_textarea_set_one_line(brew_temp_tf, true);
@@ -931,6 +1004,8 @@ static void advancedSettings_create(lv_obj_t* parent) {
 
   lv_obj_t* kb = lv_keyboard_create(lv_scr_act());
   lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
+  lv_keyboard_set_map(kb, LV_KEYBOARD_MODE_USER_1, kb_num_map, kb_num_ctrl);
+  lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_USER_1);
 
   boiler_bb_range_tf = lv_textarea_create(panel1);
   lv_textarea_set_one_line(boiler_bb_range_tf, true);
