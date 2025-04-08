@@ -422,7 +422,7 @@ void sendCommand() {
         timerStartTime = now;
         break;
       case PHASE_STEAM:
-        sendSteamCommand(state.steamSetPoint, 1, 20);
+        sendSteamCommand(state.steamSetPoint, state.steam_max_pressure, state.steam_pump_output_percent);
         if (currentPhase == PHASE_BREW) {
           state.lastBrewTime = (now - timerStartTime) / 1000;
         }

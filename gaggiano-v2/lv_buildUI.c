@@ -30,12 +30,12 @@
 static const char* kb_num_map[] = { "1", "2", "3", LV_SYMBOL_BACKSPACE, "\n",
                                     "4", "5", "6", " ", "\n",
                                     "7", "8", "9", ".", "\n",
-                                    LV_SYMBOL_CLOSE, LV_SYMBOL_OK, NULL };
+                                    "0", LV_SYMBOL_CLOSE, LV_SYMBOL_OK, NULL };
 
 static const lv_btnmatrix_ctrl_t kb_num_ctrl[] = { 1, 1, 1, 1,
                                                    1, 1, 1, 1,
                                                    1, 1, 1, 1,
-                                                   2, 2 };
+                                                   2, 2, 2 };
 
 static int (*writeConfigFile)();
 static char* (*listProfiles)();
@@ -289,11 +289,13 @@ static void brewButtonClicked(lv_event_t* e) {
       LV_LOG_USER("starting brew");
       state->isBrewing = true;
       state->hasCommandChanged = true;
+      lv_obj_add_state(steamBtn, LV_STATE_DISABLED);
     } else {
       //set arduino to brew (valve and pump) to pressureSetPoint 0
       LV_LOG_USER("stopping brew");
       state->isBrewing = false;
       state->hasCommandChanged = true;
+      lv_obj_clear_state(steamBtn, LV_STATE_DISABLED);
     }
   }
 }
@@ -311,11 +313,13 @@ static void steamButtonClicked(lv_event_t* e) {
       lv_imgbtn_set_state(boilerBtn, LV_IMGBTN_STATE_CHECKED_RELEASED);
       state->isSteaming = true;
       state->hasCommandChanged = true;
+      lv_obj_add_state(brewBtn, LV_STATE_DISABLED);
     } else {
       //set arduino to boilerSetPoint to 0
       LV_LOG_USER("stopping steam ");
       state->isSteaming = false;
       state->hasCommandChanged = true;
+      lv_obj_clear_state(brewBtn, LV_STATE_DISABLED);
     }
   }
 }
@@ -433,11 +437,13 @@ void my_log_cb(const char* buf) {
 void updateUI() {
   LV_LOG_TRACE("updating real time fields");
 
-  if (state->isSteaming)
+  if (state->isSteaming) {
     lv_label_set_text_fmt(tempSet2Label, "%.2f", state->steamSetPoint);
-  else
+    lv_label_set_text_fmt(pressureSet2Label, "%.2f", state->steam_max_pressure);
+  } else {
     lv_label_set_text_fmt(tempSet2Label, "%.2f", state->boilerSetPoint);
-  lv_label_set_text_fmt(pressureSet2Label, "%.2f", state->pressureSetPoint);
+    lv_label_set_text_fmt(pressureSet2Label, "%.2f", state->pressureSetPoint);
+  }
 
   lv_label_set_text_fmt(tempRead2Label, "%.2f", state->tempRead);
   lv_label_set_text_fmt(pressureRead2Label, "%.2f", state->pressureRead);
