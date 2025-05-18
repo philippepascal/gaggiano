@@ -245,10 +245,6 @@ int displayFrankBmp(BMP_DRAW_CALLBACK* bmpDrawCallback, int16_t width, int16_t h
 
     file.close();
 
-    Serial.println("about to open config file....");
-    File gaggiaDir = fileSystem->open("/gaggia");
-    Serial.println("opened config file....");
-
     return 1;
   }
 }

@@ -195,8 +195,7 @@ void setup() {
 
     Serial.println(" ~~~~~~~~~~~~~ calling display Frank ");
     displayFrankBmp(bmpDrawCallback, 800, 480);
-
-    delay(1500);
+    delay(5000);
 
     instantiateUI(&state,
                   &advancedSettings, 
@@ -461,6 +460,7 @@ void sendCommand() {
   }
   if (sendNewCommand != -1) currentPhase = sendNewCommand;
   state.hasCommandChanged = false;
+  state.hasConfigChanged = false;
 }
 
 void sendSimpleBrewCommand(double temp, double pressure) {

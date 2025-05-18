@@ -600,6 +600,11 @@ void instantiateUI(GaggiaStateT* s,
 #else
   LV_LOG_WARN("LV_FONT_MONTSERRAT_16 is not enabled for the widgets demo. Using LV_FONT_DEFAULT instead.");
 #endif
+#if LV_FONT_MONTSERRAT_18
+  font_normal = &lv_font_montserrat_18;
+#else
+  LV_LOG_WARN("LV_FONT_MONTSERRAT_18 is not enabled for the widgets demo. Using LV_FONT_DEFAULT instead.");
+#endif
 
 
 #if LV_USE_THEME_DEFAULT
