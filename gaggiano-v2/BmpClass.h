@@ -1,6 +1,6 @@
 /*******************************************************************************
  * BMP Class
- * 
+ *
  * Rewrite from: https://github.com/Jaycar-Electronics/Arduino-Picture-Frame.git
  ******************************************************************************/
 #ifndef _BMPCLASS_H_
@@ -20,7 +20,7 @@ typedef void(BMP_DRAW_CALLBACK)(int16_t x, int16_t y, uint16_t *bitmap, int16_t 
 class BmpClass {
 public:
   void draw(
-    File *f, BMP_DRAW_CALLBACK *bmpDrawCallback, bool useBigEndian,
+    File *f, File *of, BMP_DRAW_CALLBACK *bmpDrawCallback, bool useBigEndian,
     int16_t x, int16_t y, int16_t widthLimit, int16_t heightLimit) {
     _bmpDrawCallback = bmpDrawCallback;
     _useBigEndian = useBigEndian;
@@ -60,7 +60,7 @@ public:
       } else {
         //That's our bmp!!
         Serial.println(F("using drawbmtrue"));
-        drawbmtrue(f, u, v, xend);
+        drawbmtrue(f, of, u, v, xend);
       }
       free(bmpRow);
     }
@@ -141,7 +141,7 @@ private:
   }
 
   // draw true colour bitmap at (u,v) handles 24/32 not 16bpp yet
-  void drawbmtrue(File *f, int16_t u, int16_t v, uint32_t xend) {
+  void drawbmtrue(File *f, File *of, int16_t u, int16_t v, uint32_t xend) {
     int16_t i, ystart;
     uint32_t x, y;
     byte r, g, b;
@@ -155,28 +155,43 @@ private:
     if (!bmpRow) {
       Serial.println(F("bmpRow malloc failed."));
     }
-    f->seek(bmdataptr + ystart * bmbpl);   //seek at start of line
     u_long t = millis();
-    for (y = ystart; y < bmheight; y++) {  //invert in calculation (y=0 is bottom)
-      for (x = 0; x < xend; x++) {
-        b = f->read();
-        g = f->read();
-        r = f->read();
-        if (bmbpp == 32) {
-          f->read();  //dummy byte for 32bit
+    Serial.print("optimized file size ");
+    Serial.println(of->size());
+    if (of->size() > 0) {
+      Serial.println("used optimized");
+      of->readBytes((char *)bmpRow, of->size());
+    } else {
+      f->seek(bmdataptr + ystart * bmbpl);   //seek at start of line
+      for (y = ystart; y < bmheight; y++) {  //invert in calculation (y=0 is bottom)
+        for (x = 0; x < xend; x++) {
+          b = f->read();
+          g = f->read();
+          r = f->read();
+          if (bmbpp == 32) {
+            f->read();  //dummy byte for 32bit
+          }
+          bmpRow[(bmheight - 1 - y + ystart) * xend + x] = (_useBigEndian) ? ((r & 0xf8) | (g >> 5) | ((g & 0x1c) << 11) | ((b & 0xf8) << 5)) : (((r & 0xf8) << 8) | ((g & 0xfc) << 3) | (b >> 3));
         }
-        bmpRow[(bmheight -1 -y + ystart) * xend + x] = (_useBigEndian) ? ((r & 0xf8) | (g >> 5) | ((g & 0x1c) << 11) | ((b & 0xf8) << 5)) : (((r & 0xf8) << 8) | ((g & 0xfc) << 3) | (b >> 3));
       }
+
+      Serial.print("bmpRow size ");
+      Serial.println(sizeof(bmpRow));
+      of->write((const uint8_t *)bmpRow, (_heightLimit * xend * 4));
+      of->flush();
     }
     Serial.print("loop time ");
-    Serial.println(millis()-t);
+    Serial.println(millis() - t);
     _bmpDrawCallback(u, v, bmpRow, xend, _heightLimit);
     Serial.print("loop time + draw time ");
-    Serial.println(millis()-t);
+    Serial.println(millis() - t);
   }
 
-  void getbmpparms(File *f) {  //load into globals as ints-some parameters are 32 bit, but we can't handle this size anyway
-    byte h[48];                //header is 54 bytes typically, but we don't need it all
+
+
+  void
+  getbmpparms(File *f) {  //load into globals as ints-some parameters are 32 bit, but we can't handle this size anyway
+    byte h[48];           //header is 54 bytes typically, but we don't need it all
     int16_t i;
     f->seek(0);  //set start of file
     for (i = 0; i < 48; i++) {

@@ -471,7 +471,8 @@ void sendSimpleBrewCommand(double temp, double pressure) {
   Serial.println(message);
 }
 
-void sendSteamCommand(double temp, double maxPressure, double pumpOutputPercent) {
+void 
+sendSteamCommand(double temp, double maxPressure, double pumpOutputPercent) {
   char message[200] = "";
   sprintf(message, "2;%.2f;%.2f;%.2f;|", temp, maxPressure, pumpOutputPercent);
   controllerSerial.println(message);

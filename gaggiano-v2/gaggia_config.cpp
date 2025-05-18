@@ -231,6 +231,13 @@ static BmpClass bmpClass;
 
 int displayFrankBmp(BMP_DRAW_CALLBACK* bmpDrawCallback, int16_t width, int16_t height) {
   const char* fileName = "/gaggia/frank.bmp";
+  const char* optimizedFileName = "/gaggia/frank_opt.bin";
+
+  // File optFile = fileSystem->open(optimizedFileName, FILE_WRITE); //one time to write the optimized file
+  File optFile = fileSystem->open(optimizedFileName, FILE_READ);
+  if (!optFile) {
+    Serial.println("Failed to open optimized file for writing");
+  }
 
   Serial.println("about to open frank file");
   File file = fileSystem->open(fileName, FILE_READ);
@@ -240,10 +247,11 @@ int displayFrankBmp(BMP_DRAW_CALLBACK* bmpDrawCallback, int16_t width, int16_t h
   } else {
     Serial.println("displaying frank");
     bmpClass.draw(
-      &file, bmpDrawCallback, false /* useBigEndian */,
+      &file, &optFile, bmpDrawCallback, false /* useBigEndian */,
       0 /* x */, 0 /* y */, width /* widthLimit */, height /* heightLimit */);
 
     file.close();
+    optFile.close();
 
     return 1;
   }
