@@ -14,7 +14,7 @@ double boiler_relay_output;
 
 double pressure_read = 0;
 double pressure_smoothed = 0;
-double pump_dimmer_output;
+// double pump_dimmer_output;
 double pump_dimmer_output2;
 
 // timers
@@ -240,7 +240,7 @@ void updatePump() {
     if (pressure_smoothed > pressureSetPoint) {
       pumpValue = 0;
     } else {
-      int p = pressureOutputPercent;
+      float p = pressureOutputPercent;
       if (pressureOutputPercent > 10) {  // just safety, solenoid is closed!
         p = 10;
       }
@@ -349,11 +349,19 @@ void parseMessage() {
       Serial.print("temperatureSetPoint ");
       Serial.print(temperatureSetPoint);
       Serial.print(" pressureSetPoint ");
-      Serial.println(pressureSetPoint);
+      Serial.print(pressureSetPoint);
+      Serial.print(" pressureOutputPercent ");
+      Serial.println(pressureOutputPercent);
     } else if (sender == 2) {  // special steam command (not by pressure, but by pump output)
       cursor = getNextFloat(&temperatureSetPoint, m, messageSize, cursor);
       if (cursor > 0) cursor = getNextFloat(&pressureSetPoint, m, messageSize, cursor);  //max pressure
       if (cursor > 0) cursor = getNextFloat(&pressureOutputPercent, m, messageSize, cursor);
+      Serial.print("temperatureSetPoint ");
+      Serial.print(temperatureSetPoint);
+      Serial.print(" pressureSetPoint ");
+      Serial.print(pressureSetPoint);
+      Serial.print(" pressureOutputPercent ");
+      Serial.println(pressureOutputPercent);
     } else if (sender == 9) {  // advanced settings
       cursor = getNextFloat(&boiler_bb_range, m, messageSize, cursor);
       if (cursor > 0) cursor = getNextFloat(&boiler_PID_cycle, m, messageSize, cursor);

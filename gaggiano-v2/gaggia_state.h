@@ -14,6 +14,10 @@ struct GaggiaState {
   float blooming_fill_time;
   float blooming_wait_time;
   float brew_timer;
+  //profile meta data
+  bool hasMetaDataChanged;
+  char* profile_name;
+  char* notes;
   //real time read
   float tempRead;
   float pressureRead;
