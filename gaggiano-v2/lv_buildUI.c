@@ -50,9 +50,7 @@ static void basic_create(lv_obj_t* parent);
 static void settings_create(lv_obj_t* parent);
 static void advancedSettings_create(lv_obj_t* parent);
 static void profile_create(lv_obj_t* parent);
-static void analytics_create(lv_obj_t* parent);
-static void shop_create(lv_obj_t* parent);
-static void color_changer_create(lv_obj_t* parent);
+static void main_create(lv_obj_t* parent);
 static void updateProfileTab();
 
 /**********************
@@ -60,6 +58,24 @@ static void updateProfileTab();
  **********************/
 static GaggiaStateT* state;
 static AdvancedSettingsT* advancedSettings;
+
+static lv_obj_t* selectedProfileLabel;
+
+static lv_obj_t* heat_btn;
+static lv_obj_t* heat_btn_label;
+static lv_obj_t* boil_btn;
+static lv_obj_t* boil_btn_label;
+static lv_obj_t* brew_btn;
+static lv_obj_t* brew_btn_label;
+static lv_obj_t* clean_btn;
+static lv_obj_t* clean_btn_label;
+static lv_obj_t* prime_btn;
+static lv_obj_t* prime_btn_label;
+static lv_obj_t* auto_btn;
+static lv_obj_t* auto_btn_label;
+static lv_obj_t* temp_label;
+static lv_obj_t* press_label;
+static lv_obj_t* time_label;
 
 static lv_obj_t* tempSet2Label;
 static lv_obj_t* tempRead2Label;
@@ -354,6 +370,7 @@ static void profile_selected(lv_event_t* e) {
       lv_textarea_set_text(fileName_tf, clickedProfileName);
       writeCurrentProfile(clickedProfileName);
       setupAndReadConfigFile();
+      //TODO shouldn't we update the settings/advanced tab?
     }
   }
 }
@@ -380,6 +397,7 @@ void updateProfileTab() {
 
   const char* fn = getCurrentProfile();
   lv_textarea_set_text(fileName_tf, fn);
+  lv_label_set_text(selectedProfileLabel,fn);
 }
 
 static void fileName_btn_clicked(lv_event_t* e) {
@@ -426,6 +444,101 @@ static void delete_btn_clicked(lv_event_t* e) {
     }
   }
 }
+
+static void main_btn_clicked(lv_event_t* e) {
+  lv_obj_t* target = lv_event_get_target(e);
+  lv_event_code_t code = lv_event_get_code(e);
+  if(code == LV_EVENT_CLICKED) {
+      if(target == heat_btn) {
+          LV_LOG_USER("heat_btn button clicked");
+          if (lv_obj_get_state(heat_btn) & LV_STATE_CHECKED) {
+            if (lv_obj_get_state(boil_btn) & LV_STATE_CHECKED) {
+              LV_LOG_USER("stoping steam");
+              lv_obj_clear_state(boil_btn, LV_STATE_CHECKED);
+            }
+            LV_LOG_USER("starting heat");
+            state->isBoilerOn = true;
+            state->isSteaming = false;
+            state->hasCommandChanged = true;
+          } else {
+            LV_LOG_USER("stoping heat");
+            state->isBoilerOn = false;
+            state->isSteaming = false;
+            state->hasCommandChanged = true;
+          }
+      } else if(target == boil_btn) {
+          LV_LOG_USER("boil_btn button clicked");
+          if (lv_obj_get_state(boil_btn) & LV_STATE_CHECKED) {
+            if (lv_obj_get_state(heat_btn) & LV_STATE_CHECKED) {
+              LV_LOG_USER("stoping heat");
+              lv_obj_clear_state(heat_btn, LV_STATE_CHECKED);
+            }
+            LV_LOG_USER("starting boil");
+            state->isBoilerOn = true;
+            state->isSteaming = true;
+            state->hasCommandChanged = true;
+          } else {
+            LV_LOG_USER("stoping boil");
+            state->isBoilerOn = false;
+            state->isSteaming = false;
+            state->hasCommandChanged = true;
+          }
+      } else if(target == brew_btn) {
+          LV_LOG_USER("brew_btn button clicked");
+          if (lv_obj_get_state(brew_btn) & LV_STATE_CHECKED) {
+            //disable 3 other buttons
+            lv_obj_add_state(clean_btn,LV_STATE_DISABLED);
+            lv_obj_add_state(prime_btn,LV_STATE_DISABLED);
+            lv_obj_add_state(auto_btn,LV_STATE_DISABLED);
+          } else {
+            //reenable 3 other buttons
+            lv_obj_clear_state(clean_btn,LV_STATE_DISABLED);
+            lv_obj_clear_state(prime_btn,LV_STATE_DISABLED);
+            lv_obj_clear_state(auto_btn,LV_STATE_DISABLED);
+          }
+      } else if(target == clean_btn) {
+          LV_LOG_USER("clean_btn button clicked");
+          if (lv_obj_get_state(clean_btn) & LV_STATE_CHECKED) {
+            //disable 3 other buttons
+            lv_obj_add_state(brew_btn,LV_STATE_DISABLED);
+            lv_obj_add_state(prime_btn,LV_STATE_DISABLED);
+            lv_obj_add_state(auto_btn,LV_STATE_DISABLED);
+          } else {
+            //reenable 3 other buttons
+            lv_obj_clear_state(brew_btn,LV_STATE_DISABLED);
+            lv_obj_clear_state(prime_btn,LV_STATE_DISABLED);
+            lv_obj_clear_state(auto_btn,LV_STATE_DISABLED);
+          }
+      } else if(target == prime_btn) {
+          LV_LOG_USER("prime_btn button clicked");
+          if (lv_obj_get_state(prime_btn) & LV_STATE_CHECKED) {
+            //disable 3 other buttons
+            lv_obj_add_state(clean_btn,LV_STATE_DISABLED);
+            lv_obj_add_state(brew_btn,LV_STATE_DISABLED);
+            lv_obj_add_state(auto_btn,LV_STATE_DISABLED);
+          } else {
+            //reenable 3 other buttons
+            lv_obj_clear_state(clean_btn,LV_STATE_DISABLED);
+            lv_obj_clear_state(brew_btn,LV_STATE_DISABLED);
+            lv_obj_clear_state(auto_btn,LV_STATE_DISABLED);
+          }
+      } else if(target == auto_btn) {
+          LV_LOG_USER("auto_btn button clicked");
+          if (lv_obj_get_state(auto_btn) & LV_STATE_CHECKED) {
+            //disable 3 other buttons
+            lv_obj_add_state(clean_btn,LV_STATE_DISABLED);
+            lv_obj_add_state(prime_btn,LV_STATE_DISABLED);
+            lv_obj_add_state(brew_btn,LV_STATE_DISABLED);
+          } else {
+            //reenable 3 other buttons
+            lv_obj_clear_state(clean_btn,LV_STATE_DISABLED);
+            lv_obj_clear_state(prime_btn,LV_STATE_DISABLED);
+            lv_obj_clear_state(brew_btn,LV_STATE_DISABLED);
+          }
+      }
+  }
+
+}
 /**********************
  *   GLOBAL FUNCTIONS
  **********************/
@@ -435,6 +548,19 @@ void my_log_cb(const char* buf) {
 }
 
 void updateUI() {
+  LV_LOG_TRACE("updating UI");
+  lv_label_set_text_fmt(lv_obj_get_child(heat_btn, 0), "H:%.2fC", state->boilerSetPoint);
+  lv_label_set_text_fmt(lv_obj_get_child(boil_btn, 0), "S:%.2fC", state->steamSetPoint);
+  lv_label_set_text_fmt(lv_obj_get_child(brew_btn, 0), "B:%.2fb", state->pressureSetPoint);
+  lv_label_set_text_fmt(lv_obj_get_child(prime_btn, 0), "P:%.2fs", state->blooming_wait_time);
+  lv_label_set_text_fmt(lv_obj_get_child(auto_btn, 0), "A:%.2fs", state->brew_timer);
+  lv_label_set_text_fmt(temp_label, "%.2fC", state->tempRead);
+  lv_label_set_text_fmt(press_label, "%.2fb", state->pressureRead);
+  lv_label_set_text_fmt(time_label, "%.2fs", state->lastBrewTime);
+  oldUpdateUI();
+}
+
+void oldUpdateUI() {
   LV_LOG_TRACE("updating real time fields");
 
   if (state->isSteaming) {
@@ -590,21 +716,23 @@ void instantiateUI(GaggiaStateT* s,
   lv_coord_t tab_h;
 
   tab_h = 70;
-#if LV_FONT_MONTSERRAT_24
-  font_large = &lv_font_montserrat_24;
+
+  // defined in ../libraries/lv_conf.h
+#if LV_FONT_MONTSERRAT_36
+  font_large = &lv_font_montserrat_36;
 #else
   LV_LOG_WARN("LV_FONT_MONTSERRAT_24 is not enabled for the widgets demo. Using LV_FONT_DEFAULT instead.");
 #endif
-#if LV_FONT_MONTSERRAT_18
-  font_normal = &lv_font_montserrat_18;
+#if LV_FONT_MONTSERRAT_24
+  font_normal = &lv_font_montserrat_24;
 #else
   LV_LOG_WARN("LV_FONT_MONTSERRAT_18 is not enabled for the widgets demo. Using LV_FONT_DEFAULT instead.");
 #endif
-#if LV_FONT_MONTSERRAT_20
-  font_normal = &lv_font_montserrat_20;
-#else
-  LV_LOG_WARN("LV_FONT_MONTSERRAT_20 is not enabled for the widgets demo. Using LV_FONT_DEFAULT instead.");
-#endif
+// #if LV_FONT_MONTSERRAT_26
+//   font_normal = &lv_font_montserrat_26;
+// #else
+//   LV_LOG_WARN("LV_FONT_MONTSERRAT_20 is not enabled for the widgets demo. Using LV_FONT_DEFAULT instead.");
+// #endif
 
 
 #if LV_USE_THEME_DEFAULT
@@ -633,19 +761,28 @@ void instantiateUI(GaggiaStateT* s,
 
 
   lv_obj_t* tab_btns = lv_tabview_get_tab_btns(tv);
-  lv_obj_set_style_pad_left(tab_btns, LV_HOR_RES / 2, 0);
-  lv_obj_t* logo = lv_img_create(tab_btns);
-  LV_IMG_DECLARE(logoMainScreen);
-  lv_img_set_src(logo, &logoMainScreen);
-  lv_obj_align(logo, LV_ALIGN_LEFT_MID, -LV_HOR_RES / 2 + 25, 0);
+  lv_obj_set_style_pad_left(tab_btns, LV_HOR_RES / 3, 0);
+
+  // lv_obj_t* logo = lv_img_create(tab_btns);
+  // LV_IMG_DECLARE(logoMainScreen);
+  // lv_img_set_src(logo, &logoMainScreen);
+  // lv_obj_align(logo, LV_ALIGN_LEFT_MID, -LV_HOR_RES / 2 + 25, 0);
+
+  selectedProfileLabel = lv_label_create(tab_btns);
+  // lv_obj_align(selectedProfileLabel,LV_ALIGN_RIGHT_MID,-LV_HOR_RES / 2, 0);
+  lv_obj_align(selectedProfileLabel,LV_ALIGN_RIGHT_MID, ((-2*LV_HOR_RES) / 3) -20, 0);
+  lv_obj_set_style_text_font(selectedProfileLabel, font_large, 0);
 
 
+  lv_obj_t* t5 = lv_tabview_add_tab(tv, "M");
   lv_obj_t* t1 = lv_tabview_add_tab(tv, "Brew");
-  lv_obj_t* t4 = lv_tabview_add_tab(tv, "Profile");
-  lv_obj_t* t2 = lv_tabview_add_tab(tv, "Settings");
-  lv_obj_t* t3 = lv_tabview_add_tab(tv, "Advanced");
+  lv_obj_t* t4 = lv_tabview_add_tab(tv, "Prof.");
+  lv_obj_t* t2 = lv_tabview_add_tab(tv, "Sett.");
+  lv_obj_t* t3 = lv_tabview_add_tab(tv, "Adv.");
 
+  lv_obj_set_style_text_font(t5, font_large, 0);
 
+  main_create(t5);
   basic_create(t1);
   profile_create(t4);
   settings_create(t2);
@@ -655,6 +792,91 @@ void instantiateUI(GaggiaStateT* s,
 /**********************
  *   STATIC FUNCTIONS
  **********************/
+
+static void main_create(lv_obj_t* parent) {
+
+  lv_obj_t* panel1 = lv_obj_create(parent);
+  lv_obj_set_height(panel1, LV_SIZE_CONTENT);
+
+  heat_btn = lv_btn_create(parent);
+  lv_obj_add_flag(heat_btn, LV_OBJ_FLAG_CHECKABLE);
+  lv_obj_add_event_cb(heat_btn,main_btn_clicked, LV_EVENT_ALL, NULL);
+  lv_obj_t* heat_btn_label = lv_label_create(heat_btn);
+  lv_label_set_text_fmt(heat_btn_label, "H:%.2fC", state->boilerSetPoint);
+  lv_obj_center(heat_btn_label);
+
+  boil_btn = lv_btn_create(parent);
+  lv_obj_add_flag(boil_btn, LV_OBJ_FLAG_CHECKABLE);
+  lv_obj_add_event_cb(boil_btn,main_btn_clicked, LV_EVENT_ALL, NULL);
+  lv_obj_t* boil_btn_label = lv_label_create(boil_btn);
+  lv_label_set_text_fmt(boil_btn_label, "S:%.2fC", state->steamSetPoint);
+  lv_obj_center(boil_btn_label);
+
+  brew_btn = lv_btn_create(parent);
+  lv_obj_add_flag(brew_btn, LV_OBJ_FLAG_CHECKABLE);
+  lv_obj_add_event_cb(brew_btn,main_btn_clicked, LV_EVENT_ALL, NULL);
+  lv_obj_t* brew_btn_label = lv_label_create(brew_btn);
+  lv_label_set_text_fmt(brew_btn_label, "B:%.2fb", state->pressureSetPoint);
+  lv_obj_center(brew_btn_label);
+
+  clean_btn = lv_btn_create(parent);
+  lv_obj_add_flag(clean_btn, LV_OBJ_FLAG_CHECKABLE);
+  lv_obj_add_event_cb(clean_btn,main_btn_clicked, LV_EVENT_ALL, NULL);
+  lv_obj_t* clean_btn_label = lv_label_create(clean_btn);
+  lv_label_set_text(clean_btn_label,"Clean");
+  lv_obj_center(clean_btn_label);
+
+  prime_btn = lv_btn_create(parent);
+  lv_obj_add_flag(prime_btn, LV_OBJ_FLAG_CHECKABLE);
+  lv_obj_add_event_cb(prime_btn,main_btn_clicked, LV_EVENT_ALL, NULL);
+  lv_obj_t* prime_btn_label = lv_label_create(prime_btn);
+  lv_label_set_text_fmt(prime_btn_label, "P:%.2fs", state->blooming_wait_time);
+  lv_obj_center(prime_btn_label);
+
+  auto_btn = lv_btn_create(parent);
+  lv_obj_add_flag(auto_btn, LV_OBJ_FLAG_CHECKABLE);
+  lv_obj_add_event_cb(auto_btn,main_btn_clicked, LV_EVENT_ALL, NULL);
+  lv_obj_t* auto_btn_label = lv_label_create(auto_btn);
+  lv_label_set_text_fmt(auto_btn_label, "A:%.2fs", state->brew_timer);
+  lv_obj_center(auto_btn_label);
+
+  temp_label = lv_label_create(panel1);
+  lv_label_set_text_fmt(temp_label, "%.2fC", state->tempRead);
+  lv_obj_center(temp_label);
+
+  press_label = lv_label_create(panel1);
+  lv_label_set_text_fmt(press_label, "%.2fb", state->pressureRead);
+  lv_obj_center(press_label);
+
+  time_label = lv_label_create(panel1);
+  lv_label_set_text_fmt(time_label, "%.2fs", state->lastBrewTime);
+  lv_obj_center(time_label);
+
+
+  static lv_coord_t grid_panel1_col_dsc[] = { LV_GRID_FR(1), 10, LV_GRID_FR(1), 10, LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t grid_panel1_row_dsc[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
+
+  lv_obj_set_grid_dsc_array(panel1, grid_panel1_col_dsc, grid_panel1_row_dsc);
+
+  lv_obj_set_grid_cell(temp_label, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_grid_cell(press_label, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_grid_cell(time_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+
+
+  static lv_coord_t grid_main_col_dsc[] = { LV_GRID_FR(1), 10, LV_GRID_FR(1), 10, LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t grid_main_row_dsc[] = { LV_GRID_FR(1), 10, LV_GRID_FR(1), 10, LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
+
+  lv_obj_set_grid_dsc_array(parent, grid_main_col_dsc, grid_main_row_dsc);
+
+  lv_obj_set_grid_cell(heat_btn, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+  lv_obj_set_grid_cell(brew_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+  lv_obj_set_grid_cell(prime_btn, LV_GRID_ALIGN_STRETCH, 4, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+  lv_obj_set_grid_cell(boil_btn, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 2, 1);
+  lv_obj_set_grid_cell(clean_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 2, 1);
+  lv_obj_set_grid_cell(auto_btn, LV_GRID_ALIGN_STRETCH, 4, 1, LV_GRID_ALIGN_STRETCH, 2, 1);
+  lv_obj_set_grid_cell(panel1, LV_GRID_ALIGN_STRETCH, 0, 5, LV_GRID_ALIGN_STRETCH, 4, 1);
+
+}
 
 static void profile_create(lv_obj_t* parent) {
 

@@ -116,7 +116,8 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
  * Global variables
  ******************************************************************************/
 
-struct GaggiaState state = { false, 98, 8.0, 134, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, false, false, false, false, false, false };
+// struct GaggiaState state = { false, 98, 8.0, 134, 0, 0, 0, 0, 0, 0, false, NULL, NULL, 0, 0, false, 0, false, false, false, false, false, false };
+struct GaggiaState state = { false, 98, 8.0, 134, 0, 0, 0, 0, 0, 0, false, "", "", 0, 0, false, 0, false, false, false, false, false, false };
 struct AdvancedSettings advancedSettings = { false, false, 3, 1000, 10, 0.2, 0.1, 1, 100, 1, 0.1, 0.05 };
 bool isControllerLoggingOn = false;
 
