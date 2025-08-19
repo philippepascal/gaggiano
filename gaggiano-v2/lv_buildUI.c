@@ -83,13 +83,6 @@ static lv_obj_t* temp_label;
 static lv_obj_t* press_label;
 static lv_obj_t* time_label;
 
-static lv_obj_t* tempSet2Label;
-static lv_obj_t* tempRead2Label;
-static lv_obj_t* pressureSet2Label;
-static lv_obj_t* pressureRead2Label;
-static lv_obj_t* solenoid2Label;
-static lv_obj_t* lastBrewTimeLabel;
-
 static lv_obj_t* notes_tf;
 static lv_obj_t* fileList;
 static lv_obj_t* fileName_tf;
@@ -122,10 +115,6 @@ static lv_obj_t* pump_KI_tf;
 static lv_obj_t* pump_KD_tf;
 static lv_obj_t* unused1_tf;
 static lv_obj_t* advancedSetBtn;
-
-static lv_obj_t* boilerBtn;
-static lv_obj_t* brewBtn;
-static lv_obj_t* steamBtn;
 
 static const lv_font_t* font_large;
 static const lv_font_t* font_normal;
@@ -279,72 +268,6 @@ static void advancedCancelButtonClicked(lv_event_t* e) {
     LV_LOG_WARN("Cancel Button Clicked");
     advancedSettings->userChanged = true;
     lv_obj_add_state(advancedSetBtn, LV_STATE_DISABLED);
-  }
-}
-
-static void boilerButtonClicked(lv_event_t* e) {
-  lv_event_code_t code = lv_event_get_code(e);
-  if (code == LV_EVENT_VALUE_CHANGED) {
-    LV_LOG_USER("boiler Toggled");
-    if (lv_obj_get_state(boilerBtn) & LV_STATE_CHECKED) {
-      //set arduino to boilerSetPoint
-      LV_LOG_USER("starting boiler");
-      state->isBoilerOn = true;
-      state->hasCommandChanged = true;
-    } else {
-      //set arduino to boilerSetPoint 0
-      LV_LOG_USER("stopping boiler (and steam)");
-      state->isBoilerOn = false;
-      lv_obj_clear_state(steamBtn, LV_STATE_CHECKED);
-      lv_imgbtn_set_state(steamBtn, LV_IMGBTN_STATE_RELEASED);
-      state->isSteaming = false;
-      state->hasCommandChanged = true;
-    }
-  }
-}
-static void brewButtonClicked(lv_event_t* e) {
-  lv_event_code_t code = lv_event_get_code(e);
-  if (code == LV_EVENT_CLICKED) {
-    LV_LOG_USER("brew Clicked");
-  } else if (code == LV_EVENT_VALUE_CHANGED) {
-    LV_LOG_USER("brew Toggled");
-    if (lv_obj_get_state(brewBtn) & LV_STATE_CHECKED) {
-      //set arduino to brew (valve and pump) to pressureSetPoint
-      LV_LOG_USER("starting brew");
-      state->isBrewing = true;
-      state->hasCommandChanged = true;
-      lv_obj_add_state(steamBtn, LV_STATE_DISABLED);
-    } else {
-      //set arduino to brew (valve and pump) to pressureSetPoint 0
-      LV_LOG_USER("stopping brew");
-      state->isBrewing = false;
-      state->hasCommandChanged = true;
-      lv_obj_clear_state(steamBtn, LV_STATE_DISABLED);
-    }
-  }
-}
-static void steamButtonClicked(lv_event_t* e) {
-  lv_event_code_t code = lv_event_get_code(e);
-  if (code == LV_EVENT_CLICKED) {
-    LV_LOG_USER("steam Clicked");
-  } else if (code == LV_EVENT_VALUE_CHANGED) {
-    LV_LOG_USER("steam Toggled");
-    if (lv_obj_get_state(steamBtn) & LV_STATE_CHECKED) {
-      //set arduino to boilerSetPoint at steamSetPoint
-      LV_LOG_USER("starting steam (and boiler)");
-      state->isBoilerOn = true;
-      lv_obj_add_state(boilerBtn, LV_STATE_CHECKED);
-      lv_imgbtn_set_state(boilerBtn, LV_IMGBTN_STATE_CHECKED_RELEASED);
-      state->isSteaming = true;
-      state->hasCommandChanged = true;
-      lv_obj_add_state(brewBtn, LV_STATE_DISABLED);
-    } else {
-      //set arduino to boilerSetPoint to 0
-      LV_LOG_USER("stopping steam ");
-      state->isSteaming = false;
-      state->hasCommandChanged = true;
-      lv_obj_clear_state(brewBtn, LV_STATE_DISABLED);
-    }
   }
 }
 
@@ -640,65 +563,11 @@ void updateUI() {
   } else {
     lv_label_set_text_fmt(time_label, "%ds", 0);
   }
-  oldUpdateUI();
+  updateSettings();
 }
 
-void oldUpdateUI() {
-  LV_LOG_TRACE("updating real time fields");
-
-  if (state->isSteaming) {
-    lv_label_set_text_fmt(tempSet2Label, "%.2f", state->steamSetPoint);
-    lv_label_set_text_fmt(pressureSet2Label, "%.2f", state->steam_max_pressure);
-  } else {
-    lv_label_set_text_fmt(tempSet2Label, "%.2f", state->boilerSetPoint);
-    lv_label_set_text_fmt(pressureSet2Label, "%.2f", state->pressureSetPoint);
-  }
-
-  lv_label_set_text_fmt(tempRead2Label, "%.2f", state->tempRead);
-  lv_label_set_text_fmt(pressureRead2Label, "%.2f", state->pressureRead);
-
-  if (state->isSolenoidOn) {
-    lv_label_set_text_fmt(solenoid2Label, "ON");
-  } else {
-    lv_label_set_text_fmt(solenoid2Label, "OFF");
-  }
-
-  lv_label_set_text_fmt(lastBrewTimeLabel, "%.2f", state->lastBrewTime);
-
-  // update buttons
-  if (lv_obj_get_state(brewBtn) & LV_STATE_CHECKED) {
-    if (!state->isBrewing) {
-      lv_obj_clear_state(brewBtn, LV_STATE_CHECKED);
-      lv_imgbtn_set_state(brewBtn, LV_IMGBTN_STATE_RELEASED);
-    }
-  } else {
-    if (state->isBrewing) {
-      lv_obj_add_state(brewBtn, LV_STATE_CHECKED);
-      lv_imgbtn_set_state(brewBtn, LV_IMGBTN_STATE_CHECKED_RELEASED);
-    }
-  }
-  if (lv_obj_get_state(steamBtn) & LV_STATE_CHECKED) {
-    if (!state->isSteaming) {
-      lv_obj_clear_state(steamBtn, LV_STATE_CHECKED);
-      lv_imgbtn_set_state(steamBtn, LV_IMGBTN_STATE_RELEASED);
-    }
-  } else {
-    if (state->isSteaming) {
-      lv_obj_add_state(steamBtn, LV_STATE_CHECKED);
-      lv_imgbtn_set_state(steamBtn, LV_IMGBTN_STATE_CHECKED_RELEASED);
-    }
-  }
-  if (lv_obj_get_state(boilerBtn) & LV_STATE_CHECKED) {
-    if (!state->isBoilerOn) {
-      lv_obj_clear_state(boilerBtn, LV_STATE_CHECKED);
-      lv_imgbtn_set_state(boilerBtn, LV_IMGBTN_STATE_RELEASED);
-    }
-  } else {
-    if (state->isBoilerOn) {
-      lv_obj_add_state(boilerBtn, LV_STATE_CHECKED);
-      lv_imgbtn_set_state(boilerBtn, LV_IMGBTN_STATE_CHECKED_RELEASED);
-    }
-  }
+void updateSettings() {
+  LV_LOG_TRACE("updating settings fields");
 
   if (state->hasConfigChanged) {
     LV_LOG_WARN("updating config fields");
@@ -868,7 +737,6 @@ void instantiateUI(GaggiaStateT* s,
   tabProfile = lv_tabview_add_tab(tv, "Prof.");
   tabSettings = lv_tabview_add_tab(tv, "Sett.");
   tabAdvance = lv_tabview_add_tab(tv, "Adv.");
-  tabBrew = lv_tabview_add_tab(tv, "Brew");
 
   lv_obj_set_style_text_font(tabMain, font_large, 0);
 
@@ -876,7 +744,6 @@ void instantiateUI(GaggiaStateT* s,
   profile_create(tabProfile);
   settings_create(tabSettings);
   advancedSettings_create(tabAdvance);
-  basic_create(tabBrew);
 }
 
 /**********************
@@ -1025,130 +892,6 @@ static void profile_create(lv_obj_t* parent) {
   lv_obj_set_grid_cell(fileName_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_CENTER, 4, 1);
   lv_obj_set_grid_cell(duplicate_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_CENTER, 6, 1);
   lv_obj_set_grid_cell(delete_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_CENTER, 8, 1);
-}
-
-static void basic_create(lv_obj_t* parent) {
-
-  LV_IMG_DECLARE(boiler);
-  LV_IMG_DECLARE(boilerRed);
-  LV_IMG_DECLARE(brew);
-  LV_IMG_DECLARE(brewRed);
-  LV_IMG_DECLARE(steam);
-  LV_IMG_DECLARE(steamRed);
-
-  // boilerBtn = lv_btn_create(parent);
-  boilerBtn = lv_imgbtn_create(parent);
-  lv_imgbtn_set_src(boilerBtn, LV_IMGBTN_STATE_RELEASED, NULL, &boiler, NULL);
-  lv_imgbtn_set_src(boilerBtn, LV_IMGBTN_STATE_CHECKED_RELEASED, NULL, &boilerRed, NULL);
-  lv_obj_add_flag(boilerBtn, LV_OBJ_FLAG_CHECKABLE);
-  lv_obj_set_height(boilerBtn, 150);
-  lv_obj_set_width(boilerBtn, 150);
-  lv_obj_align(boilerBtn, LV_ALIGN_CENTER, 0, 0);
-  lv_obj_add_event_cb(boilerBtn, boilerButtonClicked, LV_EVENT_ALL, NULL);
-
-  // lv_obj_t* boilerBtnLabel = lv_label_create(boilerBtn);
-  // lv_label_set_text(boilerBtnLabel, "Boiler");
-  // lv_obj_center(boilerBtnLabel);
-
-  // brewBtn = lv_btn_create(parent);
-  brewBtn = lv_imgbtn_create(parent);
-  lv_imgbtn_set_src(brewBtn, LV_IMGBTN_STATE_RELEASED, NULL, &brew, NULL);
-  lv_imgbtn_set_src(brewBtn, LV_IMGBTN_STATE_CHECKED_RELEASED, NULL, &brewRed, NULL);
-  lv_obj_add_flag(brewBtn, LV_OBJ_FLAG_CHECKABLE);
-  lv_obj_set_height(brewBtn, 150);
-  lv_obj_set_width(brewBtn, 150);
-  lv_obj_align(brewBtn, LV_ALIGN_CENTER, 0, 0);
-  lv_obj_add_event_cb(brewBtn, brewButtonClicked, LV_EVENT_ALL, NULL);
-
-  // lv_obj_t* brewBtnLabel = lv_label_create(brewBtn);
-  // lv_label_set_text(brewBtnLabel, "Brew");
-  // lv_obj_center(brewBtnLabel);
-
-  // steamBtn = lv_btn_create(parent);
-  steamBtn = lv_imgbtn_create(parent);
-  lv_imgbtn_set_src(steamBtn, LV_IMGBTN_STATE_RELEASED, NULL, &steam, NULL);
-  lv_imgbtn_set_src(steamBtn, LV_IMGBTN_STATE_CHECKED_RELEASED, NULL, &steamRed, NULL);
-  lv_obj_add_flag(steamBtn, LV_OBJ_FLAG_CHECKABLE);
-  lv_obj_set_height(steamBtn, 150);
-  lv_obj_set_width(steamBtn, 150);
-  lv_obj_align(steamBtn, LV_ALIGN_CENTER, 0, 0);
-  lv_obj_add_event_cb(steamBtn, steamButtonClicked, LV_EVENT_ALL, NULL);
-
-  // lv_obj_t* steamBtnLabel = lv_label_create(steamBtn);
-  // lv_label_set_text(steamBtnLabel, "Steam");
-  // lv_obj_center(steamBtnLabel);
-
-  lv_obj_t* panel1 = lv_obj_create(parent);
-  lv_obj_set_height(panel1, LV_SIZE_CONTENT);
-
-  lv_obj_t* tempSet1Label = lv_label_create(panel1);
-  lv_label_set_text(tempSet1Label, "Temp Set:");
-
-  tempSet2Label = lv_label_create(panel1);
-  lv_label_set_text_fmt(tempSet2Label, "%.2f", state->boilerSetPoint);
-
-  lv_obj_t* tempRead1Label = lv_label_create(panel1);
-  lv_label_set_text(tempRead1Label, "Temp Read:");
-
-  tempRead2Label = lv_label_create(panel1);
-  lv_label_set_text_fmt(tempRead2Label, "%.2f", state->tempRead);
-
-  lv_obj_t* pressureSet1Label = lv_label_create(panel1);
-  lv_label_set_text(pressureSet1Label, "Pressure Set:");
-
-  pressureSet2Label = lv_label_create(panel1);
-  lv_label_set_text_fmt(pressureSet2Label, "%.2f", state->pressureSetPoint);
-
-  lv_obj_t* pressureRead1Label = lv_label_create(panel1);
-  lv_label_set_text(pressureRead1Label, "Pressure Read:");
-
-  pressureRead2Label = lv_label_create(panel1);
-  lv_label_set_text_fmt(pressureRead2Label, "%.2f", state->pressureRead);
-
-  lv_obj_t* solenoid1Label = lv_label_create(panel1);
-  lv_label_set_text(solenoid1Label, "Solenoid State:");
-
-  solenoid2Label = lv_label_create(panel1);
-  if (state->isSolenoidOn) {
-    lv_label_set_text_fmt(solenoid2Label, "ON");
-  } else {
-    lv_label_set_text_fmt(solenoid2Label, "OFF");
-  }
-
-  lv_obj_t* lastBrewTime1Label = lv_label_create(panel1);
-  lv_label_set_text(lastBrewTime1Label, "Last Brew Time:");
-
-  lastBrewTimeLabel = lv_label_create(panel1);
-  lv_label_set_text_fmt(lastBrewTimeLabel, "%.2f", state->lastBrewTime);
-
-  static lv_coord_t grid_panel1_col_dsc[] = { LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 20, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 20, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
-  static lv_coord_t grid_panel1_row_dsc[] = { LV_GRID_CONTENT, 5, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
-
-  lv_obj_set_grid_dsc_array(panel1, grid_panel1_col_dsc, grid_panel1_row_dsc);
-
-  lv_obj_set_grid_cell(tempSet1Label, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(tempSet2Label, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(tempRead1Label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(tempRead2Label, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(solenoid1Label, LV_GRID_ALIGN_CENTER, 8, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(solenoid2Label, LV_GRID_ALIGN_CENTER, 10, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(pressureSet1Label, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 1, 1);
-  lv_obj_set_grid_cell(pressureSet2Label, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 1, 1);
-  lv_obj_set_grid_cell(pressureRead1Label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 1, 1);
-  lv_obj_set_grid_cell(pressureRead2Label, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 1, 1);
-  lv_obj_set_grid_cell(lastBrewTime1Label, LV_GRID_ALIGN_CENTER, 8, 1, LV_GRID_ALIGN_CENTER, 1, 1);
-  lv_obj_set_grid_cell(lastBrewTimeLabel, LV_GRID_ALIGN_CENTER, 10, 1, LV_GRID_ALIGN_CENTER, 1, 1);
-
-
-  static lv_coord_t grid_main_col_dsc[] = { LV_GRID_FR(1), 10, LV_GRID_FR(1), 10, LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
-  static lv_coord_t grid_main_row_dsc[] = { LV_GRID_FR(1), LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
-
-  lv_obj_set_grid_dsc_array(parent, grid_main_col_dsc, grid_main_row_dsc);
-
-  lv_obj_set_grid_cell(boilerBtn, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(brewBtn, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(steamBtn, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(panel1, LV_GRID_ALIGN_STRETCH, 0, 5, LV_GRID_ALIGN_STRETCH, 1, 1);
 }
 
 static void settings_create(lv_obj_t* parent) {
