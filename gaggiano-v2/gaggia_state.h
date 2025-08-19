@@ -28,6 +28,8 @@ struct GaggiaState {
   bool isBoilerOn;
   bool isBrewing;
   bool isSteaming;
+  bool isBlooming;
+  bool isAuto;
   bool isCleaning;
   bool cleanLogs;
   int actionStartTime;

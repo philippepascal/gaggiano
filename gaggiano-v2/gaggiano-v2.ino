@@ -117,7 +117,7 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
  ******************************************************************************/
 
 // struct GaggiaState state = { false, 98, 8.0, 134, 0, 0, 0, 0, 0, 0, false, NULL, NULL, 0, 0, false, 0, false, false, false, false, false, false };
-struct GaggiaState state = { false, 98, 8.0, 134, 0, 0, 0, 0, 0, 0, false, "", "", 0, 0, false, 0, false, false, false, false, false, false };
+struct GaggiaState state = { false, 98, 8.0, 134, 0, 0, 0, 0, 0, 0, false, "", "", 0, 0, false, 0, false, false, false, false, false, false, false, false, 0, 0 };
 struct AdvancedSettings advancedSettings = { false, false, 3, 1000, 10, 0.2, 0.1, 1, 100, 1, 0.1, 0.05 };
 bool isControllerLoggingOn = false;
 
@@ -199,9 +199,9 @@ void setup() {
     delay(5000);
 
     instantiateUI(&state,
-                  &advancedSettings, 
-                  writeConfigFile, 
-                  listProfiles, 
+                  &advancedSettings,
+                  writeConfigFile,
+                  listProfiles,
                   getCurrentProfile,
                   writeCurrentProfile,
                   setupAndReadConfigFile,
@@ -293,41 +293,97 @@ void readMessage() {
 }
 
 void sendCommand() {
-  if(state.hasCommandChanged) {
-    float temp = 0;
-    if(state.isBoilerOn) {
-      temp = state.boilerSetPoint;
-    } else if (state.isSteaming) {
-      temp = state.steamSetPoint;
-    }
-    if(state.isBrewing) {
+  float temp = 0;
+  if (state.isBoilerOn) {
+    temp = state.boilerSetPoint;
+  } else if (state.isSteaming) {
+    temp = state.steamSetPoint;
+  }
+  if (state.hasCommandChanged) {
+    if (state.isBrewing) {
       state.actionStartTime = millis();
       state.actionStopTime = 0;
       sendSimpleBrewCommand(temp, state.pressureSetPoint);
-    } else if(state.isCleaning) {
+    } else if (state.isCleaning) {
       state.actionStartTime = millis();
       state.actionStopTime = 0;
-      sendSimpleBrewCommand(temp, 9); //need a special command to force full pressure
-    } else if(state.isSteaming) {
-      if(state.actionStartTime>0 && state.actionStopTime==0) {
+      sendSimpleBrewCommand(temp, 9);  //need a special command to force full pressure
+    } else if (state.isBlooming) {
+      if (currentPhase == PHASE_OFF) {
+        if (state.blooming_fill_time > 0 && state.blooming_wait_time > 0 && state.blooming_pressure > 0) {
+          currentPhase = PHASE_BLOOM_FILL;
+          state.actionStartTime = millis();
+          state.actionStopTime = 0;
+          sendSimpleBrewCommand(temp, state.blooming_pressure);
+        } else {
+          state.isBlooming = false;
+        }
+      }
+    } else if (state.isAuto) {
+      if (currentPhase == PHASE_OFF) {
+        if (state.brew_timer > 0) {
+          if (state.blooming_fill_time > 0 && state.blooming_wait_time > 0 && state.blooming_pressure > 0) {
+            currentPhase = PHASE_BLOOM_FILL;
+            state.actionStartTime = millis();
+            state.actionStopTime = 0;
+            sendSimpleBrewCommand(temp, state.blooming_pressure);
+          } else {
+            currentPhase = PHASE_BREW;
+            state.actionStartTime = millis();
+            state.actionStopTime = 0;
+            sendSimpleBrewCommand(temp, state.pressureSetPoint);
+          }
+        } else {
+          state.isAuto = false;
+        }
+      }
+    } else if (state.isSteaming) {
+      if (state.actionStartTime > 0 && state.actionStopTime == 0) {
         state.actionStopTime = millis();
       }
       sendSteamCommand(state.steamSetPoint, state.steam_max_pressure, state.steam_pump_output_percent);
-    } else if(state.isBoilerOn) {
-      if(state.actionStartTime>0 && state.actionStopTime==0) {
+    } else if (state.isBoilerOn) {
+      if (state.actionStartTime > 0 && state.actionStopTime == 0) {
         state.actionStopTime = millis();
       }
       sendSimpleBrewCommand(state.boilerSetPoint, 0);
     } else {
-      if(state.actionStartTime>0 && state.actionStopTime==0) {
+      if (state.actionStartTime > 0 && state.actionStopTime == 0) {
         state.actionStopTime = millis();
       }
-      sendSimpleBrewCommand(0,0);
+      currentPhase = PHASE_OFF;
+      sendSimpleBrewCommand(0, 0);
     }
     state.hasCommandChanged = false;
+  } else {
+    if (currentPhase == PHASE_BLOOM_FILL) {
+      if (millis() - state.actionStartTime > (state.blooming_fill_time * 1000)) {
+        currentPhase = PHASE_BLOOM_WAIT;
+        state.actionStartTime = millis();
+        sendSimpleBrewCommand(temp, 0);
+      }
+    } else if (currentPhase == PHASE_BLOOM_WAIT) {
+      if (millis() - state.actionStartTime > (state.blooming_wait_time * 1000)) {
+        if (state.isBlooming) {
+          currentPhase = PHASE_OFF;
+          state.actionStartTime = 0;
+          state.isBlooming = false;
+        } else if (state.isAuto) {
+          currentPhase = PHASE_BREW;
+          state.actionStartTime = millis();
+          sendSimpleBrewCommand(temp, state.pressureSetPoint);
+        }
+      }
+    } else if (currentPhase == PHASE_BREW) {
+      if (millis() - state.actionStartTime > (state.brew_timer * 1000)) {
+        currentPhase = PHASE_OFF;
+        state.actionStopTime = millis();
+        state.isAuto = false;
+        sendSimpleBrewCommand(temp, 0);
+      }
+    }
   }
 }
-
 
 int lastSentCommand = 0;
 void sendCommand_old() {
@@ -432,27 +488,27 @@ void sendCommand_old() {
         timerStartTime = 0;
         break;
       case PHASE_BLOOM_FILL:
-        if(state.isBoilerOn) {
+        if (state.isBoilerOn) {
           temp = state.boilerSetPoint;
-        } else if(state.isSteaming) {
+        } else if (state.isSteaming) {
           temp = state.steamSetPoint;
         }
         sendSimpleBrewCommand(temp, state.blooming_pressure);
         timerStartTime = now;
         break;
       case PHASE_BLOOM_WAIT:
-        if(state.isBoilerOn) {
+        if (state.isBoilerOn) {
           temp = state.boilerSetPoint;
-        } else if(state.isSteaming) {
+        } else if (state.isSteaming) {
           temp = state.steamSetPoint;
         }
         sendSimpleBrewCommand(temp, 0);
         timerStartTime = now;
         break;
       case PHASE_BREW:
-        if(state.isBoilerOn) {
+        if (state.isBoilerOn) {
           temp = state.boilerSetPoint;
-        } else if(state.isSteaming) {
+        } else if (state.isSteaming) {
           temp = state.steamSetPoint;
         }
         sendSimpleBrewCommand(temp, state.pressureSetPoint);
@@ -509,8 +565,7 @@ void sendSimpleBrewCommand(double temp, double pressure) {
   Serial.println(message);
 }
 
-void 
-sendSteamCommand(double temp, double maxPressure, double pumpOutputPercent) {
+void sendSteamCommand(double temp, double maxPressure, double pumpOutputPercent) {
   char message[200] = "";
   sprintf(message, "2;%.2f;%.2f;%.2f;|", temp, maxPressure, pumpOutputPercent);
   controllerSerial.println(message);
