@@ -30,6 +30,8 @@ struct GaggiaState {
   bool isSteaming;
   bool isCleaning;
   bool cleanLogs;
+  int actionStartTime;
+  int actionStopTime;
 };
 typedef struct GaggiaState GaggiaStateT;
 

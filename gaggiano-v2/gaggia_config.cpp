@@ -90,10 +90,11 @@ int setupAndReadConfigFile() {
   }
 
   // const char* fileName = "/gaggia/gaggia_settings.csv";
-  const char* cp = getCurrentProfile();
+  // const char* currentProfile = getCurrentProfile();
+  char* currentProfile = getCurrentProfile();
   char* fileName = (char*)malloc(30 * sizeof(char));
   strcpy(fileName, profilesPathPrefix);
-  strcat(fileName, cp);
+  strcat(fileName, currentProfile);
   Serial.print("~~~~~~~~~ opening selected profile in setup");
   File file = fileSystem->open(fileName);
   if (!file) {
@@ -120,6 +121,7 @@ int setupAndReadConfigFile() {
       state->blooming_wait_time = (float)values[7];
       state->brew_timer = (float)values[8];
       state->hasConfigChanged = true;
+      state->profile_name = currentProfile;
       advancedSettings->boiler_bb_range = (float)values[9];
       advancedSettings->boiler_PID_cycle = (float)values[10];
       advancedSettings->boiler_PID_KP = (float)values[11];

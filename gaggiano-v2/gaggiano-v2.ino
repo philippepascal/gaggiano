@@ -292,8 +292,45 @@ void readMessage() {
   }
 }
 
-int lastSentCommand = 0;
 void sendCommand() {
+  if(state.hasCommandChanged) {
+    float temp = 0;
+    if(state.isBoilerOn) {
+      temp = state.boilerSetPoint;
+    } else if (state.isSteaming) {
+      temp = state.steamSetPoint;
+    }
+    if(state.isBrewing) {
+      state.actionStartTime = millis();
+      state.actionStopTime = 0;
+      sendSimpleBrewCommand(temp, state.pressureSetPoint);
+    } else if(state.isCleaning) {
+      state.actionStartTime = millis();
+      state.actionStopTime = 0;
+      sendSimpleBrewCommand(temp, 9); //need a special command to force full pressure
+    } else if(state.isSteaming) {
+      if(state.actionStartTime>0 && state.actionStopTime==0) {
+        state.actionStopTime = millis();
+      }
+      sendSteamCommand(state.steamSetPoint, state.steam_max_pressure, state.steam_pump_output_percent);
+    } else if(state.isBoilerOn) {
+      if(state.actionStartTime>0 && state.actionStopTime==0) {
+        state.actionStopTime = millis();
+      }
+      sendSimpleBrewCommand(state.boilerSetPoint, 0);
+    } else {
+      if(state.actionStartTime>0 && state.actionStopTime==0) {
+        state.actionStopTime = millis();
+      }
+      sendSimpleBrewCommand(0,0);
+    }
+    state.hasCommandChanged = false;
+  }
+}
+
+
+int lastSentCommand = 0;
+void sendCommand_old() {
   int now = millis();
   //first look at current phase timer or config change to determine next step
   //based on current and next phase, send command
@@ -461,7 +498,7 @@ void sendCommand() {
   }
   if (sendNewCommand != -1) currentPhase = sendNewCommand;
   state.hasCommandChanged = false;
-  state.hasConfigChanged = false;
+  // state.hasConfigChanged = false;
 }
 
 void sendSimpleBrewCommand(double temp, double pressure) {
