@@ -1,5 +1,6 @@
 #include "gaggia_state.h"
 #include "BmpClass.h"
+#include "gaggia_utils.h"
 
 //remember SD library doesn't necesserily support all format. FAT works.
 #define REASSIGN_PINS

@@ -81,6 +81,7 @@ static lv_obj_t* auto_btn;
 static lv_obj_t* auto_btn_label;
 static lv_obj_t* temp_label;
 static lv_obj_t* press_label;
+static lv_obj_t* main_notes_label;
 static lv_obj_t* time_label;
 
 static lv_obj_t* notes_tf;
@@ -182,7 +183,7 @@ static void setting_field_changed(lv_event_t* e) {
     lv_obj_clear_state(ta, LV_STATE_FOCUSED);
     lv_indev_reset(NULL, ta); /*To forget the last clicked object to make it focusable again*/
   } else if (code == LV_EVENT_VALUE_CHANGED) {
-    LV_LOG_WARN("Setting changed");
+    // LV_LOG_WARN("Setting changed");
     lv_obj_clear_state(setBtn, LV_STATE_DISABLED);
     lv_obj_clear_state(advancedSetBtn, LV_STATE_DISABLED);
   }
@@ -212,6 +213,7 @@ static void setButtonClicked(lv_event_t* e) {
     double newblooming_fill_time = strtod(lv_textarea_get_text(blooming_fill_time_tf), NULL);
     double newblooming_wait_time = strtod(lv_textarea_get_text(blooming_wait_time_tf), NULL);
     double newbrew_timer = strtod(lv_textarea_get_text(brew_timer_tf), NULL);
+    state->notes = lv_textarea_get_text(edit_notes_tf);
     state->boilerSetPoint = newBoilerSetPoint;
     state->pressureSetPoint = newPressureSetPoint;
     state->steamSetPoint = newSteamSetPoint;
@@ -570,15 +572,11 @@ void updateSettings() {
   LV_LOG_TRACE("updating settings fields");
 
   if (state->hasConfigChanged) {
-    LV_LOG_WARN("updating config fields");
+    // LV_LOG_WARN("updating config fields");
 
     char t[100];
-    // sprintf(t, "%.2f", state->notes);
-    // lv_textarea_set_text(notes_tf, t);
     lv_textarea_set_text(notes_tf, state->notes);
-
-    // sprintf(t, "%.2f", state->notes);
-    // lv_textarea_set_text(edit_notes_tf, t);
+    lv_label_set_text(main_notes_label, state->notes);
     lv_textarea_set_text(edit_notes_tf, state->notes);
 
     sprintf(t, "%.2f", state->boilerSetPoint);
@@ -614,7 +612,7 @@ void updateSettings() {
     state->hasConfigChanged = false;
   }
   if (advancedSettings->userChanged) {
-    LV_LOG_WARN("updating advanced Settings fields");
+    // LV_LOG_WARN("updating advanced Settings fields");
 
     char t[100];
     sprintf(t, "%.2f", advancedSettings->boiler_bb_range);
@@ -696,7 +694,7 @@ void instantiateUI(GaggiaStateT* s,
 
 
 #if LV_USE_THEME_DEFAULT
-  lv_theme_default_init(NULL, lv_palette_main(LV_PALETTE_GREY), lv_palette_main(LV_PALETTE_RED), LV_THEME_DEFAULT_DARK,
+  lv_theme_default_init(NULL, lv_palette_main(LV_PALETTE_BLUE), lv_palette_main(LV_PALETTE_RED), LV_THEME_DEFAULT_DARK,
                         font_normal);
 #endif
 
@@ -797,6 +795,9 @@ static void main_create(lv_obj_t* parent) {
   lv_label_set_text_fmt(auto_btn_label, "A:%.2fs", state->brew_timer);
   lv_obj_center(auto_btn_label);
 
+  main_notes_label = lv_label_create(panel1);
+  lv_obj_set_style_text_color(main_notes_label, lv_color_hex(0x00AAFF), 0);
+
   temp_label = lv_label_create(panel1);
   lv_label_set_text_fmt(temp_label, "%.2fC", state->tempRead);
   lv_obj_center(temp_label);
@@ -811,13 +812,14 @@ static void main_create(lv_obj_t* parent) {
 
 
   static lv_coord_t grid_panel1_col_dsc[] = { LV_GRID_FR(1), 10, LV_GRID_FR(1), 10, LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
-  static lv_coord_t grid_panel1_row_dsc[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t grid_panel1_row_dsc[] = { LV_GRID_FR(1), 10,  LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
 
   lv_obj_set_grid_dsc_array(panel1, grid_panel1_col_dsc, grid_panel1_row_dsc);
 
   lv_obj_set_grid_cell(temp_label, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 0, 1);
   lv_obj_set_grid_cell(press_label, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 0, 1);
   lv_obj_set_grid_cell(time_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_grid_cell(main_notes_label, LV_GRID_ALIGN_CENTER, 0, 5, LV_GRID_ALIGN_CENTER, 2, 1);
 
 
   static lv_coord_t grid_main_col_dsc[] = { LV_GRID_FR(1), 10, LV_GRID_FR(1), 10, LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
@@ -912,10 +914,14 @@ static void settings_create(lv_obj_t* parent) {
   lv_keyboard_set_map(kb, LV_KEYBOARD_MODE_USER_1, kb_num_map, kb_num_ctrl);
   lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_USER_1);
   //--------------
+
+  lv_obj_t* kb2 = lv_keyboard_create(lv_scr_act());
+  lv_obj_add_flag(kb2, LV_OBJ_FLAG_HIDDEN);
+
   edit_notes_tf = lv_textarea_create(panel1);
   lv_textarea_set_one_line(edit_notes_tf, true);
   lv_obj_set_size(edit_notes_tf, LV_PCT(100), LV_SIZE_CONTENT);
-  lv_obj_add_event_cb(edit_notes_tf, setting_field_changed, LV_EVENT_ALL, kb);
+  lv_obj_add_event_cb(edit_notes_tf, setting_field_changed, LV_EVENT_ALL, kb2);
   //--------------
   lv_obj_t* sub_panel = lv_obj_create(panel1);
   lv_obj_set_flex_flow(sub_panel, LV_FLEX_FLOW_ROW);

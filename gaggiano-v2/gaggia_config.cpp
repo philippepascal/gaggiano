@@ -106,8 +106,19 @@ int setupAndReadConfigFile() {
     if (file.available()) {
       String data = file.readString();
       Serial.println(data);
-      char buffer[500];
+
+      char* buffer = new char[500];
       data.toCharArray(buffer, data.length() + 2);
+      char* parseData;
+      int i = myIndexOF(buffer, ';', 0);
+      if(i>-1) {
+        state->notes = mySubString(buffer, 0, i);
+        parseData = mySubString(buffer,i+1,data.length() + 2);
+      } else {
+        state->notes = "";
+        parseData = buffer;
+      }
+
       CSV_Parser cp(buffer, /*format*/ "sf");
       float* values = (float*)cp["value"];
       Serial.printf("%f , %f , %f", (float)values[0], (float)values[1], (float)values[2]);
@@ -134,6 +145,7 @@ int setupAndReadConfigFile() {
       advancedSettings->unused1 = (float)values[18];
       advancedSettings->userChanged = true;
       advancedSettings->sendToController = true;
+      Serial.printf("notes in the profile: %s\n",state->notes);
       Serial.println("state updated");
     } else {
       Serial.print("CSV parsing failed");
@@ -172,7 +184,7 @@ int writeFile(const char* fileName, const char* content) {
 
 int writeGrivenConfigFile(const char* fileName) {
   char buffer[500];
-  const char* csv_str = "key,value\n"
+  const char* csv_str = "%s;key,value\n"
                         "boilerSetPoint,%f\n"
                         "pressureSetPoint,%f\n"
                         "steamSetPoint,%f\n"
@@ -193,6 +205,7 @@ int writeGrivenConfigFile(const char* fileName) {
                         "pump_KD,%f\n"
                         "unused1,%f\n";
   sprintf(buffer, csv_str,
+          state->notes,
           state->boilerSetPoint,
           state->pressureSetPoint,
           state->steamSetPoint,

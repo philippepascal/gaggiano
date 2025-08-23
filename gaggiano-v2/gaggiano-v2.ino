@@ -30,6 +30,7 @@
 #include "lv_buildUI.h"
 #include "gaggia_state.h"
 #include "gaggia_config.h"
+#include "gaggia_utils.h"
 /*******************************************************************************
  ******************************************************************************/
 #include <Arduino_GFX_Library.h>
@@ -225,25 +226,25 @@ static void bmpDrawCallback(int16_t x, int16_t y, uint16_t *bitmap, int16_t w, i
   gfx->draw16bitRGBBitmap(x, y, bitmap, w, h);
 }
 
-int myIndexOF(const char *str, const char ch, int fromIndex) {
-  const char *result = strchr(str + fromIndex, ch);
-  if (result == NULL) {
-    return -1;  // Substring not found
-  } else {
-    return result - str;  // Calculate the index
-  }
-}
-char *mySubString(const char *str, int start, int end) {
-  char *sub = (char *)malloc(sizeof(char) * (end - start));
-  if (sub == NULL) {
-    return NULL;
-  }
+// int myIndexOF(const char *str, const char ch, int fromIndex) {
+//   const char *result = strchr(str + fromIndex, ch);
+//   if (result == NULL) {
+//     return -1;  // Substring not found
+//   } else {
+//     return result - str;  // Calculate the index
+//   }
+// }
+// char *mySubString(const char *str, int start, int end) {
+//   char *sub = (char *)malloc(sizeof(char) * (end - start));
+//   if (sub == NULL) {
+//     return NULL;
+//   }
 
-  strncpy(sub, str + start, (end - start));
-  sub[(end - start)] = '\0';
+//   strncpy(sub, str + start, (end - start));
+//   sub[(end - start)] = '\0';
 
-  return sub;
-}
+//   return sub;
+// }
 
 void readMessage() {
   char m[500] = "";
