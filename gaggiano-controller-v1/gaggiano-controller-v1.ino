@@ -24,7 +24,12 @@ uint32_t last_read_message_time = 0;
 uint32_t last_sent_message_time = 0;
 uint32_t loopCounter = 0;
 
+#define OPERATING_MODE_BREW 1
+#define OPERATING_MODE_STEAM 2
+#define OPERATING_MODE_CLEAN 3
+
 // inputs
+double operating_mode = OPERATING_MODE_BREW;
 double temperatureSetPoint = 0;
 double boiler_bb_range = 3;
 double boiler_PID_cycle = 1000;
@@ -63,6 +68,7 @@ SimpleKalmanFilter smoothTemperature(0.25f, 0.25f, 0.01f);
 #define dimmerPin PB3
 #define ZC_MODE RISING
 #define PUMP_RANGE 127
+#define PUMP_MAX 255
 #define PUMP_LOW_MODE 30
 PSM *pump;
 
@@ -175,7 +181,7 @@ void loop() {
   if (tempUpdated) updateBoiler();
 
   // Pump and Solenoid (coupled)
-  if (pressureUpdated) updatePump();
+  if (pressureUpdated) updatePump2();
 
   //----------------------
   sendStatus(loopStart);
@@ -232,10 +238,69 @@ bool readTemperature(uint32_t now) {
   return false;
 }
 
+void updatePump2() {
+    double pumpValue;
+    if(operating_mode == OPERATING_MODE_BREW) {
+        if (pressureSetPoint > 0) {
+            digitalWrite(valvePin, HIGH);// open Solenoid
+            double pumpValue;
+            if (pressure_smoothed > pressureSetPoint) {
+              pumpValue = 0;
+            } else {
+              float diff = pressureSetPoint - pressure_smoothed;
+              pumpValue = PUMP_RANGE / (pump_KP + exp(pump_KI - diff / pump_KD));
+              if ((pressure_smoothed < (pressureSetPoint / 2)) && ((pumpValue - pump_dimmer_output2) > pump_max_step_up)) {  //should only happen for low pressures...
+                pumpValue = pump_dimmer_output2 + pump_max_step_up;
+              }
+            }
+            pump_dimmer_output2 = pumpValue;
+            pump->set(pump_dimmer_output2);
+        } else {
+            pump_dimmer_output2 = 0;
+            pump->set(pump_dimmer_output2);
+            digitalWrite(valvePin, LOW);// close Solenoid
+        }
+    } else if(operating_mode == OPERATING_MODE_CLEAN) {
+        if (pressureSetPoint > 0) {
+            digitalWrite(valvePin, HIGH);// open Solenoid
+            if (pressure_smoothed > pressureSetPoint) {
+              pump_dimmer_output2 = 0;
+            } else {
+              pump_dimmer_output2 = PUMP_RANGE;
+            }
+            pump->set(pump_dimmer_output2);
+        } else {
+            pump_dimmer_output2 = 0;
+            pump->set(pump_dimmer_output2);
+            digitalWrite(valvePin, LOW);// close Solenoid
+        }
+    } else if(operating_mode == OPERATING_MODE_STEAM) {
+        if (pressure_smoothed > pressureSetPoint) {
+            pumpValue = 0;
+        } else {
+            float p = pressureOutputPercent;
+            if (pressureOutputPercent > 10) {  // just safety, solenoid is closed!
+            p = 10;
+            }
+            pumpValue = (p / 100) * PUMP_RANGE;
+        }
+        pump_dimmer_output2 = pumpValue;
+        pump->set(pump_dimmer_output2);
+    } else {
+        //safety. should not happen
+        pump_dimmer_output2 = 0;
+        pump->set(pump_dimmer_output2);
+        digitalWrite(valvePin, LOW);// close Solenoid
+    }
+}
+
 void updatePump() {
   // pumpPID.run(); // currently unused
 
   double pumpValue;
+  //currently meant as a steaming function.
+  //using pressureOutputPercent is maybe a bit weird here and confusing if we want to setup a clean up command.
+  //let's add a operating_mode instead (brew (default), steam, clean) so we can have a clear behavior
   if (pressureOutputPercent > 0) {
     if (pressure_smoothed > pressureSetPoint) {
       pumpValue = 0;
@@ -250,7 +315,9 @@ void updatePump() {
     pump_dimmer_output2 = pumpValue;
     pump->set(pump_dimmer_output2);
 
-  } else if (pressureSetPoint > 0) {
+  }
+  //normal brewing operations.
+  else if (pressureSetPoint > 0) {
     // open Solenoid
     digitalWrite(valvePin, HIGH);
 
@@ -343,6 +410,7 @@ void parseMessage() {
       cursor = endCursor + 1;
     }
     if (sender == 1) {  // simple brew command from the screen
+      operating_mode = OPERATING_MODE_BREW;
       cursor = getNextFloat(&temperatureSetPoint, m, messageSize, cursor);
       if (cursor > 0) cursor = getNextFloat(&pressureSetPoint, m, messageSize, cursor);
       pressureOutputPercent = 0;
@@ -353,9 +421,21 @@ void parseMessage() {
       Serial.print(" pressureOutputPercent ");
       Serial.println(pressureOutputPercent);
     } else if (sender == 2) {  // special steam command (not by pressure, but by pump output)
+      operating_mode = OPERATING_MODE_STEAM;
       cursor = getNextFloat(&temperatureSetPoint, m, messageSize, cursor);
-      if (cursor > 0) cursor = getNextFloat(&pressureSetPoint, m, messageSize, cursor);  //max pressure
+      if (cursor > 0) cursor = getNextFloat(&pressureSetPoint, m, messageSize, cursor);  //max pressure for steaming
       if (cursor > 0) cursor = getNextFloat(&pressureOutputPercent, m, messageSize, cursor);
+      Serial.print("temperatureSetPoint ");
+      Serial.print(temperatureSetPoint);
+      Serial.print(" pressureSetPoint ");
+      Serial.print(pressureSetPoint);
+      Serial.print(" pressureOutputPercent ");
+      Serial.println(pressureOutputPercent);
+    } else if (sender == 3) { // special clean command (no pressure control: max value)
+      operating_mode = OPERATING_MODE_CLEAN;
+      cursor = getNextFloat(&temperatureSetPoint, m, messageSize, cursor);
+      if (cursor > 0) cursor = getNextFloat(&pressureSetPoint, m, messageSize, cursor);
+      pressureOutputPercent = 0;
       Serial.print("temperatureSetPoint ");
       Serial.print(temperatureSetPoint);
       Serial.print(" pressureSetPoint ");
@@ -375,6 +455,9 @@ void parseMessage() {
       if (cursor > 0) cursor = getNextFloat(&unused1, m, messageSize, cursor);
 
       updateAdvancedSettings();
+    } else {
+      //safety, should not happen
+      operating_mode = OPERATING_MODE_BREW;
     }
   }
 }
@@ -478,7 +561,7 @@ void scanI2C() {
 // to enable serial on this board , you need to compile with CDC Serial....
 // https://www.stm32duino.com/viewtopic.php?t=1353
 //
-// to upload with arduino, select DFU programmer in tools/upload method, then hold boot while pressing NRST once. board enters DFU mode. select DFU port in tools/port and click upload
+// to upload with arduino, select DFU programmer in tools/upload method, then hold boot while pressing NRST once. board enters DFU operating_mode. select DFU port in tools/port and click upload
 // Wire library example
 // https://github.com/stm32duino/Arduino_Core_STM32/blob/main/libraries/Wire/examples/i2c_scanner/i2c_scanner.ino
 // https://www.stm32duino.com/viewtopic.php?t=1760

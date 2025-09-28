@@ -308,7 +308,7 @@ void sendCommand() {
     } else if (state.isCleaning) {
       state.actionStartTime = millis();
       state.actionStopTime = 0;
-      sendSimpleBrewCommand(temp, 9);  //need a special command to force full pressure
+      sendSimpleCleanCommand(temp, 9);
     } else if (state.isBlooming) {
       if (currentPhase == PHASE_OFF) {
         if (state.blooming_fill_time > 0 && state.blooming_wait_time > 0 && state.blooming_pressure > 0) {
@@ -389,6 +389,14 @@ void sendCommand() {
 void sendSimpleBrewCommand(double temp, double pressure) {
   char message[100] = "";
   sprintf(message, "1;%.2f;%.2f;|", temp, pressure);
+  controllerSerial.println(message);
+  Serial.print(" sent: ");
+  Serial.println(message);
+}
+
+void sendSimpleCleanCommand(double temp, double pressure) {
+  char message[100] = "";
+  sprintf(message, "3;%.2f;%.2f;|", temp, pressure);
   controllerSerial.println(message);
   Serial.print(" sent: ");
   Serial.println(message);
