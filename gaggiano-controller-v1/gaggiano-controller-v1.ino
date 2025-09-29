@@ -266,7 +266,7 @@ void updatePump2() {
             if (pressure_smoothed > pressureSetPoint) {
               pump_dimmer_output2 = 0;
             } else {
-              pump_dimmer_output2 = PUMP_RANGE;
+              pump_dimmer_output2 = PUMP_MAX;
             }
             pump->set(pump_dimmer_output2);
         } else {
@@ -280,9 +280,9 @@ void updatePump2() {
         } else {
             float p = pressureOutputPercent;
             if (pressureOutputPercent > 10) {  // just safety, solenoid is closed!
-            p = 10;
+              p = 10;
             }
-            pumpValue = (p / 100) * PUMP_RANGE;
+            pumpValue = (p * PUMP_RANGE) / 100;
         }
         pump_dimmer_output2 = pumpValue;
         pump->set(pump_dimmer_output2);
