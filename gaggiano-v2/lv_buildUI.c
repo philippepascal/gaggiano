@@ -273,19 +273,19 @@ static void advancedCancelButtonClicked(lv_event_t* e) {
   }
 }
 
-static void cleanBtnClicked(lv_event_t* e) {
-  lv_event_code_t code = lv_event_get_code(e);
+// static void cleanBtnClicked(lv_event_t* e) {
+//   lv_event_code_t code = lv_event_get_code(e);
 
-  if (code == LV_EVENT_CLICKED) {
-    LV_LOG_WARN("Clean Button Clicked");
-    if (state->isBrewing) {
-      LV_LOG_USER("no cleaning while brewing");
-    } else {
-      state->isCleaning = true;
-      state->hasCommandChanged = true;
-    }
-  }
-}
+//   if (code == LV_EVENT_CLICKED) {
+//     LV_LOG_WARN("Clean Button Clicked");
+//     if (state->isBrewing) {
+//       LV_LOG_USER("no cleaning while brewing");
+//     } else {
+//       state->isCleaning = true;
+//       state->hasCommandChanged = true;
+//     }
+//   }
+// }
 static void clearLogsBtnClicked(lv_event_t* e) {
   lv_event_code_t code = lv_event_get_code(e);
 
@@ -1078,10 +1078,10 @@ static void settings_create(lv_obj_t* parent) {
   lv_obj_add_event_cb(cancelBtn_Label, cancelButtonClicked, LV_EVENT_ALL, kb);
 
 
-  cleanBtn = lv_btn_create(panel1);
-  lv_obj_t* cleanBtn_label = lv_label_create(cleanBtn);
-  lv_label_set_text(cleanBtn_label, "Clean");
-  lv_obj_add_event_cb(cleanBtn, cleanBtnClicked, LV_EVENT_ALL, kb);
+  // cleanBtn = lv_btn_create(panel1);
+  // lv_obj_t* cleanBtn_label = lv_label_create(cleanBtn);
+  // lv_label_set_text(cleanBtn_label, "Clean");
+  // lv_obj_add_event_cb(cleanBtn, cleanBtnClicked, LV_EVENT_ALL, kb);
 
   clearLogsBtn = lv_btn_create(panel1);
   lv_obj_t* clearLogsBtn_label = lv_label_create(clearLogsBtn);
