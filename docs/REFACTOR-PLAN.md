@@ -95,11 +95,11 @@ docs/PROTOCOL.md                   the wire format, one page
 
 ## Phase R0: baseline and safety net (no bench)
 
-- [ ] R0.1 Note the starting commit here: `main` at ______ (fill in). Save the current
+- [x] R0.1 Starting commit: `main` at 2f58621 (Migration #1). Save the current
       binaries as `build-baseline/` locally (git-ignored) for size comparison.
-- [ ] R0.2 `tests/` with a Makefile that compiles listed `.cpp` files with the host
+- [x] R0.2 `tests/` with a Makefile that compiles listed `.cpp` files with the host
       `c++`, plus `./gg test`. A first trivial test proves the harness. CI runs it.
-- [ ] R0.3 `docs/BENCH-CHECKLIST.md`: the manual verification run after every flash.
+- [x] R0.3 `docs/BENCH-CHECKLIST.md`: the manual verification run after every flash.
       Draft:
       1. `./gg detect` shows both boards. `./gg monitor controller`, `VERSION` answers.
       2. Screen boots to the main tab; temperature and pressure update about 5 times/s.
@@ -117,7 +117,7 @@ docs/PROTOCOL.md                   the wire format, one page
       (silence the per-message debug spam). Screen: print free heap every 10 s to USB.
 
 **Checkpoint R0:** `./gg test` passes, checklist items 1-2 pass with the current
-firmware, baseline sizes recorded: controller ______ bytes, screen ______ bytes.
+firmware, baseline sizes recorded: controller 68,080 bytes, screen 678,224 bytes.
 
 ---
 

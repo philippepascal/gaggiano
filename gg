@@ -132,6 +132,11 @@ cmd_build() {
   done
 }
 
+cmd_test() {
+  log "running host tests"
+  make -C "$REPO/tests" "$@"
+}
+
 cmd_clean() {
   log "removing $BUILD_DIR"; rm -rf "$BUILD_DIR"
   local t
@@ -275,6 +280,7 @@ usage: ./gg <command> [args]
   detect [--json]        list connected project boards and their ports
   monitor <target> [port]
                          serial monitor at the target's baud rate
+  test                   build and run the host-side tests in tests/
   clean [--all]          remove build/ and the compile caches; --all also removes
                          .arduino-data/ (cores and toolchains, re-downloaded by setup)
   help
@@ -291,6 +297,7 @@ main() {
     setup)   cmd_setup "$@" ;;
     build)   cmd_build "$@" ;;
     clean)   cmd_clean "$@" ;;
+    test)    cmd_test "$@" ;;
     detect)  cmd_detect "$@" ;;
     monitor) cmd_monitor "$@" ;;
     flash)   cmd_flash "$@" ;;
