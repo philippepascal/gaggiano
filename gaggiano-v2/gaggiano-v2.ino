@@ -31,6 +31,7 @@
 #include "gaggia_state.h"
 #include "storage.h"
 #include "link.h"
+#include "sequencer.h"
 #include <gaggia_protocol.h>
 /*******************************************************************************
  ******************************************************************************/
@@ -123,16 +124,6 @@ struct GaggiaState state = { false, 98, 8.0, 134, 0, 0, 0, 0, 0, 0, false, "", "
 struct AdvancedSettings advancedSettings = { false, false, 3, 1000, 10, 0.2, 0.1, 1, 100, 1, 0.1, 0.05 };
 bool isControllerLoggingOn = false;
 
-int timerStartTime = 0;
-#define PHASE_OFF 0
-// #define PHASE_HEAT 1
-#define PHASE_BLOOM_FILL 2
-#define PHASE_BLOOM_WAIT 3
-#define PHASE_BREW 4
-// #define PHASE_STEAM 5
-// #define PHASE_CLEAN 6
-int currentPhase = PHASE_OFF;
-
 HardwareSerial controllerSerial(2);
 
 void setup() {
@@ -145,7 +136,7 @@ void setup() {
   Serial.println("Gaggiano screen");
   delay(10);
   linkSetup(&controllerSerial, &state, &advancedSettings);
-  sendSimpleBrewCommand(0, 0);  // initial command: everything off; starts the 1 s heartbeat
+  linkSetCommand(GP_MODE_OFF, 0, 0, 0);  // initial command: everything off; starts the 1 s heartbeat
 
   // Init touch device
 
@@ -246,109 +237,8 @@ static void bmpDrawCallback(int16_t x, int16_t y, uint16_t *bitmap, int16_t w, i
 // }
 
 void sendCommand() {
-  float temp = 0;
-  if (state.isBoilerOn) {
-    temp = state.boilerSetPoint;
-  } else if (state.isSteaming) {
-    temp = state.steamSetPoint;
-  }
-  if (state.hasCommandChanged) {
-    if (state.isBrewing) {
-      state.actionStartTime = millis();
-      state.actionStopTime = 0;
-      sendSimpleBrewCommand(temp, state.pressureSetPoint);
-    } else if (state.isCleaning) {
-      state.actionStartTime = millis();
-      state.actionStopTime = 0;
-      sendSimpleCleanCommand(temp, 9);
-    } else if (state.isBlooming) {
-      if (currentPhase == PHASE_OFF) {
-        if (state.blooming_fill_time > 0 && state.blooming_wait_time > 0 && state.blooming_pressure > 0) {
-          currentPhase = PHASE_BLOOM_FILL;
-          state.actionStartTime = millis();
-          state.actionStopTime = 0;
-          sendSimpleBrewCommand(temp, state.blooming_pressure);
-        } else {
-          state.isBlooming = false;
-        }
-      }
-    } else if (state.isAuto) {
-      if (currentPhase == PHASE_OFF) {
-        if (state.brew_timer > 0) {
-          if (state.blooming_fill_time > 0 && state.blooming_wait_time > 0 && state.blooming_pressure > 0) {
-            currentPhase = PHASE_BLOOM_FILL;
-            state.actionStartTime = millis();
-            state.actionStopTime = 0;
-            sendSimpleBrewCommand(temp, state.blooming_pressure);
-          } else {
-            currentPhase = PHASE_BREW;
-            state.actionStartTime = millis();
-            state.actionStopTime = 0;
-            sendSimpleBrewCommand(temp, state.pressureSetPoint);
-          }
-        } else {
-          state.isAuto = false;
-        }
-      }
-    } else if (state.isSteaming) {
-      if (state.actionStartTime > 0 && state.actionStopTime == 0) {
-        state.actionStopTime = millis();
-      }
-      sendSteamCommand(state.steamSetPoint, state.steam_max_pressure, state.steam_pump_output_percent);
-    } else if (state.isBoilerOn) {
-      if (state.actionStartTime > 0 && state.actionStopTime == 0) {
-        state.actionStopTime = millis();
-      }
-      sendSimpleBrewCommand(state.boilerSetPoint, 0);
-    } else {
-      if (state.actionStartTime > 0 && state.actionStopTime == 0) {
-        state.actionStopTime = millis();
-      }
-      currentPhase = PHASE_OFF;
-      sendSimpleBrewCommand(0, 0);
-    }
-    state.hasCommandChanged = false;
-  } else {
-    if (currentPhase == PHASE_BLOOM_FILL) {
-      if (millis() - state.actionStartTime > (state.blooming_fill_time * 1000)) {
-        currentPhase = PHASE_BLOOM_WAIT;
-        state.actionStartTime = millis();
-        sendSimpleBrewCommand(temp, 0);
-      }
-    } else if (currentPhase == PHASE_BLOOM_WAIT) {
-      if (millis() - state.actionStartTime > (state.blooming_wait_time * 1000)) {
-        if (state.isBlooming) {
-          currentPhase = PHASE_OFF;
-          state.actionStartTime = 0;
-          state.isBlooming = false;
-        } else if (state.isAuto) {
-          currentPhase = PHASE_BREW;
-          state.actionStartTime = millis();
-          sendSimpleBrewCommand(temp, state.pressureSetPoint);
-        }
-      }
-    } else if (currentPhase == PHASE_BREW) {
-      if (millis() - state.actionStartTime > (state.brew_timer * 1000)) {
-        currentPhase = PHASE_OFF;
-        state.actionStopTime = millis();
-        state.isAuto = false;
-        sendSimpleBrewCommand(temp, 0);
-      }
-    }
-  }
-}
-
-// Commands go through the link module, which sends on change and as a heartbeat.
-void sendSimpleBrewCommand(double temp, double pressure) {
-  linkSetCommand(pressure > 0 ? GP_MODE_BREW : GP_MODE_OFF, temp, pressure, 0);
-}
-
-void sendSimpleCleanCommand(double temp, double pressure) {
-  linkSetCommand(GP_MODE_CLEAN, temp, pressure, 0);
-}
-
-void sendSteamCommand(double temp, double maxPressure, double pumpOutputPercent) {
-  linkSetCommand(GP_MODE_STEAM, temp, maxPressure, pumpOutputPercent);
+  SeqCommand c;
+  if (sequencerStep(&state, millis(), &c)) linkSetCommand(c.mode, c.tempSet, c.pressSet, c.pumpPct);
 }
 
 void sendAdvancedSettings() {
@@ -368,16 +258,15 @@ void reportHeap() {
   }
 }
 
-int i = 0;
+#define UI_REFRESH_MS 200  // readings shown 5 times a second; the widgets themselves run every pass
+uint32_t lastUiRefresh = 0;
+
 void loop() {
-  //inelegant optimization to minimize useless(from user perspective) granularity
-  //helps ALOT with UI responsiveness
-  linkPoll(millis());
-  if (i < 20) {
-    i++;
-  } else {
+  uint32_t now = millis();
+  linkPoll(now);
+  if (now - lastUiRefresh >= UI_REFRESH_MS) {
+    lastUiRefresh = now;
     updateUI();
-    i = 0;
   }
   lv_timer_handler(); /* let the GUI do its work */
   sendCommand();

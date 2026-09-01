@@ -3,7 +3,7 @@
 CXX      ?= c++
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -Werror -O1 -g
 INC      := -I../libraries/GaggiaProtocol/src -I../gaggiano-v2
-SRCS     := ../libraries/GaggiaProtocol/src/gaggia_protocol.cpp ../gaggiano-v2/profile_format.cpp
+SRCS     := ../libraries/GaggiaProtocol/src/gaggia_protocol.cpp ../gaggiano-v2/profile_format.cpp ../gaggiano-v2/sequencer.cpp
 
 TESTS := $(wildcard test_*.cpp)
 BINS  := $(patsubst %.cpp,build/%,$(TESTS))
