@@ -1,0 +1,28 @@
+name: build
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+      - name: Cache cores and toolchains
+        uses: actions/cache@v4
+        with:
+          path: .arduino-data
+          key: arduino-data-${{ runner.os }}-${{ hashFiles('tools/targets.sh') }}
+      - name: Install pinned cores
+        run: ./gg setup --ci
+      - name: Build all targets
+        run: ./gg build all
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: |
+            build/controller/*.bin
+            build/controller/*.hex
+            build/screen/*.bin
