@@ -99,8 +99,12 @@ def talk(port, line, seconds, baud):
                 except OSError:
                     print("(port closed: device reset or unplugged)")
                     break
-                sys.stdout.write(data.decode("utf-8", "replace"))
-                sys.stdout.flush()
+                try:
+                    sys.stdout.write(data.decode("utf-8", "replace"))
+                    sys.stdout.flush()
+                except BrokenPipeError:  # e.g. piped into `head`; stop quietly
+                    os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+                    break
     finally:
         os.close(fd)
 
