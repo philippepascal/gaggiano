@@ -28,7 +28,6 @@ double pump_dimmer_output2;
 // timers
 uint32_t last_temp_read_time = 0;
 uint32_t last_pressure_read_time = 0;
-uint32_t last_read_message_time = 0;
 uint32_t last_sent_message_time = 0;
 uint32_t loopCounter = 0;
 
@@ -116,7 +115,6 @@ AutoPID boilerPID(&temperature_smoothed, &temperatureSetPoint, &boiler_relay_out
 // HardwareSerial screenSerial(2);
 HardwareSerial screenSerial(PA3, PA2);
 
-#define MESSAGE_READ_PERIOD 200
 #define MESSAGE_SEND_PERIOD 200  // 200 is a decent value for screen updates; last known working value was 500
 
 // ---------------------------
@@ -183,7 +181,7 @@ void loop() {
   bool pressureUpdated = readPressure(loopStart);
 
   //----------------------
-  readMessage(loopStart);
+  pollScreenSerial();
   readUsbCommand();
 
   // Boiler PID -----------
@@ -312,57 +310,6 @@ void updatePump2() {
     }
 }
 
-void updatePump() {
-  // pumpPID.run(); // currently unused
-
-  double pumpValue;
-  //currently meant as a steaming function.
-  //using pressureOutputPercent is maybe a bit weird here and confusing if we want to setup a clean up command.
-  //let's add a operating_mode instead (brew (default), steam, clean) so we can have a clear behavior
-  if (pressureOutputPercent > 0) {
-    if (pressure_smoothed > pressureSetPoint) {
-      pumpValue = 0;
-    } else {
-      float p = pressureOutputPercent;
-      if (pressureOutputPercent > 10) {  // just safety, solenoid is closed!
-        p = 10;
-      }
-      pumpValue = (p / 100) * PUMP_RANGE;
-    }
-
-    pump_dimmer_output2 = pumpValue;
-    pump->set(pump_dimmer_output2);
-
-  }
-  //normal brewing operations.
-  else if (pressureSetPoint > 0) {
-    // open Solenoid
-    digitalWrite(valvePin, HIGH);
-
-    double pumpValue;
-
-    if (pressure_smoothed > pressureSetPoint) {
-      pumpValue = 0;
-    } else {
-      float diff = pressureSetPoint - pressure_smoothed;
-      pumpValue = PUMP_RANGE / (pump_KP + exp(pump_KI - diff / pump_KD));
-      if ((pressure_smoothed < (pressureSetPoint / 2)) && ((pumpValue - pump_dimmer_output2) > pump_max_step_up)) {  //should only happen for low pressures...
-        pumpValue = pump_dimmer_output2 + pump_max_step_up;
-      }
-    }
-
-    pump_dimmer_output2 = pumpValue;
-    pump->set(pump_dimmer_output2);
-
-  } else {
-    pump_dimmer_output2 = 0;
-    pump->set(0);
-
-    // close Solenoid
-    digitalWrite(valvePin, LOW);
-  }
-}
-
 void updateBoiler() {
   boilerPID.run();
   MyTim->setPWM(boiler_relay_pin_channel, BOILER_RELAY_PIN, BOILER_RELAY_FREQ, boiler_relay_output);
@@ -370,97 +317,105 @@ void updateBoiler() {
 }
 
 // message handling ----------------------
+// Lines from the screen: "<type>;<field>;<field>;...;|\n". Assembled byte by
+// byte every loop pass (no blocking, no heap). A line with an unknown type or
+// the wrong number of fields is counted and ignored: it never changes the
+// operating mode (it used to force BREW).
 
-int myIndexOF(const char *str, const char ch, int fromIndex) {
-  const char *result = strchr(str + fromIndex, ch);
-  if (result == NULL) {
-    return -1;  // Substring not found
-  } else {
-    return result - str;  // Calculate the index
-  }
-}
-char *mySubString(const char *str, int start, int end) {
-  char *sub = (char *)malloc(sizeof(char) * (end - start));
-  if (sub == NULL) {
-    return NULL;
-  }
+#define LINE_MAX 128
+#define MAX_FIELDS 12
+static char rxLine[LINE_MAX];
+static uint8_t rxLen = 0;
+static bool rxDiscard = false;  // true while skipping the rest of an oversize line
+uint32_t rxLines = 0, rxRejected = 0, rxOverflows = 0;
 
-  strncpy(sub, str + start, (end - start));
-  sub[(end - start)] = '\0';
-
-  return sub;
-}
-
-bool readMessage(uint32_t now) {
-  if ((now - last_read_message_time) > MESSAGE_READ_PERIOD) {
-    parseMessage();
-    last_read_message_time = now;
-    return true;
-  }
-  return false;
-}
-
-int getNextFloat(double *variable, char *message, int messageSize, int cursor) {
-  int endCursor = myIndexOF(message, ';', cursor);
-  if (endCursor > 0 && endCursor < messageSize) {
-    *variable = atof(mySubString(message, cursor, endCursor));
-    return endCursor + 1;
-  } else {
-    return -1;
-  }
-}
-
-void parseMessage() {
-  char m[500] = "";
-  if (screenSerial.available()) {
-    strcat(m, screenSerial.readStringUntil('\n').c_str());
-    if (debugLog) { Serial.print("received "); Serial.println(m); }
-  }
-  int messageSize = myIndexOF(m, '|', 0);
-  if (messageSize > 0) {
-    // message is complete..unpack
-    int cursor = 0;
-    int endCursor = myIndexOF(m, ';', cursor);
-    int sender = -1;
-    if (endCursor > 0 && endCursor < messageSize) {
-      sender = atoi(mySubString(m, cursor, endCursor));
-      cursor = endCursor + 1;
+void pollScreenSerial() {
+  while (screenSerial.available()) {
+    char c = (char)screenSerial.read();
+    if (c == '\r') continue;
+    if (c == '\n') {
+      if (!rxDiscard && rxLen > 0) {
+        rxLine[rxLen] = '\0';
+        handleLine(rxLine);
+      }
+      rxLen = 0;
+      rxDiscard = false;
+      continue;
     }
-    if (sender == 1) {  // simple brew command from the screen
-      operating_mode = OPERATING_MODE_BREW;
-      cursor = getNextFloat(&temperatureSetPoint, m, messageSize, cursor);
-      if (cursor > 0) cursor = getNextFloat(&pressureSetPoint, m, messageSize, cursor);
-      pressureOutputPercent = 0;
-      if (debugLog) printSetPoints();
-    } else if (sender == 2) {  // special steam command (not by pressure, but by pump output)
-      operating_mode = OPERATING_MODE_STEAM;
-      cursor = getNextFloat(&temperatureSetPoint, m, messageSize, cursor);
-      if (cursor > 0) cursor = getNextFloat(&pressureSetPoint, m, messageSize, cursor);  //max pressure for steaming
-      if (cursor > 0) cursor = getNextFloat(&pressureOutputPercent, m, messageSize, cursor);
-      if (debugLog) printSetPoints();
-    } else if (sender == 3) { // special clean command (no pressure control: max value)
-      operating_mode = OPERATING_MODE_CLEAN;
-      cursor = getNextFloat(&temperatureSetPoint, m, messageSize, cursor);
-      if (cursor > 0) cursor = getNextFloat(&pressureSetPoint, m, messageSize, cursor);
-      pressureOutputPercent = 0;
-      if (debugLog) printSetPoints();
-    } else if (sender == 9) {  // advanced settings
-      cursor = getNextFloat(&boiler_bb_range, m, messageSize, cursor);
-      if (cursor > 0) cursor = getNextFloat(&boiler_PID_cycle, m, messageSize, cursor);
-      if (cursor > 0) cursor = getNextFloat(&boiler_PID_KP, m, messageSize, cursor);
-      if (cursor > 0) cursor = getNextFloat(&boiler_PID_KI, m, messageSize, cursor);
-      if (cursor > 0) cursor = getNextFloat(&boiler_PID_KD, m, messageSize, cursor);
-      if (cursor > 0) cursor = getNextFloat(&pump_max_step_up, m, messageSize, cursor);
-      if (cursor > 0) cursor = getNextFloat(&pump_KP, m, messageSize, cursor);
-      if (cursor > 0) cursor = getNextFloat(&pump_KI, m, messageSize, cursor);
-      if (cursor > 0) cursor = getNextFloat(&pump_KD, m, messageSize, cursor);
-      if (cursor > 0) cursor = getNextFloat(&unused1, m, messageSize, cursor);
-
-      updateAdvancedSettings();
+    if (rxDiscard) continue;
+    if (rxLen < LINE_MAX - 1) {
+      rxLine[rxLen++] = c;
     } else {
-      //safety, should not happen
-      operating_mode = OPERATING_MODE_BREW;
+      rxOverflows++;
+      rxDiscard = true;
     }
+  }
+}
+
+// Splits "t;f;f;...;|" in place. Returns the field count after the type
+// (-1 if malformed), type in *type, values in out[].
+int parseFields(char *line, int *type, double *out, int maxOut) {
+  char *end = strchr(line, '|');
+  if (end == NULL) return -1;
+  *end = '\0';
+  char *tok = line;
+  int n = -1;  // -1: the type field has not been read yet
+  while (tok != NULL && *tok != '\0') {
+    char *sep = strchr(tok, ';');
+    if (sep != NULL) *sep = '\0';
+    if (n < 0) {
+      *type = atoi(tok);
+    } else {
+      if (n >= maxOut) return -1;
+      out[n] = atof(tok);
+    }
+    n++;
+    tok = (sep != NULL) ? sep + 1 : NULL;
+  }
+  return n;
+}
+
+void handleLine(char *line) {
+  double f[MAX_FIELDS];
+  int type = -1;
+  int n = parseFields(line, &type, f, MAX_FIELDS);
+  bool ok = true;
+  if (type == 1 && n == 2) {  // brew: temp, pressure
+    operating_mode = OPERATING_MODE_BREW;
+    temperatureSetPoint = f[0];
+    pressureSetPoint = f[1];
+    pressureOutputPercent = 0;
+  } else if (type == 2 && n == 3) {  // steam: temp, max pressure, pump percent
+    operating_mode = OPERATING_MODE_STEAM;
+    temperatureSetPoint = f[0];
+    pressureSetPoint = f[1];
+    pressureOutputPercent = f[2];
+  } else if (type == 3 && n == 2) {  // clean: temp, pressure
+    operating_mode = OPERATING_MODE_CLEAN;
+    temperatureSetPoint = f[0];
+    pressureSetPoint = f[1];
+    pressureOutputPercent = 0;
+  } else if (type == 9 && n == 10) {  // advanced settings
+    boiler_bb_range = f[0];
+    boiler_PID_cycle = f[1];
+    boiler_PID_KP = f[2];
+    boiler_PID_KI = f[3];
+    boiler_PID_KD = f[4];
+    pump_max_step_up = f[5];
+    pump_KP = f[6];
+    pump_KI = f[7];
+    pump_KD = f[8];
+    unused1 = f[9];
+    updateAdvancedSettings();
+  } else {
+    ok = false;
+  }
+  if (ok) {
+    rxLines++;
+    if (debugLog && type != 9) printSetPoints();
+  } else {
+    rxRejected++;
+    if (debugLog) { Serial.print("rejected type "); Serial.print(type); Serial.print(" fields "); Serial.println(n); }
   }
 }
 
@@ -546,7 +501,7 @@ void allOutputsOff() {
 }
 
 void readUsbCommand() {
-  static char line[32];
+  static char line[LINE_MAX];
   static uint8_t len = 0;
   while (Serial.available()) {
     char c = Serial.read();
@@ -561,6 +516,12 @@ void readUsbCommand() {
       Serial.println(FIRMWARE_VERSION);
     } else if (strcmp(line, "STATUS") == 0) {
       printStatus();
+    } else if (strncmp(line, "RX ", 3) == 0) {  // bench: feed a line as if from the screen
+      char copy[LINE_MAX];
+      strncpy(copy, line + 3, sizeof(copy) - 1);
+      copy[sizeof(copy) - 1] = '\0';
+      handleLine(copy);
+      Serial.println("rx injected");
     } else if (strcmp(line, "LOG ON") == 0) {
       debugLog = true;
       Serial.println("log on");
@@ -581,10 +542,11 @@ void readUsbCommand() {
 void printStatus() {
   char line[160];
   snprintf(line, sizeof(line),
-           "STATUS mode=%d tempSet=%.2f pressSet=%.2f pumpPct=%.2f temp=%.2f press=%.2f valve=%d boilerOut=%.1f pumpOut=%.1f tempFaults=%lu loops=%lu maxLoopMs=%lu",
+           "STATUS mode=%d tempSet=%.2f pressSet=%.2f pumpPct=%.2f temp=%.2f press=%.2f valve=%d boilerOut=%.1f pumpOut=%.1f tempFaults=%lu rx=%lu rxRejected=%lu rxOverflows=%lu loops=%lu maxLoopMs=%lu",
            (int)operating_mode, temperatureSetPoint, pressureSetPoint, pressureOutputPercent,
            temperature_smoothed, pressure_smoothed, digitalRead(valvePin), boiler_relay_output,
-           pump_dimmer_output2, (unsigned long)temperatureFaults, (unsigned long)loopCounter, (unsigned long)maxLoopMs);
+           pump_dimmer_output2, (unsigned long)temperatureFaults, (unsigned long)rxLines, (unsigned long)rxRejected,
+           (unsigned long)rxOverflows, (unsigned long)loopCounter, (unsigned long)maxLoopMs);
   Serial.println(line);
 }
 
