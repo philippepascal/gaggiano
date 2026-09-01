@@ -1,8 +1,8 @@
 #include "link.h"
 #include "storage.h"
+#include "config.h"
+#include "console.h"
 #include <gaggia_protocol.h>
-
-#define SCREEN_FIRMWARE_VERSION "screen-2026-09-01-r2"  // no commas, max 31 chars
 
 extern bool isControllerLoggingOn;  // owned by the sketch: log raw STAT lines to SD
 
@@ -26,8 +26,10 @@ static void sendMessage(const GpMessage &m) {
   if (n <= 0 || port == NULL) return;
   port->write((const uint8_t *)buf, (size_t)n);
   linkTxLines++;
-  Serial.print(" sent: ");
-  Serial.print(buf);
+  if (debugLog) {
+    Serial.print(" sent: ");
+    Serial.print(buf);
+  }
 }
 
 static void sendHello() {

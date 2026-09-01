@@ -6,12 +6,7 @@
 #include "gaggia_state.h"
 #include "BmpClass.h"
 
-// SD card on SPI (the display board's TF slot). FAT formatted.
-#define REASSIGN_PINS
-#define SD_sck 12
-#define SD_miso 13
-#define SD_mosi 11
-#define SD_cs 10
+#include "config.h"  // SD pins
 
 void initConfFile(GaggiaStateT *state, AdvancedSettingsT *advancedSettings);
 bool storageReady();
