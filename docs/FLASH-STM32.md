@@ -47,6 +47,9 @@ Known quirks, from experience with this build:
 - The solenoid relay can prevent DFU enumeration. Turning brew on from the screen
   before entering DFU has helped.
 - Use a direct USB port on the Mac rather than a hub, and a data-capable cable.
+  Charge-only cables power the board but the Mac never sees it. The WeAct v2.0
+  Black Pill has no CC resistors on its USB-C socket, so a C-to-C cable from a Mac
+  may not enumerate at all; use a USB-A to USB-C cable. Label the cable that works.
 - macOS occasionally needs a second attempt; `gg` retries automatically.
 - After a failed download the bootloader may still be active. Just run
   `./gg flash controller --no-build` again.
