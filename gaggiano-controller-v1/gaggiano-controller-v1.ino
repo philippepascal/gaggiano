@@ -236,13 +236,19 @@ float getPressure() {
   return (ADS.getValue() - 2666) / 1777.8f;  // 16bit
 }
 
+uint32_t temperatureFaults = 0;  // readings rejected (open thermocouple reads 0 or NaN)
+
 bool readTemperature(uint32_t now) {
   if ((now - last_temp_read_time) > TEMP_READ_PERIOD) {
     double newReading = thermocouple.readCelsius();
-    if (newReading > 1 || newReading < 200)  // not meant to run at freezing or too hot temperatures, so this should never be 0, just skip this reading.
-    {
+    // The machine never runs near freezing or above 200 C; anything outside is a
+    // sensor fault (the MAX6675 returns 0 or NaN with an open thermocouple). Keep
+    // the last good value so the PID does not react to it. (Was `||`, always true.)
+    if (newReading > 1 && newReading < 200) {
       temperature_read = newReading;
       temperature_smoothed = smoothTemperature.updateEstimate(temperature_read);
+    } else {
+      temperatureFaults++;
     }
     last_temp_read_time = now;
     return true;
@@ -575,10 +581,10 @@ void readUsbCommand() {
 void printStatus() {
   char line[160];
   snprintf(line, sizeof(line),
-           "STATUS mode=%d tempSet=%.2f pressSet=%.2f pumpPct=%.2f temp=%.2f press=%.2f valve=%d boilerOut=%.1f pumpOut=%.1f loops=%lu maxLoopMs=%lu",
+           "STATUS mode=%d tempSet=%.2f pressSet=%.2f pumpPct=%.2f temp=%.2f press=%.2f valve=%d boilerOut=%.1f pumpOut=%.1f tempFaults=%lu loops=%lu maxLoopMs=%lu",
            (int)operating_mode, temperatureSetPoint, pressureSetPoint, pressureOutputPercent,
            temperature_smoothed, pressure_smoothed, digitalRead(valvePin), boiler_relay_output,
-           pump_dimmer_output2, (unsigned long)loopCounter, (unsigned long)maxLoopMs);
+           pump_dimmer_output2, (unsigned long)temperatureFaults, (unsigned long)loopCounter, (unsigned long)maxLoopMs);
   Serial.println(line);
 }
 
