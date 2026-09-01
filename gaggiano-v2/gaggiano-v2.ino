@@ -146,6 +146,7 @@ void setup() {
   Serial.println("Gaggiano screen");
   delay(10);
   linkSetup(&controllerSerial, &state, &advancedSettings);
+  sendSimpleBrewCommand(0, 0);  // initial command: everything off; starts the 1 s heartbeat
 
   // Init touch device
 
