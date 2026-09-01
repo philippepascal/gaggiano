@@ -72,20 +72,32 @@ static int readFile(const char *fileName, char *buf, size_t size) {
 
 // ---------------------------------------------------------------- logs
 
+// The log file stays open between lines and is flushed once a second, instead
+// of an open/append/close per line (five times a second while logging).
+static File logFile;
+static uint32_t lastLogFlush = 0;
+
 int logController(const char *message) {
   if (!storageReady()) return -1;
-  File logFile = fileSystem->open(logsPath, FILE_APPEND);
   if (!logFile) {
-    Serial.println("SD: cannot open the log for appending");
-    return -1;
+    logFile = fileSystem->open(logsPath, FILE_APPEND);
+    if (!logFile) {
+      Serial.println("SD: cannot open the log for appending");
+      return -1;
+    }
   }
   int n = logFile.println(message);
-  logFile.close();
+  uint32_t now = millis();
+  if (now - lastLogFlush >= LOG_FLUSH_MS) {
+    logFile.flush();
+    lastLogFlush = now;
+  }
   return n;
 }
 
 int deleteLogsFile() {
   if (!storageReady()) return -1;
+  if (logFile) logFile.close();
   if (!fileSystem->remove(logsPath)) Serial.println("SD: no log file to delete");
   return logController("$STAT,mode,temp,pressure,valve,boilerOut,pumpOut,tempSet,pressSet,pumpPct,linkOk,faults,counter*00");
 }
