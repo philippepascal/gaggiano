@@ -41,6 +41,14 @@ checks for it at the standard install path.
 `flash` accepts `--no-build`, `--port /dev/cu.xxx`, `--timeout 120` and
 `--via stlink` (controller only, needs an ST-Link on the SWD header).
 
+## Troubleshooting the screen upload
+
+| Symptom | Meaning |
+|---|---|
+| `Could not configure port: (6, 'Device not configured')` | macOS CH340 quirk on the first open after plugging in. `gg` retries three times and drops to 115200 on the last try. Plugging directly into the Mac (no hub) helps. |
+| `detect` shows the screen as `usbserial-XXXX` although the WCH driver is installed | Apple's built-in CH340 driver claimed the device. Both work; if uploads keep failing, disable one driver. |
+| No port at all | the board's CH340 needs a data cable; the S3's own USB connector is not used by this build. |
+
 ## Where things are
 
 | Path | Purpose |

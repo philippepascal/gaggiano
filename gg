@@ -172,9 +172,20 @@ flash_screen() {
   if [ -z "$port" ]; then
     port="$(detect_port screen run)" || die "screen not found: plug the display's USB (CH340) port in, or pass --port"
   fi
-  log "flashing screen on $port"
-  cli upload --fqbn "$T_FQBN" -p "$port" --input-dir "$BUILD_DIR/screen" "$REPO/$T_SKETCH"
-  log "screen flashed"
+  # macOS + CH340 often fails the first open after plug-in with
+  # "Could not configure port: (6, 'Device not configured')". Retry, and use the
+  # slow rate on the last attempt.
+  local attempt fqbn
+  for attempt in 1 2 3; do
+    fqbn="$T_FQBN"
+    [ "$attempt" = 3 ] && fqbn="$(printf '%s' "$T_FQBN" | sed 's/UploadSpeed=[0-9]*/UploadSpeed=115200/')"
+    log "flashing screen on $port (attempt $attempt$([ "$attempt" = 3 ] && echo ', 115200 baud'))"
+    if cli upload --fqbn "$fqbn" -p "$port" --input-dir "$BUILD_DIR/screen" "$REPO/$T_SKETCH"; then
+      log "screen flashed"; return 0
+    fi
+    warn "upload failed"; sleep 2
+  done
+  die "screen upload failed after 3 attempts (see docs/BUILD.md, troubleshooting)"
 }
 
 flash_controller_dfu() {

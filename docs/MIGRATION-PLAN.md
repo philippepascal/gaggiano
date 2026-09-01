@@ -162,7 +162,7 @@ not been pushed. Check the Actions tab after the first push.
       device: `controller RUN  /dev/cu.usbmodemXXXX`, `controller DFU  (no port)`,
       `screen /dev/cu.usbserial-XXXX`, plus unknown devices. Exit code 0 if at least one
       known device. Also used by `gg detect`. Fallback for DFU visibility: `dfu-util -l`.
-- [ ] 3.2 (code written, dry-run verified: esptool command matches the IDE's; hardware test pending) `gg flash screen`: `gg build screen`, pick the CH340 port (error with the
+- [x] 3.2 (hardware-tested 2026-09-01: first attempt hit the macOS CH340 'Device not configured' error, retry succeeded at 460800; retry/fallback added to `gg`) `gg flash screen`: `gg build screen`, pick the CH340 port (error with the
       list of candidates if there are several, `--port` override), then run esptool with
       the exact argument list from the findings doc (bootloader 0x0, partitions 0x8000,
       `boot_app0.bin` 0xe000 from `$A15/packages/esp32/hardware/esp32/2.0.17/tools/partitions/`,
