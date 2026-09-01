@@ -144,9 +144,14 @@ The wire format stays exactly as today so the screen keeps working unmodified.
 
 **Checkpoint R1:** full bench checklist with the unmodified screen firmware. Ten
 minutes of heat + a 30 s brew with the console showing loop max time under 10 ms.
-Status 2026-09-01: console-side items verified (VERSION, STATUS, LOG, RX injection of
-valid and invalid lines, HANG -> watchdog reset in 4 s with wdReset=1, DFU flash with
-the watchdog armed). Screen-driven items 4-7 and the heat/brew run still to do by hand.
+PASSED 2026-09-01. Console items: VERSION, STATUS, LOG, RX injection of valid and
+invalid lines, HANG -> watchdog reset in 4 s with wdReset=1, DFU flash with the watchdog
+armed. Screen-driven run captured on the controller console with LOG ON: heat on/off
+(boiler 100% then 0), brew on/off (valve 1, pump ramp 0.8 -> 126.85 at 0.4/step, then 0),
+steam on/off (pump 5.08 = 4% of 127, valve stays 0, boiler 100), clean on/off (valve 1,
+pump 255), three advanced-settings sends from Set / duplicate / delete. STATUS after:
+rx=12 rxRejected=0 rxOverflows=0 maxLoopMs=6 (with logging on), 575 status lines with
+no counter gaps. Not done: the 10-minute heat with water (bench only, no machine).
 
 ---
 
@@ -239,9 +244,17 @@ free heap flat on the screen, loop max time stable on the controller, no missed
 ## Notes log
 
 - 2026-09-01 screen baseline: right after boot the screen reports
-  `HEAP free=114128 minfree=105320 psramfree=7590603`. With the current leak of about
-  four small blocks per status line (5 lines/s), 114 KB of internal heap lasts on the
-  order of half an hour before allocations spill to PSRAM. Watch this number in R3.
+  `HEAP free=114128 minfree=105320 psramfree=7590603`.
+- 2026-09-01 B1 measured live: with status lines flowing the screen's internal heap
+  fell about 4.1 KB per 10 s and reached `free=0` within a few minutes of boot. After
+  that, allocations spill into PSRAM at the same ~420 B/s and the UI keeps running, but
+  anything needing internal RAM (UART and SD drivers included) is at risk. This is the
+  most likely mechanism behind "comms sometimes stop". Fixed in R3.1; the after
+  measurement must show a flat HEAP line for 10 minutes.
+- 2026-09-01 bench logistics: only one working data cable, so the two boards are put on
+  USB one at a time. Either board powers the other over the shared 5 V rail (the display
+  board's power connector passes current both ways through Q1), so the UART link stays
+  up regardless of which one is on the Mac.
 
 - 2026-09-01 R1: `STATUS` reports maxLoopMs=6 at rest with debug logging off. That is
   close to the 10 ms loop period; with `LOG ON` the USB prints likely pushed some
