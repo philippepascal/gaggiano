@@ -1,3 +1,8 @@
+"""Convert an image to raw RGB565 (big-endian) for the display.
+
+Needs Pillow:  uv run --with pillow tools/convertBmp.py image.png
+           or:  python3 -m pip install --user pillow && python3 tools/convertBmp.py image.png
+"""
 import argparse
 from PIL import Image
 
