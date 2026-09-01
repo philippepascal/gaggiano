@@ -205,7 +205,7 @@ flash_controller_dfu() {
       local port
       if port="$(detect_port controller run)"; then
         log "asking the running firmware to reboot into DFU via $port"
-        "$REPO/tools/serial-cmd.py" "$port" DFU 1 "$T_BAUD" >/dev/null || warn "could not send DFU command"
+        "$REPO/tools/serial-cmd.py" -t 1 -b "$T_BAUD" "$port" DFU >/dev/null || warn "could not send DFU command"
         if wait_for controller dfu 5; then log "controller entered DFU"; fi
       fi
     fi

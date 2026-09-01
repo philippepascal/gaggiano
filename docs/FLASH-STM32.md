@@ -59,9 +59,9 @@ and resets; on the next boot the marker is detected before anything else runs an
 execution jumps to the ROM bootloader. `./gg flash controller` uses this automatically;
 `--no-serial-dfu` skips it. Verified on hardware on 2026-09-01.
 
-Manual use: `tools/serial-cmd.py /dev/cu.usbmodemXXXX DFU` (a bare shell redirect tends to
-close the port before the bytes leave the Mac). `tools/serial-cmd.py <port> VERSION` prints
-the firmware version string.
+Manual use: `tools/serial-cmd.py controller DFU` (a bare shell redirect tends to close the
+port before the bytes leave the Mac). `tools/serial-cmd.py controller VERSION` prints the
+firmware version string; `tools/serial-cmd.py --list` shows the ports; `--help` for more.
 
 ## Alternative: ST-Link over SWD
 

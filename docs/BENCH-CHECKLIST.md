@@ -5,7 +5,8 @@ Run items 1 and 2 after every flash. Run the whole list at each checkpoint of
 UART; nothing needs to be in the machine.
 
 Console commands on the controller's USB port (`./gg monitor controller`, or
-`tools/serial-cmd.py <port> <command>`): `VERSION`, `STATUS`, `LOG ON`, `LOG OFF`, `DFU`.
+`tools/serial-cmd.py controller <command>`; `tools/serial-cmd.py --list` shows ports):
+`VERSION`, `STATUS`, `LOG ON`, `LOG OFF`, `RX <line>`, `HANG`, `DFU`.
 
 | # | Step | Expect |
 |---|---|---|
