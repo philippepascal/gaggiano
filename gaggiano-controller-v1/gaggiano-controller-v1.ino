@@ -2,6 +2,9 @@
 
 #include <AutoPID.h>
 #include <SimpleKalmanFilter.h>
+#include "dfu_jump.h"
+
+#define FIRMWARE_VERSION "gaggiano-controller-v1 2026-09-01"
 
 // --------- global vars ----------
 
@@ -176,6 +179,7 @@ void loop() {
 
   //----------------------
   readMessage(loopStart);
+  readUsbCommand();
 
   // Boiler PID -----------
   if (tempUpdated) updateBoiler();
@@ -516,6 +520,44 @@ bool sendStatus(uint32_t now) {
     return true;
   }
   return false;
+}
+
+// USB serial commands (from the Mac, not the screen) ----------
+// One command per line: VERSION, DFU. Non-blocking: characters are collected
+// across loop iterations so the control loop never stalls on a partial line.
+
+void allOutputsOff() {
+  pump->set(0);
+  pump_dimmer_output2 = 0;
+  digitalWrite(valvePin, LOW);
+  MyTim->setPWM(boiler_relay_pin_channel, BOILER_RELAY_PIN, BOILER_RELAY_FREQ, 0);
+  temperatureSetPoint = 0;
+  pressureSetPoint = 0;
+}
+
+void readUsbCommand() {
+  static char line[32];
+  static uint8_t len = 0;
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\r') continue;
+    if (c != '\n') {
+      if (len < sizeof(line) - 1) line[len++] = c;
+      continue;
+    }
+    line[len] = '\0';
+    len = 0;
+    if (strcmp(line, "VERSION") == 0) {
+      Serial.println(FIRMWARE_VERSION);
+    } else if (strcmp(line, "DFU") == 0) {
+      allOutputsOff();
+      Serial.println("rebooting into DFU bootloader");
+      Serial.flush();
+      delay(100);
+      dfu_request_reboot();
+    }
+    // anything else is ignored (the debug port also receives stray text)
+  }
 }
 
 // Debugging Stuff -----------------------

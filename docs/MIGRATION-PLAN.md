@@ -119,10 +119,10 @@ sketch and are removed in Phase 5.2.
 
 ## Phase 2: Repo-owned build script and docs (no hardware)
 
-- [ ] 2.1 `tools/targets.sh`: one block per target with `FQBN`, `SKETCH_DIR`, `OUT_DIR`,
+- [x] 2.1 `tools/targets.sh`: one block per target with `FQBN`, `SKETCH_DIR`, `OUT_DIR`,
       `MONITOR_BAUD` (controller 9600, screen 115200), `USB_RUN_VIDPID`, `USB_DFU_VIDPID`
       (controller only: run `0483:5740`, DFU `0483:df11`; screen `1a86:7523`).
-- [ ] 2.2 `gg` script, bash, `set -euo pipefail`, subcommands:
+- [x] 2.2 `gg` script, bash, `set -euo pipefail`, subcommands:
       - `setup`: check/install Homebrew `arduino-cli`; write `tools/arduino-cli.yaml` from
         the repo path; `core update-index`; `core install STMicroelectronics:stm32@2.9.0`
         and `esp32:esp32@2.0.17` if missing; check STM32CubeProgrammer CLI exists at the
@@ -133,36 +133,42 @@ sketch and are removed in Phase 5.2.
         port auto-picked via `detect`.
       - `detect`, `flash`: Phase 3.
       - `--help` on every subcommand; errors are one clear line, not a stack of shell noise.
-- [ ] 2.3 `docs/BUILD.md`: fresh-clone setup, the three commands (`setup`, `build`,
+- [x] 2.3 `docs/BUILD.md`: fresh-clone setup, the three commands (`setup`, `build`,
       `flash`), where binaries land, how to change an FQBN option, how to add a library.
-- [ ] 2.4 GitHub Actions `.github/workflows/build.yml`: ubuntu runner, install
+- [x] 2.4 GitHub Actions `.github/workflows/build.yml`: ubuntu runner, install
       arduino-cli, install the two pinned cores, `./gg build all`. Upload binaries as
       artifacts. (Compile only; no upload step.)
-- [ ] 2.5 Optional: `sketch.yaml` build profiles in each sketch folder pinning the core
+- [x] 2.5 SKIPPED. `sketch.yaml` build profiles in each sketch folder pinning the core
       version, so `arduino-cli compile --profile default` works without `gg`. Only worth it
-      because profiles can reference the vendored `libraries/` folder by path (`dir:`
-      entries, confirmed for arduino-cli 1.3.1). Generate a starting point with
-      `arduino-cli compile --dump-profile ...` after 1.1/1.2.
+      were skipped on 2026-09-01: profile builds install the platforms again into an
+      isolated directory (another ~1 GB download for the esp32 core) and `--dump-profile`
+      lists libraries by Library Manager name, which would bypass the vendored copies.
+      `gg` already pins cores and options; revisit only if profiles become useful for CI.
 
 **Checkpoint 2:** on a fresh clone in a temp dir, `./gg setup && ./gg build all` succeeds
 and produces the same binaries as Phase 1. CI is green.
+
+Result 2026-09-01: passed locally. Controller binary byte-identical from the fresh clone.
+Screen binary differs by 3.6 KB only because LVGL logging embeds `__FILE__` absolute
+paths (46 path strings, longer in the temp clone). CI not yet observed: the branch has
+not been pushed. Check the Actions tab after the first push.
 
 ---
 
 ## Phase 3: Detection and flashing helpers **(hardware)**
 
-- [ ] 3.1 `tools/usb-detect.py`: runs `system_profiler SPUSBDataType -json` and
+- [x] 3.1 (code written, tested only against a USB hub) `tools/usb-detect.py`: runs `system_profiler SPUSBDataType -json` and
       `arduino-cli board list --format json`, joins on VID:PID, prints one line per known
       device: `controller RUN  /dev/cu.usbmodemXXXX`, `controller DFU  (no port)`,
       `screen /dev/cu.usbserial-XXXX`, plus unknown devices. Exit code 0 if at least one
       known device. Also used by `gg detect`. Fallback for DFU visibility: `dfu-util -l`.
-- [ ] 3.2 `gg flash screen`: `gg build screen`, pick the CH340 port (error with the
+- [ ] 3.2 (code written, dry-run verified: esptool command matches the IDE's; hardware test pending) `gg flash screen`: `gg build screen`, pick the CH340 port (error with the
       list of candidates if there are several, `--port` override), then run esptool with
       the exact argument list from the findings doc (bootloader 0x0, partitions 0x8000,
       `boot_app0.bin` 0xe000 from `$A15/packages/esp32/hardware/esp32/2.0.17/tools/partitions/`,
       app 0x10000). Prefer `arduino-cli upload` if it reproduces the same command; else
       call esptool directly. Test on the board.
-- [ ] 3.3 `gg flash controller` via DFU, in this order:
+- [ ] 3.3 (code written, dry-run verified: CubeProgrammer wrapper invoked; hardware test pending) `gg flash controller` via DFU, in this order:
       1. `gg build controller`.
       2. If a controller in RUN mode is present and firmware supports it (Phase 4), send
          the reboot-to-DFU command on its CDC port.
@@ -172,10 +178,10 @@ and produces the same binaries as Phase 1. CI is green.
          Retry up to 3 times on connect failure (macOS sometimes needs a second attempt).
       5. Wait up to 10 s for `0483:5740` to reappear and report "controller is back".
       Options: `--no-build`, `--timeout N`, `--erase`.
-- [ ] 3.4 `gg flash controller --via stlink` (optional path): `st-flash --reset write
+- [x] 3.4 (code written, untested: no probe) `gg flash controller --via stlink` (optional path): `st-flash --reset write
       build/controller/<name>.bin 0x8000000`. Only wire this when an ST-Link is actually
       connected to SWD; document it in `docs/FLASH-STM32.md` as the no-buttons alternative.
-- [ ] 3.5 `docs/FLASH-STM32.md`: USB identity table, the button sequence with a photo or
+- [x] 3.5 `docs/FLASH-STM32.md`: USB identity table, the button sequence with a photo or
       pin diagram (`Black_pill_pinout.png` already in the repo), the relay quirk,
       troubleshooting list (no DFU device: try another cable/port, no hub; DFU seen but
       download fails: retry, or `--erase`; board silent after flash: check `usb=CDCgen`).
@@ -190,7 +196,7 @@ button sequence, followed by `gg monitor controller` showing "serial works".
 Goal: `gg flash controller` reboots the board into the ROM bootloader without touching
 buttons. The button sequence stays valid forever because the bootloader is in ROM.
 
-- [ ] 4.1 Firmware, `gaggiano-controller-v1.ino` (or a new `dfu_jump.cpp/.h`):
+- [x] 4.1 Firmware, `gaggiano-controller-v1.ino` plus new `dfu_jump.cpp/.h` (written and compiled 2026-09-01; design changed from RTC backup register to a `.noinit` RAM marker checked by a `constructor(100)`, see notes log):
       - On USB `Serial`, accept a line `DFU` (and `VERSION`, replying with a build
         string so `gg detect` can show firmware version).
       - On `DFU`: set the pump to 0, close the solenoid, boiler PWM to 0, write a magic
@@ -205,9 +211,9 @@ buttons. The button sequence stays valid forever because the bootloader is in RO
       (or via `gg`) must make `0483:df11` appear within 2 s. Then flash, then confirm the
       board comes back in RUN mode and the magic word is cleared (a plain reset must not
       re-enter DFU).
-- [ ] 4.3 Hook into `gg flash controller` step 2 (Phase 3.3). Keep the button prompt as
+- [x] 4.3 Hook into `gg flash controller` step 2 (Phase 3.3). Keep the button prompt as
       the fallback when no RUN-mode device is present or the command times out.
-- [ ] 4.4 Safety review of the firmware change: what happens if `DFU` arrives mid-brew
+- [x] 4.4 Safety review (done on the code: `DFU` is parsed only on USB `Serial`; `allOutputsOff()` zeroes pump, valve, boiler PWM and setpoints before the reset) of the firmware change: what happens if `DFU` arrives mid-brew
       (outputs are zeroed first), and confirm the screen cannot send it (it is only parsed
       on USB `Serial`, not on `screenSerial`).
 
@@ -261,6 +267,19 @@ roughly 2000 (libraries dominate).
       Arduino_GFX current), 16 MB partition table, unit tests for the protocol parser.
 
 ## Open questions / notes log
+
+- 2026-09-01: Phase 4 implementation detail. The marker is two `.noinit` words
+  (`dfu_jump.cpp`), set by `dfu_request_reboot()` before `NVIC_SystemReset()`. A
+  `constructor(100)` (the core's `premain()` is 101) checks it before any HAL/USB init,
+  clears it, disables SysTick and NVIC, remaps system memory to 0, sets MSP and jumps to
+  `0x1FFF0004`. Verified in the ELF: `.init_array` lists `dfu_check_marker` first, then
+  `premain`; `.noinit` at 0x200018f8 is outside `.bss`. `-Wprio-ctor-dtor` is silenced
+  locally. Not yet run on hardware (4.2).
+- 2026-09-01: `arduino-cli upload` is used for the actual programming step of both
+  targets (it reproduces the IDE's exact esptool / stm32CubeProg.sh invocations); `gg`
+  adds detection, the DFU wait loop and retries around it.
+- 2026-09-01: `system_profiler SPUSBDataType -json` returns an empty list on this macOS,
+  so `usb-detect.py` parses `ioreg -p IOUSB -l` instead.
 
 - 2026-09-01: `sketch.yaml` profiles with local library directories: supported by
   arduino-cli 1.3.1 (`--dump-profile` emits `- dir: <path>` entries), so 2.5 is viable.
