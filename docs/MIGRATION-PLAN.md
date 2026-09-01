@@ -46,8 +46,8 @@ Gaggiano/
 ## Phase 0: Preparation (no hardware)
 
 - [x] 0.1 Write `docs/2026-09-01-findings.md` and this plan.
-- [ ] 0.2 Add `build/` and `.arduino-cli/` (if used) to `.gitignore`. Commit.
-- [ ] 0.3 Create `tools/arduino-cli.yaml`:
+- [x] 0.2 Add `build/` and `.arduino-cli/` (if used) to `.gitignore`. Commit.
+- [x] 0.3 Create `tools/arduino-cli.yaml`:
       ```yaml
       board_manager:
         additional_urls:
@@ -74,7 +74,7 @@ vendored libraries (lvgl 8.3.3, GFX Library for Arduino 1.2.8, ADS1X15 0.5.2, ..
 
 ## Phase 1: Reproduce both builds from the command line (no hardware)
 
-- [ ] 1.1 Compile the controller:
+- [x] 1.1 Compile the controller:
       ```
       arduino-cli --config-file tools/arduino-cli.yaml compile \
         --fqbn "STMicroelectronics:stm32:GenF4:pnum=GENERIC_F411CEUX,xserial=generic,usb=CDCgen,xusb=FS,opt=osstd,dbg=none,rtlib=nanofp,upload_method=dfuMethod" \
@@ -84,7 +84,7 @@ vendored libraries (lvgl 8.3.3, GFX Library for Arduino 1.2.8, ADS1X15 0.5.2, ..
       ```
       Expect `build/controller/gaggiano-controller-v1.ino.bin` around 67 KB and a flash
       usage line similar to the IDE's. Record the size in this file.
-- [ ] 1.2 Compile the display:
+- [x] 1.2 Compile the display:
       ```
       arduino-cli --config-file tools/arduino-cli.yaml compile \
         --fqbn "esp32:esp32:esp32s3:UploadSpeed=460800,USBMode=hwcdc,CDCOnBoot=default,MSCOnBoot=default,DFUOnBoot=default,UploadMode=default,CPUFreq=240,FlashMode=qio,FlashSize=16M,PartitionScheme=default,DebugLevel=none,PSRAM=opi,LoopCore=1,EventsCore=1,EraseFlash=none,JTAGAdapter=default" \
@@ -95,7 +95,7 @@ vendored libraries (lvgl 8.3.3, GFX Library for Arduino 1.2.8, ADS1X15 0.5.2, ..
       Expect `.bin` (about 1.05 MB), `.bootloader.bin`, `.partitions.bin`. Record sizes.
       If the build picks up the venv or vendor folders as sources, that is the signal to
       pull Phase 6.1 forward (delete the venv) before continuing.
-- [ ] 1.3 Compare against the archived IDE builds in `*/archiveArdIDEFiles/` (size, and
+- [x] 1.3 Compare against the archived IDE builds in `*/archiveArdIDEFiles/` (size, and
       `arm-none-eabi-size` / `xtensa-esp32s3-elf-size` on the `.elf`). Differences must be
       explainable by the source edits since 2025-03-28, not by different flags. Diff the
       compiler command line against the archived `compile_commands.json` first entry if in doubt.
@@ -105,8 +105,15 @@ recorded here:
 
 | Target | .bin bytes (CLI) | .bin bytes (IDE 2025-03-28) |
 |---|---|---|
-| controller | | 67,140 |
-| screen | | 1,048,672 |
+| controller | 67,492 (text 66,392 vs 66,048) | 67,140 |
+| screen | 678,208 (text 466,037 vs 466,665; data 212,056 vs 581,904) | 1,048,672 |
+
+Verified 2026-09-01: the compiler flag sets for the sketch translation unit are identical
+between the archived IDE build and the CLI build for both targets (207 and 30 include
+paths respectively, same defines). The 370 KB drop in the screen binary is const data:
+the March 2025 UI embedded six status icons (`boiler`, `brew`, `steam` and their `Red`
+variants) that the current UI no longer references. Their `.c` files are still in the
+sketch and are removed in Phase 5.2.
 
 ---
 
