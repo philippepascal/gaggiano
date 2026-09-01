@@ -11,16 +11,23 @@
 #include "control.h"
 #include "link.h"
 #include "console.h"
+#include <IWatchdog.h>
 
 uint32_t loopCounter = 0;
 uint32_t maxLoopMs = 0;
 
+bool resetByWatchdog = false;
+
 void setup() {
+  resetByWatchdog = IWatchdog.isReset();
+  if (resetByWatchdog) IWatchdog.clearReset();
   consoleSetup();
+  if (resetByWatchdog) Serial.println("reset by watchdog");
   linkSetup();
   sensorsSetup();
   outputsSetup();
   controlSetup();
+  IWatchdog.begin(WATCHDOG_TIMEOUT_US);
 }
 
 void loop() {
@@ -43,6 +50,7 @@ void loop() {
   // Only sleep for the remainder of the period (an unsigned subtraction here
   // used to turn any slow iteration into a ~49 day delay).
   if (elapsed < LOOP_PERIOD_MS) delay(LOOP_PERIOD_MS - elapsed);
+  IWatchdog.reload();
 }
 
 // Hardware notes kept from the original single-file sketch:

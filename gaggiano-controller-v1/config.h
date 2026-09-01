@@ -40,6 +40,9 @@
 #define LINE_MAX 128
 #define MAX_FIELDS 12
 
+// --- watchdog: reset if the loop stalls (outputs go to reset state: all off)
+#define WATCHDOG_TIMEOUT_US 4000000
+
 // --- USB console
 #define CONSOLE_BAUD 9600
 

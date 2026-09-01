@@ -42,6 +42,10 @@ void readUsbCommand() {
     } else if (strcmp(line, "LOG OFF") == 0) {
       debugLog = false;
       Serial.println("log off");
+    } else if (strcmp(line, "HANG") == 0) {  // bench: prove the watchdog resets a stalled loop
+      Serial.println("hanging; expect a watchdog reset");
+      Serial.flush();
+      for (;;) {}
     } else if (strcmp(line, "DFU") == 0) {
       allOutputsOff();
       Serial.println("rebooting into DFU bootloader");
@@ -56,11 +60,11 @@ void readUsbCommand() {
 void printStatus() {
   char line[224];
   snprintf(line, sizeof(line),
-           "STATUS mode=%d tempSet=%.2f pressSet=%.2f pumpPct=%.2f temp=%.2f press=%.2f valve=%d boilerOut=%.1f pumpOut=%.1f tempFaults=%lu rx=%lu rxRejected=%lu rxOverflows=%lu loops=%lu maxLoopMs=%lu",
+           "STATUS mode=%d tempSet=%.2f pressSet=%.2f pumpPct=%.2f temp=%.2f press=%.2f valve=%d boilerOut=%.1f pumpOut=%.1f tempFaults=%lu rx=%lu rxRejected=%lu rxOverflows=%lu loops=%lu maxLoopMs=%lu wdReset=%d",
            (int)operating_mode, temperatureSetPoint, pressureSetPoint, pressureOutputPercent,
            temperature_smoothed, pressure_smoothed, valveIsOpen() ? 1 : 0, boiler_relay_output,
            pump_dimmer_output2, (unsigned long)temperatureFaults, (unsigned long)rxLines, (unsigned long)rxRejected,
-           (unsigned long)rxOverflows, (unsigned long)loopCounter, (unsigned long)maxLoopMs);
+           (unsigned long)rxOverflows, (unsigned long)loopCounter, (unsigned long)maxLoopMs, resetByWatchdog ? 1 : 0);
   Serial.println(line);
 }
 
