@@ -288,8 +288,8 @@ Compare screen binaries with that region masked.
   the same size and identical symbol sizes but a slightly different layout (1366 bytes
   differ). The screen binary differs only by the longer core source path embedded by
   `__FILE__` in `esp32-hal-uart.c` (+16 bytes) and the resulting address shifts. Both
-  builds are deterministic. The controller was flashed from the isolated build and
-  answered `VERSION`. Decision: use what the index provides (reproducible on any
+  builds are deterministic. Both boards were flashed from the isolated build on
+  2026-09-01 (controller answered `VERSION`, screen booted). Decision: use what the index provides (reproducible on any
   machine) rather than copying the ARM64 toolchain from the IDE directory.
 
 - 2026-09-01: Phase 4 implementation detail. The marker is two `.noinit` words
