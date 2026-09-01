@@ -216,19 +216,19 @@ observed from the controller console at Checkpoint R3 instead.
       cap; the CSV loader checks the row count and falls back to defaults per missing
       field; every `malloc`/`new` in `storage.cpp` and `lv_buildUI.c` removed or paired
       with a free (target: zero heap allocation after boot outside LVGL and the SD driver).
-- [ ] R3.2 Fix B8 leftovers: the `i < 20` loop hack becomes time based (`STAT` consumption
+- [x] R3.2 Fix B8 leftovers: the `i < 20` loop hack becomes time based (`STAT` consumption
       and UI refresh at 5 Hz, `lv_timer_handler` every 5 ms); no blocking reads remain.
-- [ ] R3.3 `sequencer.cpp`: the bloom/auto/brew phase machine extracted from
+- [x] R3.3 `sequencer.cpp`: the bloom/auto/brew phase machine extracted from
       `sendCommand` into a pure function of (state, now) that returns the desired `CMD`.
       Host tests for the phase transitions and timers.
-- [ ] R3.4 `display_glue.cpp`: panel, LVGL driver, touch and splash moved out of the
+- [x] R3.4 `display_glue.cpp`: panel, LVGL driver, touch and splash moved out of the
       `.ino` unchanged.
-- [ ] R3.5 Logging: `logController` keeps the file open between lines and flushes once a
+- [x] R3.5 Logging: `logController` keeps the file open between lines and flushes once a
       second; `deleteLogsFile` writes the new header. Free-heap line to USB every 10 s.
-- [ ] R3.6 `lv_buildUI.c`: remove the parsing helpers, use the fixed-size strings, and
+- [x] R3.6 PARTIAL: parsing helpers removed and fixed-size strings in use (done in R3.1). DEFERRED: folding the ten settings-field blocks (cosmetic, risk of pixel drift) and the delete-selects-first-profile quirk. `lv_buildUI.c`: remove the parsing helpers, use the fixed-size strings, and
       fold the ten copy-pasted settings-field blocks into one helper. Pixel-identical
       screens; compare by eye against `docs/images/screen-ui-2025-03-21.png`.
-- [ ] R3.7 Debug output behind one log-level switch on both sides.
+- [x] R3.7 Debug output behind one log-level switch on both sides.
 
 **Checkpoint R3:** full bench checklist, then a 1-hour soak with both boards on USB:
 free heap flat on the screen, loop max time stable on the controller, no missed
@@ -252,6 +252,12 @@ free heap flat on the screen, loop max time stable on the controller, no missed
 - `double` to `float` inside AutoPID and the PID tuning that would need re-validation.
 
 ## Notes log
+
+- 2026-09-01 sensor faults: with the boards idle on the bench, the controller counted
+  122 rejected MAX6675 readings in about an hour (one every ~30 s). Before R1.2 these
+  zero readings went straight into the boiler PID (the range check was always true),
+  which fits the old "PID never settles, drops into bang-bang then overshoots" note.
+  Worth re-checking the PID behaviour in the machine before any retuning.
 
 - 2026-09-01 R3.1 bench: after deleting a profile the UI selects the first profile in
   the list (`tigerwalk`), not the one that was selected before the duplicate. Pre-existing
