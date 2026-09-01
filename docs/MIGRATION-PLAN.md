@@ -168,7 +168,7 @@ not been pushed. Check the Actions tab after the first push.
       `boot_app0.bin` 0xe000 from `$A15/packages/esp32/hardware/esp32/2.0.17/tools/partitions/`,
       app 0x10000). Prefer `arduino-cli upload` if it reproduces the same command; else
       call esptool directly. Test on the board.
-- [ ] 3.3 (code written, dry-run verified: CubeProgrammer wrapper invoked; hardware test pending) `gg flash controller` via DFU, in this order:
+- [x] 3.3 (hardware-tested 2026-09-01 with the button sequence, then buttonless) `gg flash controller` via DFU, in this order:
       1. `gg build controller`.
       2. If a controller in RUN mode is present and firmware supports it (Phase 4), send
          the reboot-to-DFU command on its CDC port.
@@ -188,6 +188,7 @@ not been pushed. Check the Actions tab after the first push.
 
 **Checkpoint 3:** one successful `gg flash screen` and one `gg flash controller` with the
 button sequence, followed by `gg monitor controller` showing "serial works".
+PASSED 2026-09-01.
 
 ---
 
@@ -207,7 +208,7 @@ buttons. The button sequence stays valid forever because the bootloader is in RO
         detach USB, disable IRQs and SysTick, `HAL_RCC_DeInit()`, `HAL_DeInit()`, set MSP
         from `*(uint32_t*)0x1FFF0000`, call `*(uint32_t*)0x1FFF0004`.
         Keep this code minimal and behind a single `#define ENABLE_SERIAL_DFU 1`.
-- [ ] 4.2 Bench test with nothing but USB connected: `echo DFU > /dev/cu.usbmodemXXXX`
+- [x] 4.2 (2026-09-01: bootloader appears in under 1 s after `DFU`; board returns to RUN after flash; plain resets do not re-enter DFU) Bench test with nothing but USB connected: `echo DFU > /dev/cu.usbmodemXXXX`
       (or via `gg`) must make `0483:df11` appear within 2 s. Then flash, then confirm the
       board comes back in RUN mode and the magic word is cleared (a plain reset must not
       re-enter DFU).
@@ -218,6 +219,9 @@ buttons. The button sequence stays valid forever because the bootloader is in RO
       on USB `Serial`, not on `screenSerial`).
 
 **Checkpoint 4:** three consecutive `gg flash controller` runs with no button presses.
+PASSED 2026-09-01. First attempt failed because `gg` wrote the `DFU` line through a
+non-blocking open and closed the port before the CDC transfer happened; replaced by
+`tools/serial-cmd.py`, which configures the port and keeps it open for a second.
 
 ---
 

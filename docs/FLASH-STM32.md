@@ -57,9 +57,11 @@ The firmware accepts the line `DFU` on its USB serial port (the 9600 baud CDC po
 not the screen link). It zeroes all outputs, stores a marker in an RTC backup register
 and resets; on the next boot the marker is detected before anything else runs and
 execution jumps to the ROM bootloader. `./gg flash controller` uses this automatically;
-`--no-serial-dfu` skips it. See the plan (Phase 4) for the implementation status.
+`--no-serial-dfu` skips it. Verified on hardware on 2026-09-01.
 
-Manual use: `printf 'DFU\n' > /dev/cu.usbmodemXXXX`.
+Manual use: `tools/serial-cmd.py /dev/cu.usbmodemXXXX DFU` (a bare shell redirect tends to
+close the port before the bytes leave the Mac). `tools/serial-cmd.py <port> VERSION` prints
+the firmware version string.
 
 ## Alternative: ST-Link over SWD
 

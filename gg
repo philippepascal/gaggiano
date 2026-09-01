@@ -198,18 +198,7 @@ flash_controller_dfu() {
       local port
       if port="$(detect_port controller run)"; then
         log "asking the running firmware to reboot into DFU via $port"
-        python3 - "$port" <<'PY' || warn "could not send DFU command"
-import sys, os, termios
-p = sys.argv[1]
-fd = os.open(p, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
-try:
-    attrs = termios.tcgetattr(fd)
-    attrs[4] = attrs[5] = termios.B9600
-    termios.tcsetattr(fd, termios.TCSANOW, attrs)
-    os.write(fd, b"DFU\n")
-finally:
-    os.close(fd)
-PY
+        "$REPO/tools/serial-cmd.py" "$port" DFU 1 "$T_BAUD" >/dev/null || warn "could not send DFU command"
         if wait_for controller dfu 5; then log "controller entered DFU"; fi
       fi
     fi
