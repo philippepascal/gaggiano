@@ -230,41 +230,45 @@ non-blocking open and closed the port before the CDC transfer happened; replaced
 Do this only after Checkpoint 3, so every removal can be checked with `gg build all`.
 One commit per bullet.
 
-- [ ] 5.1 Delete the Python venv in `gaggiano-v2/` (`bin/`, `lib/`, `include/`,
+- [x] 5.1 Delete the Python venv in `gaggiano-v2/` (`bin/`, `lib/`, `include/`,
       `pyvenv.cfg`), fix `.gitignore` (`pyenv.cfg` typo), move `convertBmp.py` to `tools/`
       with a one-line usage note (needs Pillow: `python3 -m pip install --user pillow`, or
       `uv run --with pillow`).
-- [ ] 5.2 Unused LVGL image arrays: grep each symbol (`boiler`, `boilerRed`, `brew`,
+- [x] 5.2 Unused LVGL image arrays: grep each symbol (`boiler`, `boilerRed`, `brew`,
       `brewRed`, `steam`, `steamRed`, `img_clothes`, `img_demo_widgets_avatar`,
       `img_lvgl_logo`) across `gaggiano-v2/`. Remove the `.c` files that are unreferenced;
       keep the source PNGs in `gaggiano-v2/asset-work/`. Rebuild; binary size should be
       unchanged (the linker was already discarding them).
-- [ ] 5.3 `archiveArdIDEFiles/`: keep `build.options.json`, `partitions.csv`, `notes`;
+- [x] 5.3 `archiveArdIDEFiles/`: keep `build.options.json`, `partitions.csv`, `notes`;
       delete `compile_commands.json`, `.elf`, `.map`, `.bin`, `.hex`, `build_opt.h`,
       `file_opts`. The FQBNs are now in `tools/targets.sh` and the findings doc.
-- [ ] 5.4 SD card content: create `sdcard/gaggia/` with `frank.bmp` and a README listing
+- [x] 5.4 SD card content: create `sdcard/gaggia/` with `frank.bmp` and a README listing
       the files the firmware expects. Remove `frank.jpg` and `frank.rgb565` from the sketch
       folder (regenerable). Move `ESP32-8048S043-macsbug.pdf` and screenshots to `docs/`.
-- [ ] 5.5 Vendor pack: `git mv` the spec, schematic and user manual folders to
+- [x] 5.5 Vendor pack: `git mv` the spec, schematic and user manual folders to
       `vendor/sunton-esp32-8048s043/`; `git rm -r` the rest of `4-2.3inch_ESP32-8048S043/`
       (demos with their own lvgl copy, Windows flash tool, font tools). Add a `README.md`
       there with the vendor download link. No history rewrite.
-- [ ] 5.6 Scratch sketches `SD_Test/`, `play_lcd/`, `p11_CrystalBall_scroll/`: delete.
+- [x] 5.6 Scratch sketches `SD_Test/`, `play_lcd/`, `p11_CrystalBall_scroll/`: delete.
       `gaggiano-v1/` to `archive/`. Root images to `docs/images/`.
-- [ ] 5.7 `git rm --cached` every tracked `.DS_Store`.
-- [ ] 5.8 Root `README.md`: short project description, hardware list, link to
+- [x] 5.7 `git rm --cached` every tracked `.DS_Store`.
+- [x] 5.8 Root `README.md`: short project description, hardware list, link to
       `docs/BUILD.md` and `docs/FLASH-STM32.md`, and the current `notes.txt` todo list
       folded in as "Known issues / ideas".
 
 **Checkpoint 5:** `gg build all` still produces identical binaries to Checkpoint 2
 (except 5.2 which should be identical too); `git ls-files | wc -l` drops from ~4100 to
 roughly 2000 (libraries dominate).
+PASSED 2026-09-01: controller 68,080 bytes (same as after Phase 4), screen 678,208 bytes.
+Tracked files 4091 -> 1898. Note on the screen binary: two builds of identical source
+differ only in the 64 bytes at offsets 177-241, the ESP-IDF app descriptor's ELF SHA-256.
+Compare screen binaries with that region masked.
 
 ---
 
 ## Phase 6: Wrap up
 
-- [ ] 6.1 Update this plan's checkboxes and the findings doc with anything learned.
+- [x] 6.1 Update this plan's checkboxes and the findings doc with anything learned.
 - [ ] 6.2 Open a PR `migration` to `main` (or merge locally) once Checkpoints 2, 3 and 5
       pass. Tag the last IDE-era commit on `main` as `arduino-ide-last` for reference.
 - [ ] 6.3 Later, separate effort (not this branch): core upgrades (esp32 3.x, lvgl 9,

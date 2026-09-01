@@ -58,6 +58,11 @@ checks for it at the standard install path.
 | `libraries/` | vendored Arduino libraries, including the project `lv_conf.h` for LVGL |
 | `tools/targets.sh` | FQBN, core version, baud rate and USB ids per target |
 | `tools/usb-detect.py` | USB enumeration helper used by `detect` and `flash` |
+| `tools/serial-cmd.py` | send one line to a serial port and print the reply (used for the `DFU` command) |
+| `tools/convertBmp.py` | PNG/BMP to raw RGB565 (needs Pillow) |
+| `sdcard/` | files for the display's SD card |
+| `vendor/sunton-esp32-8048s043/` | display board datasheets, schematics, manual |
+| `archive/gaggiano-v1/` | first display firmware, kept for reference |
 | `build/` | build output, git-ignored |
 | `.github/workflows/build.yml` | CI: compiles both targets on every push |
 
