@@ -31,6 +31,8 @@
 #include "gaggia_state.h"
 #include "gaggia_config.h"
 #include "gaggia_utils.h"
+#include "link.h"
+#include <gaggia_protocol.h>
 /*******************************************************************************
  ******************************************************************************/
 #include <Arduino_GFX_Library.h>
@@ -139,14 +141,11 @@ void setup() {
 
 
   Serial.begin(115200);
-  // controllerSerial.begin(115200);  //default: RX19, TX20
-  controllerSerial.begin(115200, SERIAL_8N1, 18, 17);  // TX_GPIO 17, RX_GPIO 18,  // works on receive
-  controllerSerial.setTimeout(50);
-  Serial.println("LVGL Widgets Demo");
+  controllerSerial.setRxBufferSize(512);  // several STAT lines can queue while the UI is busy
+  controllerSerial.begin(115200, SERIAL_8N1, 18, 17);  // RX GPIO 18, TX GPIO 17
+  Serial.println("Gaggiano screen");
   delay(10);
-
-  controllerSerial.println("hello controller!");
-  delay(10);  //safe wait for controller to be ready
+  linkSetup(&controllerSerial, &state, &advancedSettings);
 
   // Init touch device
 
@@ -246,53 +245,6 @@ static void bmpDrawCallback(int16_t x, int16_t y, uint16_t *bitmap, int16_t w, i
 //   return sub;
 // }
 
-void readMessage() {
-  char m[500] = "";
-  if (controllerSerial.available()) {
-    Serial.println("received");
-    strcat(m, controllerSerial.readStringUntil('\n').c_str());
-    Serial.println(m);
-    if (isControllerLoggingOn) {
-      int res = logController(m);
-    }
-  }
-  int messageSize = myIndexOF(m, '|', 0);
-  if (messageSize > 0) {
-    //message is complete..unpack
-    int cursor = 0;
-    int endCursor = myIndexOF(m, ';', cursor);
-    if (endCursor > 0 && endCursor < messageSize) {
-      int sender = atoi(mySubString(m, cursor, endCursor));
-      if (sender != 0) {  //not comming from the controler
-        return;
-      }
-      cursor = endCursor + 1;
-      endCursor = myIndexOF(m, ';', cursor);
-    }
-
-    if ((cursor < endCursor) && (endCursor > 0 && endCursor < messageSize)) {
-      float value = atof(mySubString(m, cursor, endCursor));
-      state.tempRead = value;
-      cursor = endCursor + 1;
-      endCursor = myIndexOF(m, ';', cursor);
-    }
-
-    if ((cursor < endCursor) && (endCursor > 0 && endCursor < messageSize)) {
-      float value = atof(mySubString(m, cursor, endCursor));
-      state.pressureRead = value;
-      cursor = endCursor + 1;
-      endCursor = myIndexOF(m, ';', cursor);
-    }
-
-    if ((cursor < endCursor) && (endCursor > 0 && endCursor < messageSize)) {
-      int value = atoi(mySubString(m, cursor, endCursor));
-      state.isSolenoidOn = value;
-      cursor = endCursor + 1;
-      endCursor = myIndexOF(m, ';', cursor);
-    }
-  }
-}
-
 void sendCommand() {
   float temp = 0;
   if (state.isBoilerOn) {
@@ -386,51 +338,22 @@ void sendCommand() {
   }
 }
 
+// Commands go through the link module, which sends on change and as a heartbeat.
 void sendSimpleBrewCommand(double temp, double pressure) {
-  char message[100] = "";
-  sprintf(message, "1;%.2f;%.2f;|", temp, pressure);
-  controllerSerial.println(message);
-  Serial.print(" sent: ");
-  Serial.println(message);
+  linkSetCommand(pressure > 0 ? GP_MODE_BREW : GP_MODE_OFF, temp, pressure, 0);
 }
 
 void sendSimpleCleanCommand(double temp, double pressure) {
-  char message[100] = "";
-  sprintf(message, "3;%.2f;%.2f;|", temp, pressure);
-  controllerSerial.println(message);
-  Serial.print(" sent: ");
-  Serial.println(message);
+  linkSetCommand(GP_MODE_CLEAN, temp, pressure, 0);
 }
 
 void sendSteamCommand(double temp, double maxPressure, double pumpOutputPercent) {
-  char message[200] = "";
-  sprintf(message, "2;%.2f;%.2f;%.2f;|", temp, maxPressure, pumpOutputPercent);
-  controllerSerial.println(message);
-  Serial.print(" sent: ");
-  Serial.println(message);
+  linkSetCommand(GP_MODE_STEAM, temp, maxPressure, pumpOutputPercent);
 }
 
-int lastSentAdvancedSettings = 0;
 void sendAdvancedSettings() {
-  int now = millis();
-  // if (now - lastSentAdvancedSettings > 1000) {
   if (advancedSettings.sendToController) {
-    lastSentAdvancedSettings = now;
-    char message[500] = "";
-    sprintf(message, "9;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;|",
-            advancedSettings.boiler_bb_range,
-            advancedSettings.boiler_PID_cycle,
-            advancedSettings.boiler_PID_KP,
-            advancedSettings.boiler_PID_KI,
-            advancedSettings.boiler_PID_KD,
-            advancedSettings.pump_max_step_up,
-            advancedSettings.pump_KP,
-            advancedSettings.pump_KI,
-            advancedSettings.pump_KD,
-            advancedSettings.unused1);
-    controllerSerial.println(message);
-    Serial.print(" sent: ");
-    Serial.println(message);
+    linkSendTune();
     advancedSettings.sendToController = false;
   }
 }
@@ -449,10 +372,10 @@ int i = 0;
 void loop() {
   //inelegant optimization to minimize useless(from user perspective) granularity
   //helps ALOT with UI responsiveness
+  linkPoll(millis());
   if (i < 20) {
     i++;
   } else {
-    readMessage();
     updateUI();
     i = 0;
   }

@@ -67,7 +67,7 @@ int deleteLogsFile() {
     return -1;
   }
   Serial.println("adding header to logs");
-  return logController("sender;temperature;pressure;valve;boilerOutput;pumpOutput;temperatureSet;boilerBBRange;boilerPIDPeriod;boilerPIDKP;boilerPIDKI;boilerPIDKD;counter;|");
+  return logController("$STAT,mode,temp,pressure,valve,boilerOut,pumpOut,tempSet,pressSet,pumpPct,linkOk,faults,counter*00");
 }
 
 // ----------------------------------------------
