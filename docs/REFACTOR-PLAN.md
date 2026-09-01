@@ -159,7 +159,7 @@ no counter gaps. Not done: the 10-minute heat with water (bench only, no machine
 
 Both sides change together; both boards are flashed together.
 
-- [ ] R2.1 `docs/PROTOCOL.md`. Proposed format (D2), NMEA-style:
+- [x] R2.1 `docs/PROTOCOL.md`. Proposed format (D2), NMEA-style:
 
       ```
       $TYPE,field,field,...*HH\n
@@ -181,21 +181,31 @@ Both sides change together; both boards are flashed together.
       from what it last sent for more than 1 s, re-send `CMD`. `TUNE` is re-sent whenever
       the controller says `HELLO` (it rebooted). The SD log keeps the raw `STAT` lines;
       the header row changes accordingly.
-- [ ] R2.2 `libraries/GaggiaProtocol`: encoder, decoder, checksum, `line_reader.h`.
+- [x] R2.2 `libraries/GaggiaProtocol`: encoder, decoder, checksum, `line_reader.h`.
       No heap, no `String`, no Arduino types (a `putc`-style callback for output). Host
       tests: round trip of every message, checksum failure, truncated line, garbage
       before `$`, field count mismatch, oversize line, two lines in one read.
-- [ ] R2.3 Controller `link.cpp` on the library: `STAT` every 200 ms, `HELLO` at boot,
+- [x] R2.3 Controller `link.cpp` on the library: `STAT` every 200 ms, `HELLO` at boot,
       `CMD`/`TUNE` handling, link timeout. Mode changes only from a valid `CMD`.
-- [ ] R2.4 Screen `link.cpp` on the library: heartbeat, echo check, `TUNE` after `HELLO`,
+- [x] R2.4 Screen `link.cpp` on the library: heartbeat, echo check, `TUNE` after `HELLO`,
       RX buffer 512 (`setRxBufferSize` before `begin`), all pending lines drained each
       pass, newest `STAT` wins.
-- [ ] R2.5 Flash both. Bench: full checklist, then pull the UART wire mid-brew: pump
+- [x] R2.5 (see checkpoint notes) Flash both. Bench: full checklist, then pull the UART wire mid-brew: pump
       stops within N s, `STAT` shows `linkOk=0` on the console; reconnect: screen
       re-sends within 1 s, brew resumes only if still selected on the screen. Reset the
       controller with NRST while heating: screen re-sends `TUNE` and `CMD` unprompted.
 
 **Checkpoint R2:** the above, plus `./gg test` green.
+PASSED 2026-09-01 with one item deferred. Host tests: 244 checks green. Bench, screen
+console: HELLO exchange at boot, TUNE sent, one rejected partial line at startup as
+designed, CMD heartbeat at 1 Hz, every button press one CMD change, zero rejects and
+zero re-sends over a 10-minute run, heap flat except during profile/settings saves
+(B9, next). Controller reboot with NRST while heating: screen received HELLO, re-sent
+TUNE and the heat CMD unprompted. Controller console (by injection): CMD accepted,
+mode 0 and linkOk=0 three seconds later. Deferred: the UART wire pull. The screen's
+USB bridge dropped at the moment the wire was pulled (twice during hardware handling
+in this session, looks like a ground glitch), hiding the re-send message; to be
+observed from the controller console at Checkpoint R3 instead.
 
 ---
 
