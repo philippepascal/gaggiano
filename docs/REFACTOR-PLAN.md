@@ -211,7 +211,7 @@ observed from the controller console at Checkpoint R3 instead.
 
 ## Phase R3: screen fixes and structure **(bench)**
 
-- [ ] R3.1 Fix B9/B10/B11: `gaggia_state.h` gets `char profile_name[32]` and
+- [x] R3.1 (bench 2026-09-01: heap flat at 113,112 through two saves, duplicate, three profile switches, delete, notes save; 14 min idle flat) Fix B9/B10/B11: `gaggia_state.h` gets `char profile_name[32]` and
       `char notes[128]`; all filename building through one `snprintf` helper with the D3
       cap; the CSV loader checks the row count and falls back to defaults per missing
       field; every `malloc`/`new` in `storage.cpp` and `lv_buildUI.c` removed or paired
@@ -252,6 +252,10 @@ free heap flat on the screen, loop max time stable on the controller, no missed
 - `double` to `float` inside AutoPID and the PID tuning that would need re-validation.
 
 ## Notes log
+
+- 2026-09-01 R3.1 bench: after deleting a profile the UI selects the first profile in
+  the list (`tigerwalk`), not the one that was selected before the duplicate. Pre-existing
+  behaviour in `delete_btn_clicked`; candidate for R3.6.
 
 - 2026-09-01 screen baseline: right after boot the screen reports
   `HEAP free=114128 minfree=105320 psramfree=7590603`.
