@@ -12,16 +12,19 @@ brew install arduino-cli        # ./gg setup does this for you if brew is presen
 ```
 
 `setup` writes `tools/arduino-cli.yaml` (git-ignored, absolute paths), points the
-sketchbook at this repo so the vendored `libraries/` folder is used, updates the package
-indexes and installs the two pinned cores if they are missing:
+sketchbook at this repo so the vendored `libraries/` folder is used, and installs the two
+pinned cores with their toolchains into `.arduino-data/` inside the repo (git-ignored,
+a few GB, one-time download):
 
 | Target | Core | Version |
 |---|---|---|
 | controller | STMicroelectronics:stm32 | 2.9.0 |
 | screen | esp32:esp32 | 2.0.17 |
 
-Cores are installed in `~/Library/Arduino15`, shared with the Arduino IDE if it is still
-installed. If the IDE upgrades a core, `./gg setup` puts the pinned version back.
+Nothing outside the repo is read at build time except the compilers' own caches in
+`~/Library/Caches/arduino`. The Arduino IDE and its `~/Library/Arduino15` directory are
+not used at all; they can be removed. `./gg clean --all` deletes `.arduino-data/` and
+the next `./gg setup` downloads it again.
 
 For flashing the controller you also need STM32CubeProgrammer (free, from ST). `setup`
 checks for it at the standard install path.
@@ -70,7 +73,7 @@ checks for it at the standard install path.
 
 Edit the `T_FQBN` line for the target in `tools/targets.sh`. Valid option names and
 values are in the core's `boards.txt`, for example
-`~/Library/Arduino15/packages/esp32/hardware/esp32/2.0.17/boards.txt`. The full menu is
+`.arduino-data/packages/esp32/hardware/esp32/2.0.17/boards.txt`. The full menu is
 also printed by `arduino-cli --config-file tools/arduino-cli.yaml board details --fqbn <fqbn>`.
 
 ## Adding a library

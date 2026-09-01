@@ -82,5 +82,5 @@ This also enables debugging with gdb and works even when USB is dead.
 | `Target device not found` from CubeProgrammer | board not in DFU; redo the button sequence, check cable/port, relay quirk above |
 | DFU seen but download fails at a sector | run again with `--no-build`; if it persists, erase first with `STM32_Programmer_CLI --connect port=usb1 --erase all` |
 | Board silent after flash | the build must have `usb=CDCgen` (it does, in `tools/targets.sh`); press NRST once |
-| `STM32CubeProgrammer CLI not found` | install it from ST's site; `gg` looks in `/Applications/STMicroelectronics/...` and on `PATH` |
+| `STM32CubeProgrammer CLI not found` | install it from ST's site; `gg` looks in `/Applications/STMicroelectronics/...` and on `PATH`. This is the one tool that is not inside the repo |
 | Two `usbmodem` ports | `./gg detect` shows which one is the controller; pass `--port` to `monitor` |

@@ -10,6 +10,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: arduino/setup-arduino-cli@v2
+      - name: Cache cores and toolchains
+        uses: actions/cache@v4
+        with:
+          path: .arduino-data
+          key: arduino-data-${{ runner.os }}-${{ hashFiles('tools/targets.sh') }}
       - name: Install pinned cores
         run: ./gg setup --ci
       - name: Build all targets

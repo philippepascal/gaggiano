@@ -64,7 +64,7 @@ Gaggiano/
       `--config-dir`). Decide during 2.1; for Phase 1 hard-coding is fine.
       Verify with `arduino-cli --config-file tools/arduino-cli.yaml core list` showing
       `STMicroelectronics:stm32 2.9.0` and `esp32:esp32 2.0.17`.
-- [ ] 0.4 Optional, ask first: point the IDE's `~/.arduinoIDE/arduino-cli.yaml`
+- [x] 0.4 MOOT (see notes log, isolation). Optional, ask first: point the IDE's `~/.arduinoIDE/arduino-cli.yaml`
       `directories.user` at `~/repos/Gaggiano` so the IDE keeps working as a fallback.
 
 **Checkpoint 0:** `arduino-cli --config-file tools/arduino-cli.yaml lib list` shows the
@@ -275,6 +275,22 @@ Compare screen binaries with that region masked.
       Arduino_GFX current), 16 MB partition table, unit tests for the protocol parser.
 
 ## Open questions / notes log
+
+- 2026-09-01 (later): decision to isolate from the Arduino IDE completely. `gg setup`
+  now installs cores and toolchains into `.arduino-data/` in the repo (git-ignored)
+  instead of sharing `~/Library/Arduino15`. Phase 0.4 (repointing the IDE config) is
+  therefore moot. CI caches `.arduino-data/` keyed on `tools/targets.sh`.
+  Verification: cores and tool versions installed into `.arduino-data/` are identical to
+  the IDE's copies with one exception. The current STM32duino index only offers the
+  Intel (x86_64) macOS build of xpack gcc 13.2.1-1.1; the IDE had downloaded the ARM64
+  build from an earlier index (its tarball is still in `~/Library/Arduino15/staging`).
+  Same compiler and newlib versions built on another host: the controller binary keeps
+  the same size and identical symbol sizes but a slightly different layout (1366 bytes
+  differ). The screen binary differs only by the longer core source path embedded by
+  `__FILE__` in `esp32-hal-uart.c` (+16 bytes) and the resulting address shifts. Both
+  builds are deterministic. The controller was flashed from the isolated build and
+  answered `VERSION`. Decision: use what the index provides (reproducible on any
+  machine) rather than copying the ARM64 toolchain from the IDE directory.
 
 - 2026-09-01: Phase 4 implementation detail. The marker is two `.noinit` words
   (`dfu_jump.cpp`), set by `dfu_request_reboot()` before `NVIC_SystemReset()`. A

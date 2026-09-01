@@ -44,12 +44,9 @@ usb_specs() {  # all "target:state=vid:pid" specs for every target
 detect_present() { "$DETECT" --config-file "$CFG" $(usb_specs) --present "$1" "$2"; }
 detect_port()    { "$DETECT" --config-file "$CFG" $(usb_specs) --port "$1" "$2"; }
 
-data_dir() {
-  case "$(uname -s)" in
-    Darwin) echo "$HOME/Library/Arduino15" ;;
-    *)      echo "$HOME/.arduino15" ;;
-  esac
-}
+# Cores, toolchains and package indexes live inside the repo (git-ignored) so
+# nothing depends on the Arduino IDE's own data directory.
+data_dir() { echo "$REPO/.arduino-data"; }
 
 write_config() {
   local data; data="$(data_dir)"
@@ -101,7 +98,7 @@ cmd_setup() {
     fi
   fi
   log "arduino-cli $(arduino-cli version | awk '{print $3}')"
-  log "writing $CFG"; write_config
+  log "writing $CFG (data dir: $(data_dir))"; mkdir -p "$(data_dir)"; write_config
   log "updating package indexes"; cli core update-index >/dev/null
   local t have
   for t in $ALL_TARGETS; do
@@ -138,10 +135,15 @@ cmd_build() {
 cmd_clean() {
   log "removing $BUILD_DIR"; rm -rf "$BUILD_DIR"
   local t
-  for t in $ALL_TARGETS; do
-    target_load "$t"
-    cli compile --fqbn "$T_FQBN" --clean --only-compilation-database "$REPO/$T_SKETCH" >/dev/null 2>&1 || true
-  done
+  if [ -f "$CFG" ]; then
+    for t in $ALL_TARGETS; do
+      target_load "$t"
+      cli compile --fqbn "$T_FQBN" --clean --only-compilation-database "$REPO/$T_SKETCH" >/dev/null 2>&1 || true
+    done
+  fi
+  if [ "${1:-}" = "--all" ]; then
+    log "removing $(data_dir) and $CFG"; rm -rf "$(data_dir)" "$CFG"
+  fi
 }
 
 cmd_detect() {
@@ -273,7 +275,8 @@ usage: ./gg <command> [args]
   detect [--json]        list connected project boards and their ports
   monitor <target> [port]
                          serial monitor at the target's baud rate
-  clean                  remove build/ and the compile caches
+  clean [--all]          remove build/ and the compile caches; --all also removes
+                         .arduino-data/ (cores and toolchains, re-downloaded by setup)
   help
 
 targets:
