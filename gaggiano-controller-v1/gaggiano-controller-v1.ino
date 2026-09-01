@@ -199,8 +199,9 @@ void loop() {
   loopCounter++;
   uint32_t elapsed = millis() - loopStart;
   if (elapsed > maxLoopMs) maxLoopMs = elapsed;
-  uint32_t waitTime = LOOP_PERIOD - (millis() - loopStart);
-  delay(waitTime);
+  // Only sleep for the remainder of the period. The previous unsigned
+  // subtraction turned any loop longer than LOOP_PERIOD into a ~49 day delay.
+  if (elapsed < LOOP_PERIOD) delay(LOOP_PERIOD - elapsed);
 }
 
 // Utilities --------------------
