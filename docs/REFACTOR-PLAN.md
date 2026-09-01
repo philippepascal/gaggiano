@@ -125,25 +125,28 @@ firmware (PASSED 2026-09-01 for the controller; `STATUS` reports maxLoopMs=6 at 
 
 The wire format stays exactly as today so the screen keeps working unmodified.
 
-- [ ] R1.1 Fix B3: compute elapsed time, `delay` only when elapsed is below the period;
+- [x] R1.1 Fix B3: compute elapsed time, `delay` only when elapsed is below the period;
       track the maximum loop time for `STATUS`.
-- [ ] R1.2 Fix B2 (`&&`), and treat a MAX6675 open-thermocouple reading (NaN or 0) as a
+- [x] R1.2 Fix B2 (`&&`), and treat a MAX6675 open-thermocouple reading (NaN or 0) as a
       fault: keep the last good value, count faults, expose in `STATUS`.
-- [ ] R1.3 Fix B4/B12/B1 on the controller: replace `parseMessage` with a non-blocking
+- [x] R1.3 Fix B4/B12/B1 on the controller: replace `parseMessage` with a non-blocking
       line assembler (fixed 128-byte buffer, characters pulled every loop pass) and an
       in-place `strtod` field parser. Unknown type or wrong field count: ignore, count.
       Delete `mySubString`, `myIndexOF`, the dead `updatePump`.
-- [ ] R1.4 Fix B6: `build_opt.h` with `-DSERIAL_RX_BUFFER_SIZE=256`; verify the flag is
+- [x] R1.4 Fix B6: `build_opt.h` with `-DSERIAL_RX_BUFFER_SIZE=256`; verify the flag is
       honoured in the verbose build output.
-- [ ] R1.5 Split the sketch into the files listed above. Pure move, no logic change;
+- [x] R1.5 Split the sketch into the files listed above. Pure move, no logic change;
       confirm the `.bin` size is within a few hundred bytes of R1.4.
-- [ ] R1.6 D4: enable the independent watchdog (STM32duino `IWatchdog`, 4 s), reloaded
+- [x] R1.6 D4: enable the independent watchdog (STM32duino `IWatchdog`, 4 s), reloaded
       once per loop. Verify: `HANG` console command spins forever; the board resets
       within 4 s and comes back with outputs off.
-- [ ] R1.7 D6 in the touched code only.
+- [x] R1.7 SKIPPED: the new parser writes into the double setpoints AutoPID points at; converting nothing else buys anything measurable (loop max 6 ms). Revisit if the loop budget gets tight.
 
 **Checkpoint R1:** full bench checklist with the unmodified screen firmware. Ten
 minutes of heat + a 30 s brew with the console showing loop max time under 10 ms.
+Status 2026-09-01: console-side items verified (VERSION, STATUS, LOG, RX injection of
+valid and invalid lines, HANG -> watchdog reset in 4 s with wdReset=1, DFU flash with
+the watchdog armed). Screen-driven items 4-7 and the heat/brew run still to do by hand.
 
 ---
 
@@ -234,6 +237,15 @@ free heap flat on the screen, loop max time stable on the controller, no missed
 - `double` to `float` inside AutoPID and the PID tuning that would need re-validation.
 
 ## Notes log
+
+- 2026-09-01 R1: `STATUS` reports maxLoopMs=6 at rest with debug logging off. That is
+  close to the 10 ms loop period; with `LOG ON` the USB prints likely pushed some
+  iterations past 10 ms, which is exactly the B3 trigger. B3 is fixed, but the
+  MAX6675 bit-banged read (every 250 ms) is the main cost and worth a look if the
+  budget matters later.
+- 2026-09-01 R1.6: the independent watchdog stops on the software reset used for the
+  DFU jump (verified: buttonless flash works with it armed), and `wdReset` is reported
+  by `STATUS` after a watchdog reset.
 
 - 2026-09-01: plan written from a full read of both sketches, `gaggia_config.cpp`,
   `PSM.cpp` and the UI event handlers. The three `mySubString` copies (controller,
