@@ -112,7 +112,7 @@ docs/PROTOCOL.md                   the wire format, one page
       8. Leave both boards running 10 minutes; free heap (screen) and loop counter
          (controller) still reported and stable.
       Items 1-2 after every flash; the full list at each checkpoint.
-- [x] R0.4 (controller verified on bench; screen HEAP line built, flash pending until its USB is connected) Controller console additions needed for the checklist: `STATUS` (mode,
+- [x] R0.4 (both verified on bench) Controller console additions needed for the checklist: `STATUS` (mode,
       setpoints, outputs, loop counter, max loop time, link state) and `LOG ON|OFF`
       (silence the per-message debug spam). Screen: print free heap every 10 s to USB.
 
@@ -237,6 +237,11 @@ free heap flat on the screen, loop max time stable on the controller, no missed
 - `double` to `float` inside AutoPID and the PID tuning that would need re-validation.
 
 ## Notes log
+
+- 2026-09-01 screen baseline: right after boot the screen reports
+  `HEAP free=114128 minfree=105320 psramfree=7590603`. With the current leak of about
+  four small blocks per status line (5 lines/s), 114 KB of internal heap lasts on the
+  order of half an hour before allocations spill to PSRAM. Watch this number in R3.
 
 - 2026-09-01 R1: `STATUS` reports maxLoopMs=6 at rest with debug logging off. That is
   close to the 10 ms loop period; with `LOG ON` the USB prints likely pushed some
