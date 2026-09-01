@@ -8,6 +8,7 @@
  *********************/
 #include "lv_buildUI.h"
 #include "my_logging.h"
+#include <string.h>
 
 #if LV_MEM_CUSTOM == 0 && LV_MEM_SIZE < (38ul * 1024ul)
 #error Insufficient memory for lv_demo_widgets. Please set LV_MEM_SIZE to at least 38KB (38ul * 1024ul).  48KB is recommended.
@@ -38,8 +39,8 @@ static const lv_btnmatrix_ctrl_t kb_num_ctrl[] = { 1, 1, 1, 1,
                                                    2, 2, 2 };
 
 static int (*writeConfigFile)();
-static char* (*listProfiles)();
-static char* (*getCurrentProfile)();
+static int (*listProfiles)(char* buf, size_t size);
+static int (*getCurrentProfile)(char* buf, size_t size);
 static int (*writeCurrentProfile)(const char* profileName);
 static int (*setupAndReadConfigFile)();
 static int (*renameProfile)(const char* newName);
@@ -52,6 +53,7 @@ static void advancedSettings_create(lv_obj_t* parent);
 static void profile_create(lv_obj_t* parent);
 static void main_create(lv_obj_t* parent);
 static void updateProfileTab();
+void updateSettings();
 
 /**********************
  *  STATIC VARIABLES
@@ -131,29 +133,6 @@ static lv_style_t style_bullet;
  **********************/
 
 
-int myIndexOf(const char* str, const char ch, int fromIndex) {
-  const char* result = strchr(str + fromIndex, ch);
-  if (result == NULL) {
-    return -1;  // Substring not found
-  } else {
-    return result - str;  // Calculate the index
-  }
-}
-
-char* mySubString(const char* str, int start, int end) {
-  char* sub = (char*)malloc(sizeof(char) * (end - start));
-  if (sub == NULL) {
-    return NULL;
-  }
-
-  strncpy(sub, str + start, (end - start));
-  sub[(end - start)] = '\0';
-
-  return sub;
-}
-
-
-
 /**********************
  *      EVENT HANDLING
  **********************/
@@ -213,7 +192,8 @@ static void setButtonClicked(lv_event_t* e) {
     double newblooming_fill_time = strtod(lv_textarea_get_text(blooming_fill_time_tf), NULL);
     double newblooming_wait_time = strtod(lv_textarea_get_text(blooming_wait_time_tf), NULL);
     double newbrew_timer = strtod(lv_textarea_get_text(brew_timer_tf), NULL);
-    state->notes = lv_textarea_get_text(edit_notes_tf);
+    strncpy(state->notes, lv_textarea_get_text(edit_notes_tf), NOTES_MAX - 1);
+    state->notes[NOTES_MAX - 1] = '\0';
     state->boilerSetPoint = newBoilerSetPoint;
     state->pressureSetPoint = newPressureSetPoint;
     state->steamSetPoint = newSteamSetPoint;
@@ -310,18 +290,18 @@ static void profile_selected(lv_event_t* e) {
 }
 
 void updateProfileTab() {
-  const char* profileNames = listProfiles();
-  LV_LOG_WARN(profileNames);
-  int start = 0;
-  int end = myIndexOf(profileNames, ';', start);
+  char names[512];
+  if (listProfiles(names, sizeof(names)) < 0) names[0] = '\0';
+  LV_LOG_WARN(names);
   int index = 0;
-  while (end > 0) {
-    const char* profileName = mySubString(profileNames, start, end);
-    LV_LOG_WARN(profileName);
+  char* start = names;
+  while (*start != '\0' && index < 10) {
+    char* end = strchr(start, ';');
+    if (end == NULL) break;
+    *end = '\0';
     lv_obj_t* child = lv_obj_get_child(fileList, index);
-    lv_label_set_text(child, profileName);
+    lv_label_set_text(child, start);
     start = end + 1;
-    end = myIndexOf(profileNames, ';', start);
     index++;
   }
   for (; index < 10; index++) {
@@ -329,7 +309,8 @@ void updateProfileTab() {
     lv_label_set_text(child, "");
   }
 
-  const char* fn = getCurrentProfile();
+  char fn[PROFILE_NAME_MAX];
+  if (getCurrentProfile(fn, sizeof(fn)) < 0) fn[0] = '\0';
   lv_textarea_set_text(fileName_tf, fn);
   lv_label_set_text(selectedProfileLabel, fn);
 }
@@ -646,8 +627,8 @@ void updateSettings() {
 void instantiateUI(GaggiaStateT* s,
                    AdvancedSettingsT* as,
                    int (*f)(),
-                   char* (*lp)(),
-                   char* (*gcp)(),
+                   int (*lp)(char* buf, size_t size),
+                   int (*gcp)(char* buf, size_t size),
                    int (*wcp)(const char* profileName),
                    int (*sarcf)(),
                    int (*rp)(const char* newName),
@@ -860,6 +841,7 @@ static void profile_create(lv_obj_t* parent) {
   lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
 
   fileName_tf = lv_textarea_create(parent);
+  lv_textarea_set_max_length(fileName_tf, PROFILE_NAME_MAX - 1);
   lv_textarea_set_one_line(fileName_tf, true);
   lv_obj_add_event_cb(fileName_tf, setting_field_changed, LV_EVENT_ALL, kb);
 
@@ -919,6 +901,7 @@ static void settings_create(lv_obj_t* parent) {
   lv_obj_add_flag(kb2, LV_OBJ_FLAG_HIDDEN);
 
   edit_notes_tf = lv_textarea_create(panel1);
+  lv_textarea_set_max_length(edit_notes_tf, NOTES_MAX - 1);
   lv_textarea_set_one_line(edit_notes_tf, true);
   lv_obj_set_size(edit_notes_tf, LV_PCT(100), LV_SIZE_CONTENT);
   lv_obj_add_event_cb(edit_notes_tf, setting_field_changed, LV_EVENT_ALL, kb2);

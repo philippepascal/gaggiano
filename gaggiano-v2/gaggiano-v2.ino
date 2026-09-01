@@ -29,8 +29,7 @@
 #include <lvgl.h>
 #include "lv_buildUI.h"
 #include "gaggia_state.h"
-#include "gaggia_config.h"
-#include "gaggia_utils.h"
+#include "storage.h"
 #include "link.h"
 #include <gaggia_protocol.h>
 /*******************************************************************************

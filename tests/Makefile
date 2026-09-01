@@ -2,8 +2,8 @@
 # Each test_*.cpp is one executable. Shared sources go in SRCS, include dirs in INC.
 CXX      ?= c++
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -Werror -O1 -g
-INC      := -I../libraries/GaggiaProtocol/src
-SRCS     := ../libraries/GaggiaProtocol/src/gaggia_protocol.cpp
+INC      := -I../libraries/GaggiaProtocol/src -I../gaggiano-v2
+SRCS     := ../libraries/GaggiaProtocol/src/gaggia_protocol.cpp ../gaggiano-v2/profile_format.cpp
 
 TESTS := $(wildcard test_*.cpp)
 BINS  := $(patsubst %.cpp,build/%,$(TESTS))

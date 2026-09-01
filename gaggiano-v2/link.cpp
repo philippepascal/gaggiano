@@ -1,5 +1,5 @@
 #include "link.h"
-#include "gaggia_config.h"
+#include "storage.h"
 #include <gaggia_protocol.h>
 
 #define SCREEN_FIRMWARE_VERSION "screen-2026-09-01-r2"  // no commas, max 31 chars

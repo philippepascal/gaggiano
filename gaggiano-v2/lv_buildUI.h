@@ -16,6 +16,7 @@ extern "C" {
 //#include "../lv_demos.h"
 //adding arduino for using serial.print
 #include "Arduino.h"
+#include <stddef.h>
 #include <lvgl.h>
 #include "gaggia_state.h"
 
@@ -32,8 +33,8 @@ extern "C" {
   void instantiateUI(GaggiaStateT* state,
                      AdvancedSettingsT* advancedSettings,
                      int (*writeConfigFile)(),
-                     char* (*lp)(),
-                     char* (*gcp)(),
+                     int (*lp)(char* buf, size_t size),
+                     int (*gcp)(char* buf, size_t size),
                      int (*wcp)(const char* profileName),
                      int (*setupAndReadConfigFile)(),
                      int (*renameProfile)(const char* newName),
