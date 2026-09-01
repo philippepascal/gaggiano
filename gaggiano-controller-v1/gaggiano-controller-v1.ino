@@ -37,6 +37,7 @@ void loop() {
   bool pressureUpdated = readPressure(loopStart);
 
   pollScreenSerial();
+  checkLinkTimeout(loopStart);
   readUsbCommand();
 
   if (tempUpdated) updateBoiler();

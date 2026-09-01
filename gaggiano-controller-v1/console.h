@@ -1,5 +1,5 @@
 // USB serial console (from the Mac, not the screen). One command per line:
-// VERSION, STATUS, LOG ON, LOG OFF, RX <line>, HANG, DFU. Non-blocking.
+// VERSION, STATUS, LOG ON, LOG OFF, RX <protocol line>, HANG, DFU. Non-blocking.
 #pragma once
 #include <Arduino.h>
 

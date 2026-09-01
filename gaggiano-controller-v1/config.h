@@ -1,7 +1,7 @@
 // Pins, periods and limits for the STM32F411 controller. Single place to edit.
 #pragma once
 
-#define FIRMWARE_VERSION "gaggiano-controller-v1 2026-09-01-r1"
+#define FIRMWARE_VERSION "controller-2026-09-01-r2"  // sent in HELLO: no commas, max 31 chars
 
 #define LOOP_PERIOD_MS 10
 
@@ -37,8 +37,8 @@
 #define SCREEN_TX_PIN PA2
 #define SCREEN_BAUD 115200
 #define STATUS_SEND_PERIOD_MS 200  // 200 is a decent value for screen updates; last known working value was 500
-#define LINE_MAX 128
-#define MAX_FIELDS 12
+#define LINK_TIMEOUT_MS 3000       // no valid CMD for this long: pump off, valve closed, boiler keeps its setpoint
+#define LINE_MAX 128               // console line buffer
 
 // --- watchdog: reset if the loop stalls (outputs go to reset state: all off)
 #define WATCHDOG_TIMEOUT_US 4000000
@@ -46,7 +46,8 @@
 // --- USB console
 #define CONSOLE_BAUD 9600
 
-// --- operating modes (values are part of the wire protocol)
+// --- operating modes (values are part of the wire protocol, see GaggiaProtocol GpMode)
+#define OPERATING_MODE_OFF 0
 #define OPERATING_MODE_BREW 1
 #define OPERATING_MODE_STEAM 2
 #define OPERATING_MODE_CLEAN 3

@@ -31,10 +31,7 @@ void readUsbCommand() {
     } else if (strcmp(line, "STATUS") == 0) {
       printStatus();
     } else if (strncmp(line, "RX ", 3) == 0) {  // bench: feed a line as if from the screen
-      char copy[LINE_MAX];
-      strncpy(copy, line + 3, sizeof(copy) - 1);
-      copy[sizeof(copy) - 1] = '\0';
-      handleLine(copy);
+      handleLine(line + 3, strlen(line + 3));
       Serial.println("rx injected");
     } else if (strcmp(line, "LOG ON") == 0) {
       debugLog = true;
@@ -58,12 +55,12 @@ void readUsbCommand() {
 }
 
 void printStatus() {
-  char line[224];
+  char line[240];
   snprintf(line, sizeof(line),
-           "STATUS mode=%d tempSet=%.2f pressSet=%.2f pumpPct=%.2f temp=%.2f press=%.2f valve=%d boilerOut=%.1f pumpOut=%.1f tempFaults=%lu rx=%lu rxRejected=%lu rxOverflows=%lu loops=%lu maxLoopMs=%lu wdReset=%d",
+           "STATUS mode=%d tempSet=%.2f pressSet=%.2f pumpPct=%.2f temp=%.2f press=%.2f valve=%d boilerOut=%.1f pumpOut=%.1f linkOk=%d tempFaults=%lu rx=%lu rxRejected=%lu rxOverflows=%lu loops=%lu maxLoopMs=%lu wdReset=%d",
            (int)operating_mode, temperatureSetPoint, pressureSetPoint, pressureOutputPercent,
            temperature_smoothed, pressure_smoothed, valveIsOpen() ? 1 : 0, boiler_relay_output,
-           pump_dimmer_output2, (unsigned long)temperatureFaults, (unsigned long)rxLines, (unsigned long)rxRejected,
+           pump_dimmer_output2, linkOk ? 1 : 0, (unsigned long)temperatureFaults, (unsigned long)rxLines, (unsigned long)rxRejected,
            (unsigned long)rxOverflows, (unsigned long)loopCounter, (unsigned long)maxLoopMs, resetByWatchdog ? 1 : 0);
   Serial.println(line);
 }

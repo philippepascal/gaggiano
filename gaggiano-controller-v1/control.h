@@ -22,4 +22,4 @@ void controlSetup();
 void updateBoiler();             // call after each temperature reading
 void updatePump2();              // call after each pressure reading
 void updateAdvancedSettings();   // apply the tuning parameters to the PID
-void allOutputsOff();            // pump 0, valve closed, boiler 0, setpoints 0
+void allOutputsOff();            // pump 0, valve closed, boiler 0, setpoints 0, mode off

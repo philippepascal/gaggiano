@@ -4,7 +4,7 @@
 #include "outputs.h"
 #include <AutoPID.h>
 
-double operating_mode = OPERATING_MODE_BREW;
+double operating_mode = OPERATING_MODE_OFF;
 double temperatureSetPoint = 0;
 double pressureSetPoint = 0;
 double pressureOutputPercent = 0;
@@ -43,7 +43,10 @@ void updateBoiler() {
 
 void updatePump2() {
   double pumpValue;
-  if (operating_mode == OPERATING_MODE_BREW) {
+  if (operating_mode == OPERATING_MODE_OFF) {
+    setPump(0);
+    setValve(false);
+  } else if (operating_mode == OPERATING_MODE_BREW) {
     if (pressureSetPoint > 0) {
       setValve(true);
       if (pressure_smoothed > pressureSetPoint) {
@@ -87,9 +90,11 @@ void updatePump2() {
 }
 
 void allOutputsOff() {
+  operating_mode = OPERATING_MODE_OFF;
   setPump(0);
   setValve(false);
   setBoilerOutput(0);
   temperatureSetPoint = 0;
   pressureSetPoint = 0;
+  pressureOutputPercent = 0;
 }
