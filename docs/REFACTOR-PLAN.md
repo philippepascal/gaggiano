@@ -112,12 +112,12 @@ docs/PROTOCOL.md                   the wire format, one page
       8. Leave both boards running 10 minutes; free heap (screen) and loop counter
          (controller) still reported and stable.
       Items 1-2 after every flash; the full list at each checkpoint.
-- [ ] R0.4 Controller console additions needed for the checklist: `STATUS` (mode,
+- [x] R0.4 (controller verified on bench; screen HEAP line built, flash pending until its USB is connected) Controller console additions needed for the checklist: `STATUS` (mode,
       setpoints, outputs, loop counter, max loop time, link state) and `LOG ON|OFF`
       (silence the per-message debug spam). Screen: print free heap every 10 s to USB.
 
 **Checkpoint R0:** `./gg test` passes, checklist items 1-2 pass with the current
-firmware, baseline sizes recorded: controller 68,080 bytes, screen 678,224 bytes.
+firmware (PASSED 2026-09-01 for the controller; `STATUS` reports maxLoopMs=6 at rest), baseline sizes recorded: controller 68,080 bytes, screen 678,224 bytes.
 
 ---
 

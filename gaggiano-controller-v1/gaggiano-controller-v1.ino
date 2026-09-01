@@ -4,7 +4,12 @@
 #include <SimpleKalmanFilter.h>
 #include "dfu_jump.h"
 
-#define FIRMWARE_VERSION "gaggiano-controller-v1 2026-09-01"
+#define FIRMWARE_VERSION "gaggiano-controller-v1 2026-09-01-r0"
+
+// debug output on the USB console (LOG ON / LOG OFF). Off by default so the
+// console replies (VERSION, STATUS) are readable.
+bool debugLog = false;
+uint32_t maxLoopMs = 0;
 
 // --------- global vars ----------
 
@@ -192,6 +197,8 @@ void loop() {
 
   // ---------------------
   loopCounter++;
+  uint32_t elapsed = millis() - loopStart;
+  if (elapsed > maxLoopMs) maxLoopMs = elapsed;
   uint32_t waitTime = LOOP_PERIOD - (millis() - loopStart);
   delay(waitTime);
 }
@@ -399,9 +406,8 @@ int getNextFloat(double *variable, char *message, int messageSize, int cursor) {
 void parseMessage() {
   char m[500] = "";
   if (screenSerial.available()) {
-    Serial.println("received");
     strcat(m, screenSerial.readStringUntil('\n').c_str());
-    Serial.println(m);
+    if (debugLog) { Serial.print("received "); Serial.println(m); }
   }
   int messageSize = myIndexOF(m, '|', 0);
   if (messageSize > 0) {
@@ -418,34 +424,19 @@ void parseMessage() {
       cursor = getNextFloat(&temperatureSetPoint, m, messageSize, cursor);
       if (cursor > 0) cursor = getNextFloat(&pressureSetPoint, m, messageSize, cursor);
       pressureOutputPercent = 0;
-      Serial.print("temperatureSetPoint ");
-      Serial.print(temperatureSetPoint);
-      Serial.print(" pressureSetPoint ");
-      Serial.print(pressureSetPoint);
-      Serial.print(" pressureOutputPercent ");
-      Serial.println(pressureOutputPercent);
+      if (debugLog) printSetPoints();
     } else if (sender == 2) {  // special steam command (not by pressure, but by pump output)
       operating_mode = OPERATING_MODE_STEAM;
       cursor = getNextFloat(&temperatureSetPoint, m, messageSize, cursor);
       if (cursor > 0) cursor = getNextFloat(&pressureSetPoint, m, messageSize, cursor);  //max pressure for steaming
       if (cursor > 0) cursor = getNextFloat(&pressureOutputPercent, m, messageSize, cursor);
-      Serial.print("temperatureSetPoint ");
-      Serial.print(temperatureSetPoint);
-      Serial.print(" pressureSetPoint ");
-      Serial.print(pressureSetPoint);
-      Serial.print(" pressureOutputPercent ");
-      Serial.println(pressureOutputPercent);
+      if (debugLog) printSetPoints();
     } else if (sender == 3) { // special clean command (no pressure control: max value)
       operating_mode = OPERATING_MODE_CLEAN;
       cursor = getNextFloat(&temperatureSetPoint, m, messageSize, cursor);
       if (cursor > 0) cursor = getNextFloat(&pressureSetPoint, m, messageSize, cursor);
       pressureOutputPercent = 0;
-      Serial.print("temperatureSetPoint ");
-      Serial.print(temperatureSetPoint);
-      Serial.print(" pressureSetPoint ");
-      Serial.print(pressureSetPoint);
-      Serial.print(" pressureOutputPercent ");
-      Serial.println(pressureOutputPercent);
+      if (debugLog) printSetPoints();
     } else if (sender == 9) {  // advanced settings
       cursor = getNextFloat(&boiler_bb_range, m, messageSize, cursor);
       if (cursor > 0) cursor = getNextFloat(&boiler_PID_cycle, m, messageSize, cursor);
@@ -466,7 +457,26 @@ void parseMessage() {
   }
 }
 
+void printSetPoints() {
+  Serial.print("temperatureSetPoint ");
+  Serial.print(temperatureSetPoint);
+  Serial.print(" pressureSetPoint ");
+  Serial.print(pressureSetPoint);
+  Serial.print(" pressureOutputPercent ");
+  Serial.println(pressureOutputPercent);
+}
+
 void updateAdvancedSettings() {
+  if (debugLog) printAdvancedSettings();
+
+  // if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
+  boilerPID.setBangBang(boiler_bb_range);
+  // set PID update interval to 1000ms
+  boilerPID.setTimeStep(boiler_PID_cycle);
+  boilerPID.setGains(boiler_PID_KP, boiler_PID_KI, boiler_PID_KD);
+}
+
+void printAdvancedSettings() {
   Serial.print(" advanced settings: ");
   Serial.print("boiler_bb_range:");
   Serial.print(boiler_bb_range);
@@ -488,12 +498,6 @@ void updateAdvancedSettings() {
   Serial.print(pump_KD);
   Serial.print("pump_PID_KD:");
   Serial.println(unused1);
-
-  // if temperature is more than 10 degrees below or above setpoint, OUTPUT will be set to min or max respectively
-  boilerPID.setBangBang(boiler_bb_range);
-  // set PID update interval to 1000ms
-  boilerPID.setTimeStep(boiler_PID_cycle);
-  boilerPID.setGains(boiler_PID_KP, boiler_PID_KI, boiler_PID_KD);
 }
 
 bool sendStatus(uint32_t now) {
@@ -513,8 +517,7 @@ bool sendStatus(uint32_t now) {
             boiler_PID_KI,
             boiler_PID_KD,
             loopCounter);
-    Serial.print(" sent: ");
-    Serial.println(message);
+    if (debugLog) { Serial.print(" sent: "); Serial.println(message); }
     screenSerial.println(message);
     last_sent_message_time = now;
     return true;
@@ -549,6 +552,14 @@ void readUsbCommand() {
     len = 0;
     if (strcmp(line, "VERSION") == 0) {
       Serial.println(FIRMWARE_VERSION);
+    } else if (strcmp(line, "STATUS") == 0) {
+      printStatus();
+    } else if (strcmp(line, "LOG ON") == 0) {
+      debugLog = true;
+      Serial.println("log on");
+    } else if (strcmp(line, "LOG OFF") == 0) {
+      debugLog = false;
+      Serial.println("log off");
     } else if (strcmp(line, "DFU") == 0) {
       allOutputsOff();
       Serial.println("rebooting into DFU bootloader");
@@ -558,6 +569,16 @@ void readUsbCommand() {
     }
     // anything else is ignored (the debug port also receives stray text)
   }
+}
+
+void printStatus() {
+  char line[160];
+  snprintf(line, sizeof(line),
+           "STATUS mode=%d tempSet=%.2f pressSet=%.2f pumpPct=%.2f temp=%.2f press=%.2f valve=%d boilerOut=%.1f pumpOut=%.1f loops=%lu maxLoopMs=%lu",
+           (int)operating_mode, temperatureSetPoint, pressureSetPoint, pressureOutputPercent,
+           temperature_smoothed, pressure_smoothed, digitalRead(valvePin), boiler_relay_output,
+           pump_dimmer_output2, (unsigned long)loopCounter, (unsigned long)maxLoopMs);
+  Serial.println(line);
 }
 
 // Debugging Stuff -----------------------

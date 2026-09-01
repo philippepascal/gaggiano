@@ -435,6 +435,16 @@ void sendAdvancedSettings() {
   }
 }
 
+// free-heap report on the USB console every 10 s (bench checklist item 10)
+uint32_t lastHeapReport = 0;
+void reportHeap() {
+  if (millis() - lastHeapReport >= 10000) {
+    lastHeapReport = millis();
+    Serial.printf("HEAP free=%u minfree=%u psramfree=%u\n",
+                  (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMinFreeHeap(), (unsigned)ESP.getFreePsram());
+  }
+}
+
 int i = 0;
 void loop() {
   //inelegant optimization to minimize useless(from user perspective) granularity
@@ -449,6 +459,7 @@ void loop() {
   lv_timer_handler(); /* let the GUI do its work */
   sendCommand();
   sendAdvancedSettings();
+  reportHeap();
   delay(5);
 }
 
