@@ -92,6 +92,10 @@ static void applyStat(const GpStat &st, uint32_t now) {
   state->tempRead = st.temp;
   state->pressureRead = st.pressure;
   state->isSolenoidOn = st.valve != 0;
+  state->boilerOut = st.boilerOut;
+  state->pumpOut = st.pumpOut;
+  state->ctrlMode = st.mode;
+  state->linkOk = st.linkOk != 0;
   if (!haveCommand) return;
   bool agrees = st.mode == current.mode && nearlyEqual(st.tempSet, current.tempSet) &&
                 nearlyEqual(st.pressSet, current.pressSet) && nearlyEqual(st.pumpPct, current.pumpPct);

@@ -6,3 +6,6 @@ tools/arduino-cli.yaml
 .arduino-data/
 # local baseline binaries for size comparison (refactor plan R0.1)
 build-baseline/
+# simulator objects
+sim/build/
+sim/*.bmp

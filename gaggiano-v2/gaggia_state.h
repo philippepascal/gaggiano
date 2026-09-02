@@ -36,6 +36,11 @@ struct GaggiaState {
   bool cleanLogs;
   int actionStartTime;
   int actionStopTime;
+  //controller outputs, from the status line
+  float boilerOut;   // heater duty, percent
+  float pumpOut;     // pump level, 0..127
+  int ctrlMode;      // GP_MODE_*
+  bool linkOk;       // the controller considers the link alive
 };
 typedef struct GaggiaState GaggiaStateT;
 

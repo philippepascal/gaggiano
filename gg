@@ -132,6 +132,19 @@ cmd_build() {
   done
 }
 
+cmd_sim() {
+  log "building the screen simulator"
+  make -s -C "$REPO/sim" || die "simulator build failed (needs: brew install sdl2)"
+  if [ "${1:-}" = "--shot" ]; then
+    local out="${2:-shot.bmp}"
+    (cd "$REPO/sim" && ./build/gaggiano-sim --shot "$out")
+    case "$out" in *.png) ;; *) return 0 ;; esac
+  else
+    log "running (q to quit, w for a screenshot, t/T p/P readings)"
+    (cd "$REPO/sim" && ./build/gaggiano-sim)
+  fi
+}
+
 cmd_test() {
   log "running host tests"
   make -C "$REPO/tests" "$@"
@@ -281,6 +294,7 @@ usage: ./gg <command> [args]
   monitor <target> [port]
                          serial monitor at the target's baud rate
   test                   build and run the host-side tests in tests/
+  sim [--shot FILE.bmp]  run the screen UI in an SDL window on the Mac (or save a screenshot)
   clean [--all]          remove build/ and the compile caches; --all also removes
                          .arduino-data/ (cores and toolchains, re-downloaded by setup)
   help
@@ -298,6 +312,7 @@ main() {
     build)   cmd_build "$@" ;;
     clean)   cmd_clean "$@" ;;
     test)    cmd_test "$@" ;;
+    sim)     cmd_sim "$@" ;;
     detect)  cmd_detect "$@" ;;
     monitor) cmd_monitor "$@" ;;
     flash)   cmd_flash "$@" ;;
