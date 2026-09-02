@@ -42,7 +42,7 @@ void setup() {
   instantiateUI(&state, &advancedSettings, writeConfigFile, listProfiles, getCurrentProfile,
                 writeCurrentProfile, setupAndReadConfigFile, renameProfile, deleteProfile, duplicateProfile);
   setupAndReadConfigFile();
-  deleteLogsFile();
+  storageStartSession();
   Serial.println("Setup done");
 }
 
@@ -53,6 +53,11 @@ void loop() {
   linkPoll(now);
   netPoll(now);
   webPoll(now);
+  storageSessionTick();
+  if (state.cleanLogs) {
+    state.cleanLogs = false;
+    storageStartSession();
+  }
   consolePoll(now);
   if (now - lastUiRefresh >= UI_REFRESH_MS) {
     lastUiRefresh = now;

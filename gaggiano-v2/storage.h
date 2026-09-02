@@ -14,10 +14,15 @@ bool storageReady();
 int setupAndReadConfigFile();  // loads the selected profile into the state; 1 ok, -1 error
 int writeConfigFile();         // saves the state into the selected profile
 
-int logController(const char *message);  // appends "<time>,<message>" to the log
-int deleteLogsFile();                     // starts a new log with the CSV header
+int logController(const char *message);  // appends "<time>,<message>" to the session log
+int storageStartSession();                // new dated session log under /gaggia/logs, old ones pruned
+void storageSessionTick();                // renames the session file once the clock is known
 void storageLogFlush();                   // closes the writer's handle (a reader may open the file)
-const char *storageLogPath();
+const char *storageLogPath();             // current session file
+// Session logs, newest first: "name,size;name,size;..." into buf. Returns the count or -1.
+int storageListLogs(char *buf, size_t size);
+bool storageLogExists(const char *name);   // a file name from storageListLogs
+const char *storageLogsDir();
 
 int displayFrankBmp(BMP_DRAW_CALLBACK *bmpDrawCallback, int16_t width, int16_t height);
 

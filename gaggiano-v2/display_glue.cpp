@@ -94,6 +94,8 @@ static void bmpDrawCallback(int16_t x, int16_t y, uint16_t *bitmap, int16_t w, i
   gfx->draw16bitRGBBitmap(x, y, bitmap, w, h);
 }
 
+void displayBacklight(bool on) { digitalWrite(TFT_BL, on ? HIGH : LOW); }
+
 void displaySplash() {
   displayFrankBmp(bmpDrawCallback, 800, 480);
   delay(SPLASH_MS);

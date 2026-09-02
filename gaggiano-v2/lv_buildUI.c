@@ -380,7 +380,7 @@ static void clearLogsBtnClicked(lv_event_t* e) {
 
   if (code == LV_EVENT_CLICKED) {
     LV_LOG_WARN("Clear Logs Button Clicked");
-    state->cleanLogs = true;
+    state->cleanLogs = true;  // the sketch starts a new session log
   }
 }
 static void profile_selected(lv_event_t* e) {

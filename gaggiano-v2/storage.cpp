@@ -12,7 +12,9 @@ static AdvancedSettingsT *advancedSettings = NULL;
 
 static const char *profilesPath = "/gaggia/profiles";
 static const char *selectedProfilePath = "/gaggia/selectedProfile";
-static const char *logsPath = "/gaggia/gaggia_logs.csv";
+static const char *logsDir = "/gaggia/logs";
+static char logsPath[64] = "/gaggia/logs/current.csv";  // renamed to a dated name once the clock is set
+static bool sessionNamed = false;
 static const char *defaultProfile = "default.csv";
 
 #define PATH_MAX_LEN 64
@@ -100,12 +102,113 @@ int logController(const char *message) {
   return n;
 }
 
-int deleteLogsFile() {
+static const char *kLogHeader = "time,mode,temp,pressure,valve,heater,pump,tempSet,pressSet,pumpPct,linkOk,faults,counter";
+
+// Keeps the newest LOG_SESSIONS_KEPT - 1 files so the new session makes LOG_SESSIONS_KEPT.
+static void pruneSessions() {
+  char names[LOG_SESSIONS_KEPT + 8][32];
+  int n = 0;
+  File dir = fileSystem->open(logsDir);
+  if (!dir) return;
+  while (true) {
+    File e = dir.openNextFile();
+    if (!e) break;
+    const char *nm = e.name();
+    const char *base = strrchr(nm, '/');
+    base = base ? base + 1 : nm;
+    if (n < (int)(sizeof(names) / sizeof(names[0]))) {
+      strncpy(names[n], base, 31);
+      names[n][31] = '\0';
+      n++;
+    }
+    e.close();
+  }
+  dir.close();
+  // names are dates, so lexical order is chronological; delete the oldest beyond the limit
+  for (int i = 0; i < n; i++)
+    for (int j = i + 1; j < n; j++)
+      if (strcmp(names[j], names[i]) < 0) { char t[32]; strcpy(t, names[i]); strcpy(names[i], names[j]); strcpy(names[j], t); }
+  for (int i = 0; i < n - (LOG_SESSIONS_KEPT - 1); i++) {
+    char path[64];
+    snprintf(path, sizeof(path), "%s/%s", logsDir, names[i]);
+    fileSystem->remove(path);
+  }
+}
+
+int storageStartSession() {
   if (!storageReady()) return -1;
   if (logFile) logFile.close();
-  if (!fileSystem->remove(logsPath)) Serial.println("SD: no log file to delete");
-  return logController("mode,temp,pressure,valve,heater,pump,tempSet,pressSet,pumpPct,linkOk,faults,counter");  // "time," is prepended
+  File dir = fileSystem->open(logsDir);
+  if (!dir) fileSystem->mkdir(logsDir); else dir.close();
+  pruneSessions();
+  snprintf(logsPath, sizeof(logsPath), "%s/current.csv", logsDir);
+  fileSystem->remove(logsPath);  // a leftover from a boot that never saw the clock
+  sessionNamed = false;
+  File f = fileSystem->open(logsPath, FILE_WRITE);  // the header row, without a timestamp column value
+  if (!f) return -1;
+  f.println(kLogHeader);
+  f.close();
+  return 1;
 }
+
+// Once NTP has set the clock, the session file gets its date as a name.
+void storageSessionTick() {
+  if (sessionNamed || !storageReady()) return;
+  char stamp[24];
+  if (!netLocalTime(stamp, sizeof(stamp), "%Y%m%d-%H%M%S")) return;
+  char dated[64];
+  snprintf(dated, sizeof(dated), "%s/%s.csv", logsDir, stamp);
+  if (logFile) logFile.close();
+  if (fileSystem->rename(logsPath, dated)) {
+    strncpy(logsPath, dated, sizeof(logsPath) - 1);
+    logsPath[sizeof(logsPath) - 1] = '\0';
+    Serial.printf("SD: session log %s\n", logsPath);
+  }
+  sessionNamed = true;  // the writer reopens the (renamed) file on the next row
+}
+
+int storageListLogs(char *buf, size_t size) {
+  if (!storageReady() || size == 0) return -1;
+  buf[0] = '\0';
+  char names[LOG_SESSIONS_KEPT + 8][32];
+  size_t sizes[LOG_SESSIONS_KEPT + 8];
+  int n = 0;
+  File dir = fileSystem->open(logsDir);
+  if (!dir) return -1;
+  while (true) {
+    File e = dir.openNextFile();
+    if (!e) break;
+    if (n < (int)(sizeof(names) / sizeof(names[0]))) {
+      const char *nm = e.name();
+      const char *base = strrchr(nm, '/');
+      strncpy(names[n], base ? base + 1 : nm, 31);
+      names[n][31] = '\0';
+      sizes[n] = e.size();
+      n++;
+    }
+    e.close();
+  }
+  dir.close();
+  for (int i = 0; i < n; i++)  // newest first
+    for (int j = i + 1; j < n; j++)
+      if (strcmp(names[j], names[i]) > 0) { char t[32]; size_t ts = sizes[i]; strcpy(t, names[i]); strcpy(names[i], names[j]); strcpy(names[j], t); sizes[i] = sizes[j]; sizes[j] = ts; }
+  size_t used = 0;
+  for (int i = 0; i < n; i++) {
+    int w = snprintf(buf + used, size - used, "%s,%u;", names[i], (unsigned)sizes[i]);
+    if (w < 0 || used + (size_t)w >= size) break;
+    used += (size_t)w;
+  }
+  return n;
+}
+
+bool storageLogExists(const char *name) {
+  if (!storageReady() || strchr(name, '/') != NULL || strstr(name, "..") != NULL) return false;
+  char path[64];
+  snprintf(path, sizeof(path), "%s/%s", logsDir, name);
+  return fileSystem->exists(path);
+}
+
+const char *storageLogsDir() { return logsDir; }
 
 void storageLogFlush() {
   if (logFile) logFile.close();  // reopened by the next logController()

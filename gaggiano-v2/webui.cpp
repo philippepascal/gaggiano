@@ -7,6 +7,7 @@
 #include "net.h"
 #include "sequencer.h"
 #include "storage.h"
+#include "display_glue.h"
 #include "web_page.h"
 #include <Arduino.h>
 #include <WebServer.h>
@@ -92,10 +93,13 @@ static void sendArray(const char *name, int id, float scale, bool isInt, bool la
 }
 
 static void handleHistory() {
+  char clock[24], head[96];
+  netLocalTime(clock, sizeof(clock), "%Y-%m-%dT%H:%M:%S");
+  snprintf(head, sizeof(head), "{\"end\":\"%s\",\"period\":0.5,", clock);
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);
   server.sendHeader("Cache-Control", "no-store");
   server.send(200, "application/json", "");
-  server.sendContent("{");
+  server.sendContent(head);
   sendArray("temp", HISTORY_G_TEMP, 1.0f, false, false);
   sendArray("pressure", HISTORY_G_PRESS, 1.0f, false, false);
   sendArray("heater", HISTORY_G_BOILER, 1.0f, false, false);
@@ -105,14 +109,59 @@ static void handleHistory() {
   server.sendContent("");
 }
 
-static void handleLog() {
-  if (!storageReady()) { server.send(503, "text/plain", "no SD card"); return; }
+static void sendCsvFile(const char *path, const char *downloadName) {
   storageLogFlush();  // the writer's handle is closed so the reader sees everything
-  File f = SD.open(storageLogPath(), FILE_READ);
-  if (!f) { server.send(404, "text/plain", "no log yet"); return; }
-  server.sendHeader("Content-Disposition", "attachment; filename=\"gaggiano-log.csv\"");
+  File f = SD.open(path, FILE_READ);
+  if (!f) { server.send(404, "text/plain", "no such log"); return; }
+  if (downloadName) {
+    char cd[96];
+    snprintf(cd, sizeof(cd), "attachment; filename=\"%s\"", downloadName);
+    server.sendHeader("Content-Disposition", cd);
+  }
   server.streamFile(f, "text/csv");
   f.close();
+}
+
+static void handleLog() {  // the current session
+  if (!storageReady()) { server.send(503, "text/plain", "no SD card"); return; }
+  sendCsvFile(storageLogPath(), "gaggiano-log.csv");
+}
+
+static void handleLogList() {  // JSON: [{"name":"20260902-113052.csv","size":12345}, ...] newest first
+  char list[768];
+  int n = storageListLogs(list, sizeof(list));
+  if (n < 0) { server.send(503, "application/json", "[]"); return; }
+  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server.sendHeader("Cache-Control", "no-store");
+  server.send(200, "application/json", "");
+  server.sendContent("[");
+  char *p = list;
+  bool first = true;
+  while (*p) {
+    char *semi = strchr(p, ';');
+    if (semi) *semi = '\0';
+    char *comma = strchr(p, ',');
+    if (comma) {
+      *comma = '\0';
+      char item[96];
+      snprintf(item, sizeof(item), "%s{\"name\":\"%s\",\"size\":%s}", first ? "" : ",", p, comma + 1);
+      server.sendContent(item);
+      first = false;
+    }
+    if (!semi) break;
+    p = semi + 1;
+  }
+  server.sendContent("]");
+  server.sendContent("");
+}
+
+static void handleLogFile() {  // /logs/<name>[?download]
+  String uri = server.uri();
+  const char *name = uri.c_str() + strlen("/logs/");
+  if (!storageLogExists(name)) { server.send(404, "text/plain", "no such log"); return; }
+  char path[64];
+  snprintf(path, sizeof(path), "%s/%s", storageLogsDir(), name);
+  sendCsvFile(path, server.hasArg("download") ? name : NULL);
 }
 
 // ---- firmware update by HTTP upload (POST /update, multipart "firmware", field "password").
@@ -136,18 +185,12 @@ static void updateUpload() {
     Serial.printf("update: start (%s)\n", up.filename.c_str());
     ui_show_notice("Updating firmware...");
     lv_timer_handler();
+    displayBacklight(false);  // flash writes stall the panel's refresh: nothing to see until the restart
     if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { updateFailed = true; Update.printError(Serial); }
   } else if (up.status == UPLOAD_FILE_WRITE) {
     if (!updateAuthorized || updateFailed) return;
     if (Update.write(up.buf, up.currentSize) != up.currentSize) { updateFailed = true; Update.printError(Serial); }
-    static uint32_t lastShown = 0;
-    if (millis() - lastShown > 500) {
-      lastShown = millis();
-      char text[48];
-      snprintf(text, sizeof(text), "Updating firmware %u KB", (unsigned)(up.totalSize / 1024));
-      ui_show_notice(text);
-      lv_timer_handler();
-    }
+
   } else if (up.status == UPLOAD_FILE_END) {
     if (!updateAuthorized || updateFailed) return;
     if (Update.end(true)) {
@@ -167,6 +210,7 @@ static void updateUpload() {
 static void updateDone() {
   if (!updateAuthorized) { server.send(403, "text/plain", "wrong password"); return; }
   if (updateFailed || Update.hasError()) {
+    displayBacklight(true);
     ui_show_notice("Update failed");
     lv_timer_handler();
     delay(1500);
@@ -190,11 +234,15 @@ void webBegin() {
   server.on("/api/history", handleHistory);
   server.on("/logs.csv", handleLog);
   server.on("/update", HTTP_POST, updateDone, updateUpload);
+  server.on("/logs", handleLogList);
   Preferences prefs;
   prefs.begin("gaggiano", true);
   prefs.getString("otapass", otaPassword, sizeof(otaPassword));
   prefs.end();
-  server.onNotFound([]() { server.send(404, "text/plain", "not found"); });
+  server.onNotFound([]() {
+    if (server.uri().startsWith("/logs/")) handleLogFile();
+    else server.send(404, "text/plain", "not found");
+  });
   server.begin();
 }
 

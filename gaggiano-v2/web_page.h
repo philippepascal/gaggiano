@@ -52,9 +52,11 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"html(<!doctype html>
   </div>
   <canvas id="chart" width="1000" height="300"></canvas>
   <div class="actions">
-    <a class="btn" href="/logs.csv" download="gaggiano-log.csv">Download log (CSV)</a>
-    <a class="btn" href="/api/history">History (JSON)</a>
+    <a class="btn" href="/logs.csv" download="gaggiano-log.csv">Download this session (CSV)</a>
+    <a class="btn" href="#" id="live" hidden>Back to live</a>
   </div>
+  <div class="foot" style="margin-top:14px">Sessions on the card (tap a name to view it, the arrow to download):</div>
+  <div id="sessions" class="actions" style="margin-top:6px"></div>
   <div class="foot" id="foot">Last 150 s. Updated every second while this page is open.</div>
   <details class="foot"><summary>Update firmware</summary>
     <form method="post" action="/update" enctype="multipart/form-data" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -69,6 +71,7 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"html(<!doctype html>
   var N = 300, PERIOD = 0.5;   // samples in the firmware's history rings
   var hist = { temp: [], press: [], boiler: [], pump: [], mode: [] };
   var last = 0;
+  var live = true;  // false while a past session is shown
   var $ = function (id) { return document.getElementById(id); };
   var MODE = ['', 'brew', 'steam', 'clean'];
   var MODE_COLOR = ['', '#7fb3d5', '#d64545', '#4fa3a0'];
@@ -122,6 +125,7 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"html(<!doctype html>
   }
 
   function tick() {
+    if (!live) return;
     fetch('/api/status').then(function (r) { return r.json(); }).then(function (s) {
       show(s);
       var now = Date.now() / 1000;
@@ -132,6 +136,38 @@ static const char WEB_INDEX_HTML[] PROGMEM = R"html(<!doctype html>
   fetch('/api/history').then(function (r) { return r.json(); }).then(function (h) {
     hist.temp = h.temp; hist.press = h.pressure; hist.boiler = h.heater; hist.pump = h.pump; hist.mode = h.mode;
     draw();
+  }).catch(function () {});
+
+  // past sessions: list, view in the chart (downsampled to N points), download
+  function showSession(name) {
+    fetch('/logs/' + name).then(function (r) { return r.text(); }).then(function (csv) {
+      var rows = csv.trim().split('\n').slice(1).map(function (l) { return l.split(','); });
+      var stride = Math.max(1, Math.ceil(rows.length / N));
+      var h = { temp: [], press: [], boiler: [], pump: [], mode: [] };
+      for (var i = 0; i < rows.length; i += stride) {
+        var r = rows[i]; if (r.length < 8) continue;
+        h.mode.push(+r[1]); h.temp.push(+r[2]); h.press.push(+r[3]); h.boiler.push(+r[5]); h.pump.push(+r[6]);
+      }
+      hist = h; live = false; draw();
+      $('foot').textContent = 'Session ' + name.replace('.csv', '') + ' · ' + rows.length + ' rows' + (rows.length ? ' · ' + rows[0][0] + ' to ' + rows[rows.length - 1][0] : '');
+      $('live').hidden = false;
+    });
+  }
+  $('live').addEventListener('click', function (e) {
+    e.preventDefault(); live = true; $('live').hidden = true;
+    fetch('/api/history').then(function (r) { return r.json(); }).then(function (h) {
+      hist = { temp: h.temp, press: h.pressure, boiler: h.heater, pump: h.pump, mode: h.mode }; draw();
+    });
+  });
+  fetch('/logs').then(function (r) { return r.json(); }).then(function (list) {
+    var box = $('sessions'); box.innerHTML = '';
+    list.forEach(function (s) {
+      var a = document.createElement('a'); a.className = 'btn'; a.href = '#';
+      a.textContent = s.name.replace('.csv', '').replace(/^(\d{4})(\d\d)(\d\d)-(\d\d)(\d\d)\d\d$/, '$1-$2-$3 $4:$5') + ' (' + Math.round(s.size / 1024) + ' KB)';
+      a.addEventListener('click', function (e) { e.preventDefault(); showSession(s.name); });
+      var d = document.createElement('a'); d.className = 'btn'; d.textContent = '\u2193'; d.href = '/logs/' + s.name + '?download=1';
+      box.appendChild(a); box.appendChild(d);
+    });
   }).catch(function () {});
   tick();
   setInterval(tick, 1000);
