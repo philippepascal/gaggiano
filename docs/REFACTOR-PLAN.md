@@ -227,7 +227,7 @@ observed from the controller console at Checkpoint R3 instead.
       second; `deleteLogsFile` writes the new header. Free-heap line to USB every 10 s.
 - [x] R3.6 PARTIAL: parsing helpers removed and fixed-size strings in use (done in R3.1). DEFERRED: folding the ten settings-field blocks (cosmetic, risk of pixel drift) and the delete-selects-first-profile quirk. `lv_buildUI.c`: remove the parsing helpers, use the fixed-size strings, and
       fold the ten copy-pasted settings-field blocks into one helper. Pixel-identical
-      screens; compare by eye against `docs/images/screen-ui-2025-03-21.png`.
+      screens; (no screenshot of the old UI exists; the file once named so was an IDE capture).
 - [x] R3.7 Debug output behind one log-level switch on both sides.
 
 **Checkpoint R3:** full bench checklist, then a 1-hour soak with both boards on USB:
