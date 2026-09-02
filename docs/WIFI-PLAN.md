@@ -112,16 +112,16 @@ docs/WEB.md            what the page shows, the JSON, the CSV columns
 
 ## Phase W4: web page
 
-- [ ] W4.1 `webui.{h,cpp}`: `WebServer` on port 80, mDNS `gaggiano.local`. Endpoints:
+- [x] W4.1 `webui.{h,cpp}`: `WebServer` on port 80, mDNS `gaggiano.local`. Endpoints:
       `/` (one HTML page, inline CSS/JS, no external assets), `/api/status` (JSON: the
       STATUS fields plus profile and setpoints), `/api/history` (JSON arrays of the
       graph rings), `/logs.csv` (streams the SD log; `Content-Disposition` attachment).
-- [ ] W4.2 The page: header with profile and state, three big readings, a canvas chart
+- [x] W4.2 The page: header with profile and state, three big readings, a canvas chart
       fed from `/api/history` at load and `/api/status` every second (same colors as
       the panel), a "Download log" button. Works on a phone. Source kept as a `.html`
       file in `gaggiano-v2/web/` and embedded at build time (a tiny script turns it into
       a C string, run by `./gg build`, committed output).
-- [ ] W4.3 Log CSV columns documented in `docs/WEB.md`: timestamp, mode, temp, pressure,
+- [x] W4.3 Log CSV columns documented in `docs/WEB.md`: timestamp, mode, temp, pressure,
       valve, heater, pump, tempSet, pressSet, pumpPct, linkOk, faults, counter. The
       firmware writes that format from W3.3 on (one line per STAT, 5 per second; a
       setting to log at 1 Hz instead if the card fills).
@@ -134,10 +134,10 @@ docs/WEB.md            what the page shows, the JSON, the CSV columns
 
 ## Phase W5: over-the-air update
 
-- [ ] W5.1 `ota.{h,cpp}`: `ArduinoOTA` with a password from NVS (default set at build,
+- [x] W5.1 `ota.{h,cpp}`: `ArduinoOTA` with a password from NVS (default set at build,
       changeable on the WiFi view), hostname `gaggiano`; progress shown on the panel;
       actions stopped and the controller sent an off command before the update.
-- [ ] W5.2 `./gg flash screen --ota [host]`: `arduino-cli upload` with the network port
+- [x] W5.2 `./gg flash screen --ota [host]`: `arduino-cli upload` with the network port
       (`gaggiano.local` by default), password from `tools/ota-password` (git-ignored).
 - [ ] W5.3 **(bench)** one OTA update from the Mac with no cable, then a power cycle.
 
@@ -159,6 +159,18 @@ docs/WEB.md            what the page shows, the JSON, the CSV columns
 - The delete-selects-first-profile quirk (UI plan U4.2).
 
 ## Notes log
+
+- 2026-09-02 W4/W5 built, bench pending: `webui.cpp` (WebServer, `/`, `/api/status`,
+  `/api/history` streamed, `/logs.csv`, mDNS once connected), the page in
+  `gaggiano-v2/web/index.html` embedded by `tools/embed-web.py` from `./gg build`,
+  CSV log rows (every line while running, 1/s idle; logging on by default), `ota.cpp`
+  (ArduinoOTA, progress notice on the panel, actions stopped first), `./gg flash screen
+  --ota [host]` through the core's `espota.py`. Firmware 1,488,659 bytes (47 %), static
+  RAM 67 KB.
+
+  Bench list for when the screen is back: W1.5 (`./gg flash screen --erase`, checklist
+  1-9, heap baseline), W2.5 (join the network, power cycle), W3.4 (clock, log line),
+  W4.4 (page on the phone during a brew, CSV in a spreadsheet), W5.3 (one OTA update).
 
 - 2026-09-02 W2/W3 built and rendered in the simulator (`--scene wifi`, `wifi-off`),
   bench pending: `net.cpp` (WiFi STA with reconnect, credentials and zone in NVS, SNTP

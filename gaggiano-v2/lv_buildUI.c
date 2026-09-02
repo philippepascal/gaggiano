@@ -665,6 +665,28 @@ void my_log_cb(const char* buf) {
   my_log(buf);
 }
 
+// A full-screen notice above everything (firmware update in progress).
+static lv_obj_t* notice;
+static lv_obj_t* notice_label;
+void ui_show_notice(const char* text) {
+  if (notice == NULL) {
+    notice = lv_obj_create(lv_layer_top());
+    theme_apply_editor(notice);
+    lv_obj_set_size(notice, LV_HOR_RES, LV_VER_RES);
+    lv_obj_set_pos(notice, 0, 0);
+    lv_obj_clear_flag(notice, LV_OBJ_FLAG_SCROLLABLE);
+    notice_label = lv_label_create(notice);
+    theme_apply_editor_title(notice_label);
+    lv_obj_set_width(notice_label, LV_PCT(90));
+    lv_obj_center(notice_label);
+  }
+  lv_label_set_text(notice_label, text);
+  lv_obj_clear_flag(notice, LV_OBJ_FLAG_HIDDEN);
+}
+void ui_hide_notice(void) {
+  if (notice != NULL) lv_obj_add_flag(notice, LV_OBJ_FLAG_HIDDEN);
+}
+
 // Hooks for the simulator's scenes (checked state of the action buttons).
 lv_obj_t* heat_btn_for_scene(void) { return heat_btn; }
 lv_obj_t* brew_btn_for_scene(void) { return brew_btn; }

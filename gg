@@ -188,6 +188,16 @@ wait_for() {
   done
 }
 
+flash_screen_ota() {
+  local host="${OTA_HOST:-gaggiano.local}" pass="gaggiano"
+  [ -f "$REPO/tools/ota-password" ] && pass="$(cat "$REPO/tools/ota-password")"
+  local espota; espota="$(ls "$(data_dir)"/packages/esp32/hardware/esp32/*/tools/espota.py | tail -1)"
+  [ -f "$espota" ] || die "espota.py not found in the esp32 core"
+  log "sending build/screen/$T_SKETCH.ino.bin to $host over WiFi"
+  python3 "$espota" -i "$host" -p 3232 -a "$pass" -f "$BUILD_DIR/screen/$T_SKETCH.ino.bin" -r || die "OTA upload failed (is the screen on WiFi? password in tools/ota-password?)"
+  log "screen updated over the air; it restarts by itself"
+}
+
 flash_screen() {
   local port="${PORT:-}"
   local fqbn="$T_FQBN"
@@ -272,6 +282,7 @@ cmd_flash() {
       --erase) ERASE=1; shift ;;
       --no-build) build=0; shift ;;
       --no-serial-dfu) NO_SERIAL_DFU=1; shift ;;
+      --ota) via=ota; if [ $# -gt 1 ] && [ "${2#-}" = "$2" ]; then OTA_HOST="$2"; shift; fi; shift ;;
       *) die "unknown option $1" ;;
     esac
   done
@@ -279,6 +290,7 @@ cmd_flash() {
   [ -d "$BUILD_DIR/$T_NAME" ] || die "no build for $T_NAME (run ./gg build $T_NAME)"
   case "$T_NAME:$via" in
     screen:esptool)    flash_screen ;;
+    screen:ota)        flash_screen_ota ;;
     controller:dfu)    flash_controller_dfu ;;
     controller:stlink) flash_controller_stlink ;;
     *) die "target $T_NAME cannot be flashed via '$via'" ;;
@@ -294,6 +306,7 @@ usage: ./gg <command> [args]
                          compile into build/<target>/
   flash <target> [--no-build] [--port P] [--timeout S] [--via dfu|stlink|esptool]
                          [--no-serial-dfu] [--erase (screen: wipe the whole flash first)]
+                         [--ota [host]] (screen: over WiFi, default host gaggiano.local)
                          build then program the board (see docs/FLASH-STM32.md)
   detect [--json]        list connected project boards and their ports
   monitor <target> [port]

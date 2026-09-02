@@ -44,6 +44,19 @@ checks for it at the standard install path.
 `flash` accepts `--no-build`, `--port /dev/cu.xxx`, `--timeout 120` and
 `--via stlink` (controller only, needs an ST-Link on the SWD header).
 
+## Updating the screen over WiFi
+
+Once the screen is on the network (`docs/WEB.md`):
+
+```
+./gg flash screen --ota            # host gaggiano.local
+./gg flash screen --ota 192.168.1.42
+```
+
+The panel shows the progress and restarts by itself. The OTA password is `gaggiano`
+unless `tools/ota-password` (git-ignored) says otherwise; the firmware reads its own
+from NVS key `otapass` when present. The USB path keeps working as before.
+
 ## Partition scheme of the screen
 
 The screen uses the core's `app3M_fat9M_16MB` scheme: two 3 MB app slots (needed for
