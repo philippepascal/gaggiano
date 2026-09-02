@@ -59,7 +59,7 @@ void theme_init(void) {
   lv_style_set_text_font(&st_muted, theme_font_small);
 
   lv_style_init(&st_title);
-  lv_style_set_text_color(&st_title, theme_amber());
+  lv_style_set_text_color(&st_title, theme_text());
   lv_style_set_text_font(&st_title, theme_font_value);
 
   lv_style_init(&st_btn);
