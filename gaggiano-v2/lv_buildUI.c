@@ -8,6 +8,7 @@
  *********************/
 #include "lv_buildUI.h"
 #include "my_logging.h"
+#include "theme.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -655,35 +656,12 @@ void instantiateUI(GaggiaStateT* s,
 
   LV_LOG_ERROR("logging works!!");
 
-  font_large = LV_FONT_DEFAULT;
-  font_normal = LV_FONT_DEFAULT;
+  lv_coord_t tab_h = 70;
 
-  lv_coord_t tab_h;
-
-  tab_h = 70;
-
-  // defined in ../libraries/lv_conf.h
-#if LV_FONT_MONTSERRAT_36
-  font_large = &lv_font_montserrat_36;
-#else
-  LV_LOG_WARN("LV_FONT_MONTSERRAT_24 is not enabled for the widgets demo. Using LV_FONT_DEFAULT instead.");
-#endif
-#if LV_FONT_MONTSERRAT_24
-  font_normal = &lv_font_montserrat_24;
-#else
-  LV_LOG_WARN("LV_FONT_MONTSERRAT_18 is not enabled for the widgets demo. Using LV_FONT_DEFAULT instead.");
-#endif
-  // #if LV_FONT_MONTSERRAT_26
-  //   font_normal = &lv_font_montserrat_26;
-  // #else
-  //   LV_LOG_WARN("LV_FONT_MONTSERRAT_20 is not enabled for the widgets demo. Using LV_FONT_DEFAULT instead.");
-  // #endif
-
-
-#if LV_USE_THEME_DEFAULT
-  lv_theme_default_init(NULL, lv_palette_main(LV_PALETTE_BLUE), lv_palette_main(LV_PALETTE_RED), LV_THEME_DEFAULT_DARK,
-                        font_normal);
-#endif
+  theme_init();
+  font_large = theme_font_value;
+  font_normal = theme_font_name;
+  theme_apply_screen(lv_scr_act());
 
   lv_style_init(&style_text_muted);
   lv_style_set_text_opa(&style_text_muted, LV_OPA_50);
@@ -707,6 +685,7 @@ void instantiateUI(GaggiaStateT* s,
 
   lv_obj_t* tab_btns = lv_tabview_get_tab_btns(tv);
   lv_obj_set_style_pad_left(tab_btns, LV_HOR_RES / 3, 0);
+  theme_apply_header(tab_btns);
 
   // lv_obj_t* logo = lv_img_create(tab_btns);
   // LV_IMG_DECLARE(logoMainScreen);
@@ -716,7 +695,7 @@ void instantiateUI(GaggiaStateT* s,
   selectedProfileLabel = lv_label_create(tab_btns);
   // lv_obj_align(selectedProfileLabel,LV_ALIGN_RIGHT_MID,-LV_HOR_RES / 2, 0);
   lv_obj_align(selectedProfileLabel, LV_ALIGN_RIGHT_MID, ((-2 * LV_HOR_RES) / 3) - 20, 0);
-  lv_obj_set_style_text_font(selectedProfileLabel, font_large, 0);
+  theme_apply_title(selectedProfileLabel);
 
   tabMain = lv_tabview_add_tab(tv, "Main");
   tabProfile = lv_tabview_add_tab(tv, "Prof.");
@@ -739,8 +718,10 @@ static void main_create(lv_obj_t* parent) {
 
   lv_obj_t* panel1 = lv_obj_create(parent);
   lv_obj_set_height(panel1, LV_SIZE_CONTENT);
+  theme_apply_surface(panel1);
 
   heat_btn = lv_btn_create(parent);
+  theme_apply_btn(heat_btn, false);
   lv_obj_add_flag(heat_btn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_add_event_cb(heat_btn, main_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_t* heat_btn_label = lv_label_create(heat_btn);
@@ -748,6 +729,7 @@ static void main_create(lv_obj_t* parent) {
   lv_obj_center(heat_btn_label);
 
   boil_btn = lv_btn_create(parent);
+  theme_apply_btn(boil_btn, true);
   lv_obj_add_flag(boil_btn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_add_event_cb(boil_btn, main_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_t* boil_btn_label = lv_label_create(boil_btn);
@@ -755,6 +737,7 @@ static void main_create(lv_obj_t* parent) {
   lv_obj_center(boil_btn_label);
 
   brew_btn = lv_btn_create(parent);
+  theme_apply_btn(brew_btn, false);
   lv_obj_add_flag(brew_btn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_add_event_cb(brew_btn, main_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_t* brew_btn_label = lv_label_create(brew_btn);
@@ -762,6 +745,7 @@ static void main_create(lv_obj_t* parent) {
   lv_obj_center(brew_btn_label);
 
   clean_btn = lv_btn_create(parent);
+  theme_apply_btn(clean_btn, false);
   lv_obj_add_flag(clean_btn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_add_event_cb(clean_btn, main_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_t* clean_btn_label = lv_label_create(clean_btn);
@@ -769,6 +753,7 @@ static void main_create(lv_obj_t* parent) {
   lv_obj_center(clean_btn_label);
 
   prime_btn = lv_btn_create(parent);
+  theme_apply_btn(prime_btn, false);
   lv_obj_add_flag(prime_btn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_add_event_cb(prime_btn, main_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_t* prime_btn_label = lv_label_create(prime_btn);
@@ -776,6 +761,7 @@ static void main_create(lv_obj_t* parent) {
   lv_obj_center(prime_btn_label);
 
   auto_btn = lv_btn_create(parent);
+  theme_apply_btn(auto_btn, false);
   lv_obj_add_flag(auto_btn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_add_event_cb(auto_btn, main_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_t* auto_btn_label = lv_label_create(auto_btn);
@@ -783,7 +769,7 @@ static void main_create(lv_obj_t* parent) {
   lv_obj_center(auto_btn_label);
 
   main_notes_label = lv_label_create(panel1);
-  lv_obj_set_style_text_color(main_notes_label, lv_color_hex(0x00AAFF), 0);
+  theme_apply_muted(main_notes_label);
 
   temp_label = lv_label_create(panel1);
   lv_label_set_text_fmt(temp_label, "%.0fC", state->tempRead);

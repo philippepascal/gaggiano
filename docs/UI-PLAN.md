@@ -87,19 +87,21 @@ window needs a GUI session, to be tried by hand.
 
 ## Phase U2: theme file and fonts (no bench)
 
-- [ ] U2.1 `libraries/lv_conf.h`: enable Montserrat 14, 20, 28, 48; disable 24, 26, 36
+- [x] U2.1 `libraries/lv_conf.h`: enable Montserrat 14, 20, 28, 48; disable 24, 26, 36
       (check nothing else uses them: `grep montserrat gaggiano-v2/`). Default font 14.
-- [ ] U2.2 `theme.{h,c}`: the palette as `lv_color_t` constants, the four fonts, and one
+- [x] U2.2 `theme.{h,c}`: the palette as `lv_color_t` constants, the four fonts, and one
       `lv_style_t` per role: screen, header, header_title, header_notes, menu_btn,
       tile, tile_value, tile_label, tile_curve, btn, btn_on, btn_on_steam, btn_dis,
       btn_name, btn_value, notes. `theme_init()` builds them; `theme_apply_<role>(obj)`
       helpers. `lv_theme_default_init` stays as the base (dark, with our primary) so
       widgets we do not style explicitly still look consistent.
-- [ ] U2.3 Apply the theme to the existing screens without changing layouts. Run in the
+- [x] U2.3 Apply the theme to the existing screens without changing layouts. Run in the
       simulator. Build for the board and record the flash size.
 
 **Checkpoint U2:** old layout, new palette and fonts, in the simulator; board build
 under 800 KB.
+PASSED 2026-09-02: docs/images/ui-u2-palette.png; board build 653,312 bytes (was 679,744:
+the dropped 24/26/36 fonts weighed more than the new 20/28/48).
 
 ---
 
