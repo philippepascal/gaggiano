@@ -21,13 +21,14 @@ static lv_color_t steel_hi(void) { return lv_color_hex(0x6B7480); }
 static lv_style_t st_screen, st_header, st_surface, st_muted, st_title, st_header_notes, st_menu;
 static lv_style_t st_btn, st_btn_on, st_btn_on_steam, st_btn_dis, st_btn_name, st_btn_value;
 static lv_style_t st_tile, st_tile_label, st_tile_value, st_tile_unit, st_chart;
+static lv_style_t st_btn_sub, st_list, st_list_row, st_list_row_sel, st_field_label, st_field, st_view;
 
 void theme_init(void) {
   // The default theme (dark) is the base for widgets we do not style by hand.
   lv_theme_default_init(NULL, theme_amber(), theme_steel(), true, theme_font_small);
 
   lv_style_init(&st_screen);
-  lv_style_set_bg_color(&st_screen, theme_bg());
+  lv_style_set_bg_color(&st_screen, lv_color_black());  // the views float on pure black
   lv_style_set_bg_opa(&st_screen, LV_OPA_COVER);
   lv_style_set_text_color(&st_screen, theme_text());
   lv_style_set_text_font(&st_screen, theme_font_small);
@@ -93,6 +94,54 @@ void theme_init(void) {
 
   lv_style_init(&st_btn_name);
   lv_style_set_text_font(&st_btn_name, theme_font_value);
+  lv_style_set_text_opa(&st_btn_name, LV_OPA_70);  // quieter than the value, in every button state
+
+  lv_style_init(&st_btn_sub);
+  lv_style_set_text_font(&st_btn_sub, theme_font_name);
+  lv_style_set_text_opa(&st_btn_sub, LV_OPA_70);
+
+  lv_style_init(&st_list);
+  lv_style_set_bg_color(&st_list, lv_color_black());
+  lv_style_set_bg_opa(&st_list, LV_OPA_COVER);
+  lv_style_set_border_width(&st_list, 0);
+  lv_style_set_radius(&st_list, 0);
+  lv_style_set_pad_all(&st_list, 0);
+  lv_style_set_pad_row(&st_list, 6);
+
+  lv_style_init(&st_list_row);
+  lv_style_set_text_font(&st_list_row, theme_font_value);
+  lv_style_set_text_color(&st_list_row, theme_text());
+  lv_style_set_pad_ver(&st_list_row, 10);
+  lv_style_set_pad_hor(&st_list_row, 16);
+  lv_style_set_radius(&st_list_row, 8);
+  lv_style_set_bg_opa(&st_list_row, LV_OPA_TRANSP);
+
+  lv_style_init(&st_list_row_sel);
+  lv_style_set_bg_color(&st_list_row_sel, theme_surface());
+  lv_style_set_bg_opa(&st_list_row_sel, LV_OPA_COVER);
+  lv_style_set_text_color(&st_list_row_sel, theme_amber());
+
+  lv_style_init(&st_field_label);
+  lv_style_set_text_font(&st_field_label, theme_font_name);
+  lv_style_set_text_color(&st_field_label, theme_muted());
+
+  lv_style_init(&st_field);
+  lv_style_set_text_font(&st_field, theme_font_name);
+  lv_style_set_text_color(&st_field, theme_text());
+  lv_style_set_bg_color(&st_field, theme_surface());
+  lv_style_set_bg_opa(&st_field, LV_OPA_COVER);
+  lv_style_set_border_color(&st_field, theme_steel());
+  lv_style_set_border_width(&st_field, 1);
+  lv_style_set_radius(&st_field, 6);
+  lv_style_set_pad_ver(&st_field, 6);
+  lv_style_set_pad_hor(&st_field, 10);
+
+  lv_style_init(&st_view);
+  lv_style_set_bg_opa(&st_view, LV_OPA_TRANSP);
+  lv_style_set_border_width(&st_view, 0);
+  lv_style_set_pad_all(&st_view, 12);
+  lv_style_set_pad_row(&st_view, 10);
+  lv_style_set_pad_column(&st_view, 12);
 
   lv_style_init(&st_btn_value);
   lv_style_set_text_font(&st_btn_value, theme_font_big);
@@ -148,6 +197,22 @@ void theme_apply_tile_value(lv_obj_t *label) { lv_obj_add_style(label, &st_tile_
 void theme_apply_tile_unit(lv_obj_t *label) { lv_obj_add_style(label, &st_tile_unit, 0); }
 void theme_apply_btn_name(lv_obj_t *label) { lv_obj_add_style(label, &st_btn_name, 0); }
 void theme_apply_btn_value(lv_obj_t *label) { lv_obj_add_style(label, &st_btn_value, 0); }
+void theme_apply_btn_sub(lv_obj_t *label) { lv_obj_add_style(label, &st_btn_sub, 0); }
+void theme_apply_list(lv_obj_t *list) { lv_obj_add_style(list, &st_list, 0); }
+void theme_apply_list_row(lv_obj_t *label) {
+  lv_obj_add_style(label, &st_list_row, 0);
+  lv_obj_add_style(label, &st_list_row_sel, LV_STATE_CHECKED);
+}
+void theme_set_selected(lv_obj_t *label, bool selected) {
+  if (selected) lv_obj_add_state(label, LV_STATE_CHECKED);
+  else lv_obj_clear_state(label, LV_STATE_CHECKED);
+}
+void theme_apply_field_label(lv_obj_t *label) { lv_obj_add_style(label, &st_field_label, 0); }
+void theme_apply_field(lv_obj_t *ta) {
+  lv_obj_add_style(ta, &st_field, 0);
+  lv_obj_set_style_border_color(ta, theme_amber(), LV_STATE_FOCUSED);
+}
+void theme_apply_view(lv_obj_t *view) { lv_obj_add_style(view, &st_view, 0); }
 
 void theme_apply_chart(lv_obj_t *chart) {
   lv_obj_add_style(chart, &st_chart, 0);

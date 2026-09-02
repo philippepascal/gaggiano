@@ -44,6 +44,13 @@ lv_chart_series_t *theme_chart_series(lv_obj_t *chart);
 void theme_set_hot(lv_obj_t *value, lv_obj_t *chart, lv_chart_series_t *ser, bool hot);  // amber while running
 void theme_apply_btn_name(lv_obj_t *label);
 void theme_apply_btn_value(lv_obj_t *label);
+void theme_apply_btn_sub(lv_obj_t *label);        // small third line in a button
+void theme_apply_list(lv_obj_t *list);            // profile list container
+void theme_apply_list_row(lv_obj_t *label);       // one selectable row
+void theme_set_selected(lv_obj_t *label, bool selected);
+void theme_apply_field_label(lv_obj_t *label);    // settings: label before a field
+void theme_apply_field(lv_obj_t *textarea);       // settings: one-line value field
+void theme_apply_view(lv_obj_t *view);            // a secondary view's content area
 
 #ifdef __cplusplus
 }

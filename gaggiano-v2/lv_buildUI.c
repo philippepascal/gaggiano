@@ -58,6 +58,10 @@ static void main_create(lv_obj_t* parent);
 static void updateProfileTab();
 void updateSettings();
 
+#define HEADER_H 44
+#define TILE_H 140
+#define GAP 12
+
 /**********************
  *  STATIC VARIABLES
  **********************/
@@ -75,6 +79,7 @@ static lv_obj_t* heat_btn;
 static lv_obj_t* heat_btn_label;
 static lv_obj_t* boil_btn;
 static lv_obj_t* boil_btn_label;
+static lv_obj_t* boil_btn_sub;   // pressure and pump on the steam button
 static lv_obj_t* brew_btn;
 static lv_obj_t* brew_btn_label;
 static lv_obj_t* clean_btn;
@@ -95,12 +100,9 @@ static lv_chart_series_t* press_ser;
 static lv_obj_t* header;
 static lv_obj_t* menuDd;
 
-#define HEADER_H 44
-#define TILE_H 140
-#define GAP 12
 
-static lv_obj_t* notes_tf;
 static lv_obj_t* fileList;
+static char profileNames[10][PROFILE_NAME_MAX];  // file names behind the list rows
 static lv_obj_t* fileName_tf;
 static lv_obj_t* fileName_btn;
 static lv_obj_t* duplicate_btn;
@@ -153,18 +155,18 @@ static void setting_field_changed(lv_event_t* e) {
       lv_keyboard_set_textarea(kb, ta);
       lv_obj_set_style_max_height(kb, LV_HOR_RES * 2 / 3, 0);
       lv_obj_update_layout(tv); /*Be sure the sizes are recalculated*/
-      lv_obj_set_height(tv, LV_VER_RES - lv_obj_get_height(kb));
+      lv_obj_set_height(tv, LV_VER_RES - HEADER_H - lv_obj_get_height(kb));
       lv_obj_clear_flag(kb, LV_OBJ_FLAG_HIDDEN);
       lv_obj_scroll_to_view_recursive(ta, LV_ANIM_OFF);
     }
   } else if (code == LV_EVENT_DEFOCUSED) {
     lv_keyboard_set_textarea(kb, NULL);
-    lv_obj_set_height(tv, LV_VER_RES);
+    lv_obj_set_height(tv, LV_VER_RES - HEADER_H);
     lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
     lv_indev_reset(NULL, ta);
 
   } else if (code == LV_EVENT_READY || code == LV_EVENT_CANCEL) {
-    lv_obj_set_height(tv, LV_VER_RES);
+    lv_obj_set_height(tv, LV_VER_RES - HEADER_H);
     lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_state(ta, LV_STATE_FOCUSED);
     lv_indev_reset(NULL, ta); /*To forget the last clicked object to make it focusable again*/
@@ -285,7 +287,8 @@ static void profile_selected(lv_event_t* e) {
   lv_event_code_t code = lv_event_get_code(e);
   if (code == LV_EVENT_CLICKED) {
     LV_LOG_WARN("profile label Clicked");
-    const char* clickedProfileName = lv_label_get_text(lv_event_get_target(e));
+    const char* clickedProfileName = (const char*)lv_obj_get_user_data(lv_event_get_target(e));
+    if (clickedProfileName == NULL) return;
     if (strlen(clickedProfileName) > 0) {
       lv_textarea_set_text(fileName_tf, clickedProfileName);
       lv_label_set_text(selectedProfileLabel, clickedProfileName);
@@ -297,9 +300,11 @@ static void profile_selected(lv_event_t* e) {
 }
 
 void updateProfileTab() {
+  char fn[PROFILE_NAME_MAX];
+  if (getCurrentProfile(fn, sizeof(fn)) < 0) fn[0] = '\0';
+
   char names[512];
   if (listProfiles(names, sizeof(names)) < 0) names[0] = '\0';
-  LV_LOG_WARN(names);
   int index = 0;
   char* start = names;
   while (*start != '\0' && index < 10) {
@@ -307,30 +312,53 @@ void updateProfileTab() {
     if (end == NULL) break;
     *end = '\0';
     lv_obj_t* child = lv_obj_get_child(fileList, index);
-    lv_label_set_text(child, start);
+    strncpy(profileNames[index], start, PROFILE_NAME_MAX - 1);
+    profileNames[index][PROFILE_NAME_MAX - 1] = '\0';
+    char shown[PROFILE_NAME_MAX];
+    strcpy(shown, profileNames[index]);
+    char* dot = strrchr(shown, '.');
+    if (dot != NULL && dot != shown) *dot = '\0';
+    lv_label_set_text(child, shown);
+    lv_obj_set_user_data(child, profileNames[index]);
+    theme_set_selected(child, strcmp(start, fn) == 0);
+    lv_obj_clear_flag(child, LV_OBJ_FLAG_HIDDEN);
     start = end + 1;
     index++;
   }
   for (; index < 10; index++) {
     lv_obj_t* child = lv_obj_get_child(fileList, index);
     lv_label_set_text(child, "");
+    theme_set_selected(child, false);
+    lv_obj_add_flag(child, LV_OBJ_FLAG_HIDDEN);
   }
-
-  char fn[PROFILE_NAME_MAX];
-  if (getCurrentProfile(fn, sizeof(fn)) < 0) fn[0] = '\0';
   lv_textarea_set_text(fileName_tf, fn);
-  lv_label_set_text(selectedProfileLabel, fn);
+  lv_obj_add_flag(fileName_tf, LV_OBJ_FLAG_HIDDEN);
+}
+
+// Rename: the first press shows the name field with the keyboard; OK on the
+// keyboard (or a second press) applies the new name.
+static void fileName_tf_event(lv_event_t* e) {
+  lv_event_code_t code = lv_event_get_code(e);
+  if (code == LV_EVENT_READY) {
+    const char* newProfileName = lv_textarea_get_text(fileName_tf);
+    if (strlen(newProfileName) > 0) renameProfile(newProfileName);
+    updateProfileTab();
+  } else if (code == LV_EVENT_CANCEL) {
+    updateProfileTab();
+  }
 }
 
 static void fileName_btn_clicked(lv_event_t* e) {
   lv_event_code_t code = lv_event_get_code(e);
   if (code == LV_EVENT_CLICKED) {
-    LV_LOG_WARN("rename Clicked");
-    const char* newProfileName = lv_textarea_get_text(fileName_tf);
-    if (strlen(newProfileName) > 0) {
-      renameProfile(newProfileName);
-      updateProfileTab();
+    if (lv_obj_has_flag(fileName_tf, LV_OBJ_FLAG_HIDDEN)) {
+      lv_obj_clear_flag(fileName_tf, LV_OBJ_FLAG_HIDDEN);
+      lv_event_send(fileName_tf, LV_EVENT_FOCUSED, NULL);
+      return;
     }
+    const char* newProfileName = lv_textarea_get_text(fileName_tf);
+    if (strlen(newProfileName) > 0) renameProfile(newProfileName);
+    updateProfileTab();
   }
 }
 static void duplicate_btn_clicked(lv_event_t* e) {
@@ -355,8 +383,8 @@ static void delete_btn_clicked(lv_event_t* e) {
       //select new default
       lv_obj_t* child = lv_obj_get_child(fileList, 0);
       LV_LOG_WARN("picked first in the list");
-      const char* newProfileName = lv_label_get_text(child);
-      if (strlen(newProfileName) > 0) {
+      const char* newProfileName = (const char*)lv_obj_get_user_data(child);
+      if (newProfileName != NULL && strlen(newProfileName) > 0) {
         LV_LOG_WARN("new selected profile will be");
         LV_LOG_WARN("newProfileName");
         writeCurrentProfile(newProfileName);
@@ -527,6 +555,10 @@ lv_obj_t* heat_btn_for_scene(void) { return heat_btn; }
 lv_obj_t* brew_btn_for_scene(void) { return brew_btn; }
 lv_obj_t* steam_btn_for_scene(void) { return boil_btn; }
 lv_obj_t* menu_for_scene(void) { return menuDd; }
+void show_view_for_scene(int index) {
+  lv_dropdown_set_selected(menuDd, index);
+  lv_tabview_set_act(tv, index, LV_ANIM_OFF);
+}
 
 // Profile names are file names on the card; show them without the extension.
 static void set_profile_title(const char* name) {
@@ -548,8 +580,8 @@ void updateUI() {
   LV_LOG_TRACE("updating UI");
   if (state->hasConfigChanged) {
     lv_label_set_text_fmt(heat_btn_label, "%.0f °C", state->boilerSetPoint);
-    lv_label_set_text_fmt(boil_btn_label, "%.0f° • %.0f bar • %.0f%%", state->steamSetPoint, state->steam_max_pressure,
-                          state->steam_pump_output_percent);
+    lv_label_set_text_fmt(boil_btn_label, "%.0f °C", state->steamSetPoint);
+    lv_label_set_text_fmt(boil_btn_sub, "%.0f bar • %.0f%%", state->steam_max_pressure, state->steam_pump_output_percent);
     lv_label_set_text_fmt(brew_btn_label, "%.1f bar", state->pressureSetPoint);
     lv_label_set_text_fmt(prime_btn_label, "%.0f + %.0f s", state->blooming_fill_time, state->blooming_wait_time);
     lv_label_set_text_fmt(auto_btn_label, "%.0f s", state->brew_timer);
@@ -616,77 +648,76 @@ void updateUI() {
 
 void updateSettings() {
   LV_LOG_TRACE("updating settings fields");
+  bool configRefreshed = false, advancedRefreshed = false;
 
   if (state->hasConfigChanged) {
     // LV_LOG_WARN("updating config fields");
 
     char t[100];
-    lv_textarea_set_text(notes_tf, state->notes);
     lv_label_set_text(main_notes_label, state->notes);
     lv_textarea_set_text(edit_notes_tf, state->notes);
 
-    sprintf(t, "%.2f", state->boilerSetPoint);
+    sprintf(t, "%g", state->boilerSetPoint);
     lv_textarea_set_text(brew_temp_tf, t);
 
-    sprintf(t, "%.2f", state->pressureSetPoint);
+    sprintf(t, "%g", state->pressureSetPoint);
     lv_textarea_set_text(brew_pressure_tf, t);
 
-    sprintf(t, "%.2f", state->steamSetPoint);
+    sprintf(t, "%g", state->steamSetPoint);
     lv_textarea_set_text(steam_temp_tf, t);
 
-    sprintf(t, "%.2f", state->steam_max_pressure);
+    sprintf(t, "%g", state->steam_max_pressure);
     lv_textarea_set_text(steam_max_pressure_tf, t);
 
-    sprintf(t, "%.2f", state->steam_pump_output_percent);
+    sprintf(t, "%g", state->steam_pump_output_percent);
     lv_textarea_set_text(steam_pump_output_perc_tf, t);
 
-    sprintf(t, "%.2f", state->blooming_pressure);
+    sprintf(t, "%g", state->blooming_pressure);
     lv_textarea_set_text(blooming_pressure_tf, t);
 
-    sprintf(t, "%.2f", state->blooming_fill_time);
+    sprintf(t, "%g", state->blooming_fill_time);
     lv_textarea_set_text(blooming_fill_time_tf, t);
 
-    sprintf(t, "%.2f", state->blooming_wait_time);
+    sprintf(t, "%g", state->blooming_wait_time);
     lv_textarea_set_text(blooming_wait_time_tf, t);
 
-    sprintf(t, "%.2f", state->brew_timer);
+    sprintf(t, "%g", state->brew_timer);
     lv_textarea_set_text(brew_timer_tf, t);
 
-    //yuk, but setting text area emits a change event...
-    lv_obj_add_state(setBtn, LV_STATE_DISABLED);
-
     state->hasConfigChanged = false;
+    configRefreshed = true;
   }
   if (advancedSettings->userChanged) {
     // LV_LOG_WARN("updating advanced Settings fields");
 
     char t[100];
-    sprintf(t, "%.2f", advancedSettings->boiler_bb_range);
+    sprintf(t, "%g", advancedSettings->boiler_bb_range);
     lv_textarea_set_text(boiler_bb_range_tf, t);
-    sprintf(t, "%.2f", advancedSettings->boiler_PID_cycle);
+    sprintf(t, "%g", advancedSettings->boiler_PID_cycle);
     lv_textarea_set_text(boiler_PID_cycle_tf, t);
-    sprintf(t, "%.2f", advancedSettings->boiler_PID_KP);
+    sprintf(t, "%g", advancedSettings->boiler_PID_KP);
     lv_textarea_set_text(boiler_PID_KP_tf, t);
-    sprintf(t, "%.2f", advancedSettings->boiler_PID_KI);
+    sprintf(t, "%g", advancedSettings->boiler_PID_KI);
     lv_textarea_set_text(boiler_PID_KI_tf, t);
-    sprintf(t, "%.2f", advancedSettings->boiler_PID_KD);
+    sprintf(t, "%g", advancedSettings->boiler_PID_KD);
     lv_textarea_set_text(boiler_PID_KD_tf, t);
-    sprintf(t, "%.2f", advancedSettings->pump_max_step_up);
+    sprintf(t, "%g", advancedSettings->pump_max_step_up);
     lv_textarea_set_text(pump_max_step_up_tf, t);
-    sprintf(t, "%.2f", advancedSettings->pump_KP);
+    sprintf(t, "%g", advancedSettings->pump_KP);
     lv_textarea_set_text(pump_KP_tf, t);
-    sprintf(t, "%.2f", advancedSettings->pump_KI);
+    sprintf(t, "%g", advancedSettings->pump_KI);
     lv_textarea_set_text(pump_KI_tf, t);
-    sprintf(t, "%.2f", advancedSettings->pump_KD);
+    sprintf(t, "%g", advancedSettings->pump_KD);
     lv_textarea_set_text(pump_KD_tf, t);
-    sprintf(t, "%.2f", advancedSettings->unused1);
+    sprintf(t, "%g", advancedSettings->unused1);
     lv_textarea_set_text(unused1_tf, t);
 
-    //yuk, but setting text area emits a change event...
-    lv_obj_add_state(advancedSetBtn, LV_STATE_DISABLED);
-
     advancedSettings->userChanged = false;
+    advancedRefreshed = true;
   }
+  // setting a text area emits a change event, which enables the Save buttons: undo that
+  if (configRefreshed) lv_obj_add_state(setBtn, LV_STATE_DISABLED);
+  if (advancedRefreshed) lv_obj_add_state(advancedSetBtn, LV_STATE_DISABLED);
 }
 
 void instantiateUI(GaggiaStateT* s,
@@ -816,7 +847,7 @@ static lv_obj_t* tile_create(lv_obj_t* parent, const char* name, const char* uni
 }
 
 // One action button: name over value.
-static lv_obj_t* action_btn_create(lv_obj_t* parent, const char* name, bool steam, lv_obj_t** value_out, bool smallValue) {
+static lv_obj_t* action_btn_create(lv_obj_t* parent, const char* name, bool steam, lv_obj_t** value_out, lv_obj_t** sub_out) {
   lv_obj_t* btn = lv_btn_create(parent);
   theme_apply_btn(btn, steam);
   lv_obj_add_flag(btn, LV_OBJ_FLAG_CHECKABLE);
@@ -830,9 +861,16 @@ static lv_obj_t* action_btn_create(lv_obj_t* parent, const char* name, bool stea
   lv_label_set_text(nameLabel, name);
 
   lv_obj_t* value = lv_label_create(btn);
-  if (smallValue) theme_apply_btn_name(value); else theme_apply_btn_value(value);
+  theme_apply_btn_value(value);
   lv_label_set_text(value, "");
   *value_out = value;
+
+  if (sub_out != NULL) {
+    lv_obj_t* sub = lv_label_create(btn);
+    theme_apply_btn_sub(sub);
+    lv_label_set_text(sub, "");
+    *sub_out = sub;
+  }
   return btn;
 }
 
@@ -858,12 +896,13 @@ static void main_create(lv_obj_t* parent) {
   lv_obj_set_grid_cell(press_tile, LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
   lv_obj_set_grid_cell(time_tile, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
 
-  heat_btn = action_btn_create(parent, "Heat", false, &heat_btn_label, false);
-  brew_btn = action_btn_create(parent, "Brew", false, &brew_btn_label, false);
-  prime_btn = action_btn_create(parent, "Prime", false, &prime_btn_label, false);
-  boil_btn = action_btn_create(parent, "Steam", true, &boil_btn_label, true);
-  clean_btn = action_btn_create(parent, "Clean", false, &clean_btn_label, false);
-  auto_btn = action_btn_create(parent, "Auto", false, &auto_btn_label, false);
+  heat_btn = action_btn_create(parent, "Heat", false, &heat_btn_label, NULL);
+  brew_btn = action_btn_create(parent, "Brew", false, &brew_btn_label, NULL);
+  prime_btn = action_btn_create(parent, "Prime", false, &prime_btn_label, NULL);
+  boil_btn = action_btn_create(parent, "Steam", true, &boil_btn_label, &boil_btn_sub);
+  lv_obj_set_style_pad_row(boil_btn, 2, 0);  // three lines have to fit
+  clean_btn = action_btn_create(parent, "Clean", false, &clean_btn_label, NULL);
+  auto_btn = action_btn_create(parent, "Auto", false, &auto_btn_label, NULL);
   lv_label_set_text(clean_btn_label, "9 bar");
 
   lv_obj_set_grid_cell(heat_btn, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 1, 1);
@@ -875,418 +914,168 @@ static void main_create(lv_obj_t* parent) {
 }
 
 static void profile_create(lv_obj_t* parent) {
+  theme_apply_view(parent);
+  lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
+  static lv_coord_t col_dsc[] = { LV_GRID_FR(3), LV_GRID_FR(2), LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t row_dsc[] = { LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
+  lv_obj_set_grid_dsc_array(parent, col_dsc, row_dsc);
 
-  notes_tf = lv_textarea_create(parent);
-  lv_textarea_set_one_line(notes_tf, true);
-
-  fileList = lv_list_create(parent);
-  // lv_obj_set_size(fileList, lv_pct(60), lv_pct(100));
-  lv_obj_set_style_pad_row(fileList, 5, 0);
-
-  lv_obj_t* lbl;
-  int i;
-  for (i = 0; i < 10; i++) {
-    lbl = lv_label_create(fileList);
-    lv_obj_set_width(lbl, lv_pct(100));
-    lv_obj_set_height(lbl, 30);
+  // the profile list: one row per file, the selected one highlighted
+  fileList = lv_obj_create(parent);
+  theme_apply_list(fileList);
+  lv_obj_set_flex_flow(fileList, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_grid_cell(fileList, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+  for (int i = 0; i < 10; i++) {
+    lv_obj_t* lbl = lv_label_create(fileList);
+    theme_apply_list_row(lbl);
+    lv_obj_set_width(lbl, LV_PCT(100));
     lv_obj_add_flag(lbl, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(lbl, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_event_cb(lbl, profile_selected, LV_EVENT_ALL, NULL);
     lv_label_set_text(lbl, "");
   }
 
+  // the actions: name field (shown by Rename) and three tall buttons
   lv_obj_t* kb = lv_keyboard_create(lv_scr_act());
   lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
 
-  fileName_tf = lv_textarea_create(parent);
+  lv_obj_t* actions = lv_obj_create(parent);
+  lv_obj_remove_style_all(actions);
+  lv_obj_set_flex_flow(actions, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(actions, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+  lv_obj_set_style_pad_row(actions, GAP, 0);
+  lv_obj_set_grid_cell(actions, LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+
+  fileName_tf = lv_textarea_create(actions);
+  theme_apply_field(fileName_tf);
+  lv_obj_set_width(fileName_tf, LV_PCT(100));
   lv_textarea_set_max_length(fileName_tf, PROFILE_NAME_MAX - 1);
   lv_textarea_set_one_line(fileName_tf, true);
+  lv_obj_add_flag(fileName_tf, LV_OBJ_FLAG_HIDDEN);
   lv_obj_add_event_cb(fileName_tf, setting_field_changed, LV_EVENT_ALL, kb);
+  lv_obj_add_event_cb(fileName_tf, fileName_tf_event, LV_EVENT_ALL, NULL);
 
-  fileName_btn = lv_btn_create(parent);
-  lv_obj_add_event_cb(fileName_btn, fileName_btn_clicked, LV_EVENT_ALL, NULL);
-  lv_obj_t* fileName_btn_lbl = lv_label_create(fileName_btn);
-  lv_label_set_text(fileName_btn_lbl, "Rename");
-  lv_obj_center(fileName_btn_lbl);
+  const char* names[] = { "Rename", "Duplicate", "Delete" };
+  lv_event_cb_t cbs[] = { fileName_btn_clicked, duplicate_btn_clicked, delete_btn_clicked };
+  lv_obj_t** btns[] = { &fileName_btn, &duplicate_btn, &delete_btn };
+  for (int i = 0; i < 3; i++) {
+    lv_obj_t* btn = lv_btn_create(actions);
+    theme_apply_btn(btn, false);
+    lv_obj_set_width(btn, LV_PCT(100));
+    lv_obj_set_flex_grow(btn, 1);
+    lv_obj_add_event_cb(btn, cbs[i], LV_EVENT_ALL, NULL);
+    lv_obj_t* lbl = lv_label_create(btn);
+    theme_apply_btn_name(lbl);
+    lv_label_set_text(lbl, names[i]);
+    lv_obj_center(lbl);
+    *btns[i] = btn;
+  }
+}
 
-  duplicate_btn = lv_btn_create(parent);
-  lv_obj_add_event_cb(duplicate_btn, duplicate_btn_clicked, LV_EVENT_ALL, NULL);
-  lv_obj_t* duplicate_btn_lbl = lv_label_create(duplicate_btn);
-  lv_label_set_text(duplicate_btn_lbl, "Duplicate");
-  lv_obj_center(duplicate_btn_lbl);
+// One "label: [value]" pair of a settings grid at (col, row); col is 0 or 2.
+static lv_obj_t* field_create(lv_obj_t* parent, const char* text, lv_obj_t* kb, int col, int row) {
+  lv_obj_t* label = lv_label_create(parent);
+  theme_apply_field_label(label);
+  lv_label_set_text(label, text);
+  lv_obj_set_grid_cell(label, LV_GRID_ALIGN_START, col, 1, LV_GRID_ALIGN_CENTER, row, 1);
 
-  delete_btn = lv_btn_create(parent);
-  lv_obj_add_event_cb(delete_btn, delete_btn_clicked, LV_EVENT_ALL, NULL);
-  lv_obj_t* delete_btn_lbl = lv_label_create(delete_btn);
-  lv_label_set_text(delete_btn_lbl, "Delete");
-  lv_obj_center(delete_btn_lbl);
+  lv_obj_t* tf = lv_textarea_create(parent);
+  theme_apply_field(tf);
+  lv_textarea_set_one_line(tf, true);
+  lv_obj_set_height(tf, 40);
+  lv_obj_add_event_cb(tf, setting_field_changed, LV_EVENT_ALL, kb);
+  lv_obj_set_grid_cell(tf, LV_GRID_ALIGN_STRETCH, col + 1, 1, LV_GRID_ALIGN_CENTER, row, 1);
+  return tf;
+}
 
-  static lv_coord_t grid_main_col_dsc[] = { LV_GRID_FR(1), 5, LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
-  static lv_coord_t grid_main_row_dsc[] = { LV_GRID_FR(1), 1, LV_GRID_FR(1), 10, LV_GRID_FR(1), 10, LV_GRID_FR(1), 10, LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
+static lv_obj_t* view_btn_create(lv_obj_t* parent, const char* text, lv_event_cb_t cb) {
+  lv_obj_t* btn = lv_btn_create(parent);
+  theme_apply_btn(btn, false);
+  lv_obj_set_height(btn, 52);
+  lv_obj_set_flex_grow(btn, 1);
+  lv_obj_add_event_cb(btn, cb, LV_EVENT_ALL, NULL);
+  lv_obj_t* lbl = lv_label_create(btn);
+  theme_apply_btn_name(lbl);
+  lv_label_set_text(lbl, text);
+  lv_obj_center(lbl);
+  return btn;
+}
 
-  lv_obj_set_grid_dsc_array(parent, grid_main_col_dsc, grid_main_row_dsc);
-
-  lv_obj_set_grid_cell(notes_tf, LV_GRID_ALIGN_STRETCH, 0, 3, LV_GRID_ALIGN_STRETCH, 0, 1);
-
-  lv_obj_set_grid_cell(fileList, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 2, 7);
-
-  lv_obj_set_grid_cell(fileName_tf, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_CENTER, 2, 1);
-  lv_obj_set_grid_cell(fileName_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_CENTER, 4, 1);
-  lv_obj_set_grid_cell(duplicate_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_CENTER, 6, 1);
-  lv_obj_set_grid_cell(delete_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_CENTER, 8, 1);
+static lv_obj_t* numeric_keyboard_create(void) {
+  lv_obj_t* kb = lv_keyboard_create(lv_scr_act());
+  lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
+  lv_keyboard_set_map(kb, LV_KEYBOARD_MODE_USER_1, kb_num_map, kb_num_ctrl);
+  lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_USER_1);
+  return kb;
 }
 
 static void settings_create(lv_obj_t* parent) {
+  theme_apply_view(parent);
+  lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
+  static lv_coord_t col_dsc[] = { LV_GRID_FR(1), 150, LV_GRID_FR(1), 150, LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t row_dsc[] = { 40, 44, 44, 44, 44, 44, 52, LV_GRID_TEMPLATE_LAST };
+  lv_obj_set_grid_dsc_array(parent, col_dsc, row_dsc);
 
-  int textFieldWidth = 300;
-
-  static lv_coord_t grid_main_col_dsc[] = { LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
-  static lv_coord_t grid_main_row_dsc[] = { LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
-
-  lv_obj_set_grid_dsc_array(parent, grid_main_col_dsc, grid_main_row_dsc);
-
-  lv_obj_t* panel1 = lv_obj_create(parent);
-  lv_obj_set_grid_cell(panel1, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
-  lv_obj_set_flex_flow(panel1, LV_FLEX_FLOW_COLUMN);
-
-  lv_obj_t* kb = lv_keyboard_create(lv_scr_act());
-  lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
-  lv_keyboard_set_map(kb, LV_KEYBOARD_MODE_USER_1, kb_num_map, kb_num_ctrl);
-  lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_USER_1);
-  //--------------
-
+  lv_obj_t* kb = numeric_keyboard_create();
   lv_obj_t* kb2 = lv_keyboard_create(lv_scr_act());
   lv_obj_add_flag(kb2, LV_OBJ_FLAG_HIDDEN);
 
-  edit_notes_tf = lv_textarea_create(panel1);
+  edit_notes_tf = lv_textarea_create(parent);
+  theme_apply_field(edit_notes_tf);
   lv_textarea_set_max_length(edit_notes_tf, NOTES_MAX - 1);
   lv_textarea_set_one_line(edit_notes_tf, true);
-  lv_obj_set_size(edit_notes_tf, LV_PCT(100), LV_SIZE_CONTENT);
+  lv_textarea_set_placeholder_text(edit_notes_tf, "Notes");
+  lv_obj_set_height(edit_notes_tf, 40);
   lv_obj_add_event_cb(edit_notes_tf, setting_field_changed, LV_EVENT_ALL, kb2);
-  //--------------
-  lv_obj_t* sub_panel = lv_obj_create(panel1);
-  lv_obj_set_flex_flow(sub_panel, LV_FLEX_FLOW_ROW);
-  lv_obj_set_size(sub_panel, LV_PCT(100), LV_SIZE_CONTENT);
+  lv_obj_set_grid_cell(edit_notes_tf, LV_GRID_ALIGN_STRETCH, 0, 4, LV_GRID_ALIGN_CENTER, 0, 1);
 
-  lv_obj_t* brew_temp_label = lv_label_create(sub_panel);
-  lv_obj_set_size(brew_temp_label, textFieldWidth, LV_SIZE_CONTENT);
-  lv_label_set_text(brew_temp_label, "Brew Temperature:");
+  brew_temp_tf = field_create(parent, "Brew temp °C", kb, 0, 1);
+  brew_pressure_tf = field_create(parent, "Brew bar", kb, 2, 1);
+  steam_temp_tf = field_create(parent, "Steam temp °C", kb, 0, 2);
+  steam_max_pressure_tf = field_create(parent, "Steam max bar", kb, 2, 2);
+  steam_pump_output_perc_tf = field_create(parent, "Steam pump %", kb, 0, 3);
+  brew_timer_tf = field_create(parent, "Auto brew s", kb, 2, 3);
+  blooming_pressure_tf = field_create(parent, "Bloom bar", kb, 0, 4);
+  blooming_fill_time_tf = field_create(parent, "Bloom fill s", kb, 2, 4);
+  blooming_wait_time_tf = field_create(parent, "Bloom wait s", kb, 0, 5);
 
-  brew_temp_tf = lv_textarea_create(sub_panel);
-  lv_textarea_set_one_line(brew_temp_tf, true);
-  lv_obj_set_size(brew_temp_tf, textFieldWidth, LV_SIZE_CONTENT);
-  char t[100];
-  sprintf(t, "%.2f", state->boilerSetPoint);
-  lv_textarea_set_text(brew_temp_tf, t);
-  lv_obj_add_event_cb(brew_temp_tf, setting_field_changed, LV_EVENT_ALL, kb);
-  //--------------
-  sub_panel = lv_obj_create(panel1);
-  lv_obj_set_flex_flow(sub_panel, LV_FLEX_FLOW_ROW);
-  lv_obj_set_size(sub_panel, LV_PCT(100), LV_SIZE_CONTENT);
-
-  lv_obj_t* brew_pressure_label = lv_label_create(sub_panel);
-  lv_obj_set_size(brew_pressure_label, textFieldWidth, LV_SIZE_CONTENT);
-  lv_label_set_text(brew_pressure_label, "Brew Pressure:");
-
-  brew_pressure_tf = lv_textarea_create(sub_panel);
-  lv_textarea_set_one_line(brew_pressure_tf, true);
-  lv_obj_set_size(brew_pressure_tf, textFieldWidth, LV_SIZE_CONTENT);
-  sprintf(t, "%.2f", state->pressureSetPoint);
-  lv_textarea_set_text(brew_pressure_tf, t);
-  lv_obj_add_event_cb(brew_pressure_tf, setting_field_changed, LV_EVENT_ALL, kb);
-  //--------------
-  sub_panel = lv_obj_create(panel1);
-  lv_obj_set_flex_flow(sub_panel, LV_FLEX_FLOW_ROW);
-  lv_obj_set_size(sub_panel, LV_PCT(100), LV_SIZE_CONTENT);
-
-  lv_obj_t* steam_temp_label = lv_label_create(sub_panel);
-  lv_obj_set_size(steam_temp_label, textFieldWidth, LV_SIZE_CONTENT);
-  lv_label_set_text(steam_temp_label, "Steam Temperature:");
-
-  steam_temp_tf = lv_textarea_create(sub_panel);
-  lv_textarea_set_one_line(steam_temp_tf, true);
-  lv_obj_set_size(steam_temp_tf, textFieldWidth, LV_SIZE_CONTENT);
-  sprintf(t, "%.2f", state->steamSetPoint);
-  lv_textarea_set_text(steam_temp_tf, t);
-  lv_obj_add_event_cb(steam_temp_tf, setting_field_changed, LV_EVENT_ALL, kb);
-
-  //--------------
-  sub_panel = lv_obj_create(panel1);
-  lv_obj_set_flex_flow(sub_panel, LV_FLEX_FLOW_ROW);
-  lv_obj_set_size(sub_panel, LV_PCT(100), LV_SIZE_CONTENT);
-
-  lv_obj_t* steam_max_pressure_labl = lv_label_create(sub_panel);
-  lv_obj_set_size(steam_max_pressure_labl, textFieldWidth, LV_SIZE_CONTENT);
-  lv_label_set_text(steam_max_pressure_labl, "Steam Max Pressure:");
-
-  steam_max_pressure_tf = lv_textarea_create(sub_panel);
-  lv_textarea_set_one_line(steam_max_pressure_tf, true);
-  lv_obj_set_size(steam_max_pressure_tf, textFieldWidth, LV_SIZE_CONTENT);
-  sprintf(t, "%.2f", state->steam_max_pressure);
-  lv_textarea_set_text(steam_max_pressure_tf, t);
-  lv_obj_add_event_cb(steam_max_pressure_tf, setting_field_changed, LV_EVENT_ALL, kb);
-
-  //--------------
-  sub_panel = lv_obj_create(panel1);
-  lv_obj_set_flex_flow(sub_panel, LV_FLEX_FLOW_ROW);
-  lv_obj_set_size(sub_panel, LV_PCT(100), LV_SIZE_CONTENT);
-
-  lv_obj_t* steam_pump_output_perc_label = lv_label_create(sub_panel);
-  lv_obj_set_size(steam_pump_output_perc_label, textFieldWidth, LV_SIZE_CONTENT);
-  lv_label_set_text(steam_pump_output_perc_label, "Steam Pump %:");
-
-  steam_pump_output_perc_tf = lv_textarea_create(sub_panel);
-  lv_textarea_set_one_line(steam_pump_output_perc_tf, true);
-  lv_obj_set_size(steam_pump_output_perc_tf, textFieldWidth, LV_SIZE_CONTENT);
-  sprintf(t, "%.2f", state->steam_pump_output_percent);
-  lv_textarea_set_text(steam_pump_output_perc_tf, t);
-  lv_obj_add_event_cb(steam_pump_output_perc_tf, setting_field_changed, LV_EVENT_ALL, kb);
-
-  //--------------
-  sub_panel = lv_obj_create(panel1);
-  lv_obj_set_flex_flow(sub_panel, LV_FLEX_FLOW_ROW);
-  lv_obj_set_size(sub_panel, LV_PCT(100), LV_SIZE_CONTENT);
-
-  lv_obj_t* blooming_pressure_label = lv_label_create(sub_panel);
-  lv_obj_set_size(blooming_pressure_label, textFieldWidth, LV_SIZE_CONTENT);
-  lv_label_set_text(blooming_pressure_label, "blooming_pressure:");
-
-  blooming_pressure_tf = lv_textarea_create(sub_panel);
-  lv_textarea_set_one_line(blooming_pressure_tf, true);
-  lv_obj_set_size(blooming_pressure_tf, textFieldWidth, LV_SIZE_CONTENT);
-  sprintf(t, "%.2f", state->blooming_pressure);
-  lv_textarea_set_text(blooming_pressure_tf, t);
-  lv_obj_add_event_cb(blooming_pressure_tf, setting_field_changed, LV_EVENT_ALL, kb);
-
-  //--------------
-  sub_panel = lv_obj_create(panel1);
-  lv_obj_set_flex_flow(sub_panel, LV_FLEX_FLOW_ROW);
-  lv_obj_set_size(sub_panel, LV_PCT(100), LV_SIZE_CONTENT);
-
-  lv_obj_t* blooming_fill_time_label = lv_label_create(sub_panel);
-  lv_obj_set_size(blooming_fill_time_label, textFieldWidth, LV_SIZE_CONTENT);
-  lv_label_set_text(blooming_fill_time_label, "blooming_fill_time:");
-
-  blooming_fill_time_tf = lv_textarea_create(sub_panel);
-  lv_textarea_set_one_line(blooming_fill_time_tf, true);
-  lv_obj_set_size(blooming_fill_time_tf, textFieldWidth, LV_SIZE_CONTENT);
-  sprintf(t, "%.2f", state->blooming_fill_time);
-  lv_textarea_set_text(blooming_fill_time_tf, t);
-  lv_obj_add_event_cb(blooming_fill_time_tf, setting_field_changed, LV_EVENT_ALL, kb);
-
-  //--------------
-  sub_panel = lv_obj_create(panel1);
-  lv_obj_set_flex_flow(sub_panel, LV_FLEX_FLOW_ROW);
-  lv_obj_set_size(sub_panel, LV_PCT(100), LV_SIZE_CONTENT);
-
-  lv_obj_t* blooming_wait_time_label = lv_label_create(sub_panel);
-  lv_obj_set_size(blooming_wait_time_label, textFieldWidth, LV_SIZE_CONTENT);
-  lv_label_set_text(blooming_wait_time_label, "blooming_wait_time:");
-
-  blooming_wait_time_tf = lv_textarea_create(sub_panel);
-  lv_textarea_set_one_line(blooming_wait_time_tf, true);
-  lv_obj_set_size(blooming_wait_time_tf, textFieldWidth, LV_SIZE_CONTENT);
-  sprintf(t, "%.2f", state->blooming_wait_time);
-  lv_textarea_set_text(blooming_wait_time_tf, t);
-  lv_obj_add_event_cb(blooming_wait_time_tf, setting_field_changed, LV_EVENT_ALL, kb);
-
-  //--------------
-  sub_panel = lv_obj_create(panel1);
-  lv_obj_set_flex_flow(sub_panel, LV_FLEX_FLOW_ROW);
-  lv_obj_set_size(sub_panel, LV_PCT(100), LV_SIZE_CONTENT);
-
-  lv_obj_t* brew_timer_label = lv_label_create(sub_panel);
-  lv_obj_set_size(brew_timer_label, textFieldWidth, LV_SIZE_CONTENT);
-  lv_label_set_text(brew_timer_label, "brew_timer:");
-
-  brew_timer_tf = lv_textarea_create(sub_panel);
-  lv_textarea_set_one_line(brew_timer_tf, true);
-  lv_obj_set_size(brew_timer_tf, textFieldWidth, LV_SIZE_CONTENT);
-  sprintf(t, "%.2f", state->brew_timer);
-  lv_textarea_set_text(brew_timer_tf, t);
-  lv_obj_add_event_cb(brew_timer_tf, setting_field_changed, LV_EVENT_ALL, kb);
-
-  setBtn = lv_btn_create(panel1);
-  lv_obj_t* setBtn_label = lv_label_create(setBtn);
-  lv_label_set_text(setBtn_label, "Set");
-  lv_obj_add_state(setBtn, LV_STATE_DISABLED);
-  lv_obj_add_event_cb(setBtn, setButtonClicked, LV_EVENT_ALL, kb);
-
-  lv_obj_t* cancelBtn = lv_btn_create(panel1);
-  lv_obj_t* cancelBtn_Label = lv_label_create(cancelBtn);
-  lv_obj_set_width(cancelBtn, textFieldWidth);
-  lv_label_set_text(cancelBtn_Label, "Cancel");
-  lv_obj_add_event_cb(cancelBtn_Label, cancelButtonClicked, LV_EVENT_ALL, kb);
-
-
-  // cleanBtn = lv_btn_create(panel1);
-  // lv_obj_t* cleanBtn_label = lv_label_create(cleanBtn);
-  // lv_label_set_text(cleanBtn_label, "Clean");
-  // lv_obj_add_event_cb(cleanBtn, cleanBtnClicked, LV_EVENT_ALL, kb);
-
-  clearLogsBtn = lv_btn_create(panel1);
-  lv_obj_t* clearLogsBtn_label = lv_label_create(clearLogsBtn);
-  lv_label_set_text(clearLogsBtn_label, "Clear Logs");
-  lv_obj_add_event_cb(clearLogsBtn, clearLogsBtnClicked, LV_EVENT_ALL, kb);
+  lv_obj_t* row = lv_obj_create(parent);
+  lv_obj_remove_style_all(row);
+  lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+  lv_obj_set_style_pad_column(row, GAP, 0);
+  lv_obj_set_grid_cell(row, LV_GRID_ALIGN_STRETCH, 0, 4, LV_GRID_ALIGN_STRETCH, 6, 1);
+  setBtn = view_btn_create(row, "Save", setButtonClicked);
+  view_btn_create(row, "Cancel", cancelButtonClicked);
+  clearLogsBtn = view_btn_create(row, "Clear logs", clearLogsBtnClicked);
 }
 
-
 static void advancedSettings_create(lv_obj_t* parent) {
-  int textFieldWidth = 100;
+  theme_apply_view(parent);
+  lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
+  static lv_coord_t col_dsc[] = { LV_GRID_FR(1), 150, LV_GRID_FR(1), 150, LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t row_dsc[] = { 44, 44, 44, 44, 44, 52, LV_GRID_TEMPLATE_LAST };
+  lv_obj_set_grid_dsc_array(parent, col_dsc, row_dsc);
 
-  lv_obj_t* panel1 = lv_obj_create(parent);
+  lv_obj_t* kb = numeric_keyboard_create();
 
-  static lv_coord_t grid_main_col_dsc[] = { LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
-  static lv_coord_t grid_main_row_dsc[] = { LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
+  boiler_bb_range_tf = field_create(parent, "Boiler band °C", kb, 0, 0);
+  boiler_PID_cycle_tf = field_create(parent, "PID cycle ms", kb, 2, 0);
+  boiler_PID_KP_tf = field_create(parent, "Boiler Kp", kb, 0, 1);
+  boiler_PID_KI_tf = field_create(parent, "Boiler Ki", kb, 2, 1);
+  boiler_PID_KD_tf = field_create(parent, "Boiler Kd", kb, 0, 2);
+  pump_max_step_up_tf = field_create(parent, "Pump step", kb, 2, 2);
+  pump_KP_tf = field_create(parent, "Pump Kp", kb, 0, 3);
+  pump_KI_tf = field_create(parent, "Pump Ki", kb, 2, 3);
+  pump_KD_tf = field_create(parent, "Pump Kd", kb, 0, 4);
+  unused1_tf = field_create(parent, "Unused", kb, 2, 4);
 
-  lv_obj_set_grid_dsc_array(parent, grid_main_col_dsc, grid_main_row_dsc);
-  lv_obj_set_grid_cell(panel1, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
-
-  lv_obj_t* boiler_bb_range_label = lv_label_create(panel1);
-  lv_label_set_text(boiler_bb_range_label, "boiler_bb_range:");
-
-  lv_obj_t* kb = lv_keyboard_create(lv_scr_act());
-  lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
-  lv_keyboard_set_map(kb, LV_KEYBOARD_MODE_USER_1, kb_num_map, kb_num_ctrl);
-  lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_USER_1);
-
-  boiler_bb_range_tf = lv_textarea_create(panel1);
-  lv_textarea_set_one_line(boiler_bb_range_tf, true);
-  lv_obj_set_width(boiler_bb_range_tf, textFieldWidth);
-  char t[100];
-  sprintf(t, "%.2f", advancedSettings->boiler_bb_range);
-  lv_textarea_set_text(boiler_bb_range_tf, t);
-  lv_obj_add_event_cb(boiler_bb_range_tf, setting_field_changed, LV_EVENT_ALL, kb);
-
-  lv_obj_t* boiler_PID_cicle_label = lv_label_create(panel1);
-  lv_label_set_text(boiler_PID_cicle_label, "boiler_PID_cicle:");
-
-  boiler_PID_cycle_tf = lv_textarea_create(panel1);
-  lv_textarea_set_one_line(boiler_PID_cycle_tf, true);
-  lv_obj_set_width(boiler_PID_cycle_tf, textFieldWidth);
-  sprintf(t, "%.2f", advancedSettings->boiler_PID_cycle);
-  lv_textarea_set_text(boiler_PID_cycle_tf, t);
-  lv_obj_add_event_cb(boiler_PID_cycle_tf, setting_field_changed, LV_EVENT_ALL, kb);
-
-  lv_obj_t* boiler_PID_KP_label = lv_label_create(panel1);
-  lv_label_set_text(boiler_PID_KP_label, "boiler_PID_KP:");
-
-  boiler_PID_KP_tf = lv_textarea_create(panel1);
-  lv_textarea_set_one_line(boiler_PID_KP_tf, true);
-  lv_obj_set_width(boiler_PID_KP_tf, textFieldWidth);
-  sprintf(t, "%.2f", advancedSettings->boiler_PID_KP);
-  lv_textarea_set_text(boiler_PID_KP_tf, t);
-  lv_obj_add_event_cb(boiler_PID_KP_tf, setting_field_changed, LV_EVENT_ALL, kb);
-
-  lv_obj_t* boiler_PID_KI_label = lv_label_create(panel1);
-  lv_label_set_text(boiler_PID_KI_label, "boiler_PID_KI:");
-
-  boiler_PID_KI_tf = lv_textarea_create(panel1);
-  lv_textarea_set_one_line(boiler_PID_KI_tf, true);
-  lv_obj_set_width(boiler_PID_KI_tf, textFieldWidth);
-  sprintf(t, "%.2f", advancedSettings->boiler_PID_KI);
-  lv_textarea_set_text(boiler_PID_KI_tf, t);
-  lv_obj_add_event_cb(boiler_PID_KI_tf, setting_field_changed, LV_EVENT_ALL, kb);
-
-  lv_obj_t* boiler_PID_KD_label = lv_label_create(panel1);
-  lv_label_set_text(boiler_PID_KD_label, "boiler_PID_KD:");
-
-  boiler_PID_KD_tf = lv_textarea_create(panel1);
-  lv_textarea_set_one_line(boiler_PID_KD_tf, true);
-  lv_obj_set_width(boiler_PID_KD_tf, textFieldWidth);
-  sprintf(t, "%.2f", advancedSettings->boiler_PID_KD);
-  lv_textarea_set_text(boiler_PID_KD_tf, t);
-  lv_obj_add_event_cb(boiler_PID_KD_tf, setting_field_changed, LV_EVENT_ALL, kb);
-
-  lv_obj_t* pump_max_step_up_label = lv_label_create(panel1);
-  lv_label_set_text(pump_max_step_up_label, "pump_max_step_up:");
-
-  pump_max_step_up_tf = lv_textarea_create(panel1);
-  lv_textarea_set_one_line(pump_max_step_up_tf, true);
-  lv_obj_set_width(pump_max_step_up_tf, textFieldWidth);
-  sprintf(t, "%.2f", advancedSettings->pump_max_step_up);
-  lv_textarea_set_text(pump_max_step_up_tf, t);
-  lv_obj_add_event_cb(pump_max_step_up_tf, setting_field_changed, LV_EVENT_ALL, kb);
-
-  lv_obj_t* pump_KP_label = lv_label_create(panel1);
-  lv_label_set_text(pump_KP_label, "pump_KP:");
-
-  pump_KP_tf = lv_textarea_create(panel1);
-  lv_textarea_set_one_line(pump_KP_tf, true);
-  lv_obj_set_width(pump_KP_tf, textFieldWidth);
-  sprintf(t, "%.2f", advancedSettings->pump_KP);
-  lv_textarea_set_text(pump_KP_tf, t);
-  lv_obj_add_event_cb(pump_KP_tf, setting_field_changed, LV_EVENT_ALL, kb);
-
-  lv_obj_t* pump_KI_label = lv_label_create(panel1);
-  lv_label_set_text(pump_KI_label, "pump_KI:");
-
-  pump_KI_tf = lv_textarea_create(panel1);
-  lv_textarea_set_one_line(pump_KI_tf, true);
-  lv_obj_set_width(pump_KI_tf, textFieldWidth);
-  sprintf(t, "%.2f", advancedSettings->pump_KI);
-  lv_textarea_set_text(pump_KI_tf, t);
-  lv_obj_add_event_cb(pump_KI_tf, setting_field_changed, LV_EVENT_ALL, kb);
-
-  lv_obj_t* pump_KD_label = lv_label_create(panel1);
-  lv_label_set_text(pump_KD_label, "pump_KD:");
-
-  pump_KD_tf = lv_textarea_create(panel1);
-  lv_textarea_set_one_line(pump_KD_tf, true);
-  lv_obj_set_width(pump_KD_tf, textFieldWidth);
-  sprintf(t, "%.2f", advancedSettings->pump_KD);
-  lv_textarea_set_text(pump_KD_tf, t);
-  lv_obj_add_event_cb(pump_KD_tf, setting_field_changed, LV_EVENT_ALL, kb);
-
-  lv_obj_t* unused1_label = lv_label_create(panel1);
-  lv_label_set_text(unused1_label, "unused1:");
-
-  unused1_tf = lv_textarea_create(panel1);
-  lv_textarea_set_one_line(unused1_tf, true);
-  lv_obj_set_width(unused1_tf, textFieldWidth);
-  sprintf(t, "%.2f", advancedSettings->unused1);
-  lv_textarea_set_text(unused1_tf, t);
-  lv_obj_add_event_cb(unused1_tf, setting_field_changed, LV_EVENT_ALL, kb);
-
-  advancedSetBtn = lv_btn_create(panel1);
-  lv_obj_t* advancedSetBtn_label = lv_label_create(advancedSetBtn);
-  lv_label_set_text(advancedSetBtn_label, "Set");
-  lv_obj_add_state(advancedSetBtn, LV_STATE_DISABLED);
-  lv_obj_add_event_cb(advancedSetBtn, advancedSetButtonClicked, LV_EVENT_ALL, kb);
-
-  lv_obj_t* advancedCancelBtn = lv_btn_create(panel1);
-  lv_obj_t* advancedCancelBtn_Label = lv_label_create(advancedCancelBtn);
-  lv_label_set_text(advancedCancelBtn_Label, "Cancel");
-  lv_obj_add_event_cb(advancedCancelBtn_Label, advancedCancelButtonClicked, LV_EVENT_ALL, kb);
-
-  static lv_coord_t grid_panel1_col_dsc[] = { LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 10, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
-  static lv_coord_t grid_panel1_row_dsc[] = { LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, 5, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST };
-
-  lv_obj_set_grid_dsc_array(panel1, grid_panel1_col_dsc, grid_panel1_row_dsc);
-
-  lv_obj_set_grid_cell(boiler_bb_range_label, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(boiler_bb_range_tf, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(boiler_PID_cicle_label, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 2, 1);
-  lv_obj_set_grid_cell(boiler_PID_cycle_tf, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 2, 1);
-  lv_obj_set_grid_cell(boiler_PID_KP_label, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 4, 1);
-  lv_obj_set_grid_cell(boiler_PID_KP_tf, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 4, 1);
-  lv_obj_set_grid_cell(boiler_PID_KI_label, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 6, 1);
-  lv_obj_set_grid_cell(boiler_PID_KI_tf, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 6, 1);
-  lv_obj_set_grid_cell(boiler_PID_KD_label, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 8, 1);
-  lv_obj_set_grid_cell(boiler_PID_KD_tf, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 8, 1);
-
-  lv_obj_set_grid_cell(pump_max_step_up_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(pump_max_step_up_tf, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(pump_KP_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 2, 1);
-  lv_obj_set_grid_cell(pump_KP_tf, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 2, 1);
-  lv_obj_set_grid_cell(pump_KI_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 4, 1);
-  lv_obj_set_grid_cell(pump_KI_tf, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 4, 1);
-  lv_obj_set_grid_cell(pump_KD_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 6, 1);
-  lv_obj_set_grid_cell(pump_KD_tf, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 6, 1);
-  lv_obj_set_grid_cell(unused1_label, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 8, 1);
-  lv_obj_set_grid_cell(unused1_tf, LV_GRID_ALIGN_CENTER, 6, 1, LV_GRID_ALIGN_CENTER, 8, 1);
-
-  lv_obj_set_grid_cell(advancedSetBtn, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 10, 1);
-  lv_obj_set_grid_cell(advancedCancelBtn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 10, 1);
+  lv_obj_t* row = lv_obj_create(parent);
+  lv_obj_remove_style_all(row);
+  lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+  lv_obj_set_style_pad_column(row, GAP, 0);
+  lv_obj_set_grid_cell(row, LV_GRID_ALIGN_STRETCH, 0, 4, LV_GRID_ALIGN_STRETCH, 5, 1);
+  advancedSetBtn = view_btn_create(row, "Save", advancedSetButtonClicked);
+  view_btn_create(row, "Cancel", advancedCancelButtonClicked);
 }
 
 // #endif
