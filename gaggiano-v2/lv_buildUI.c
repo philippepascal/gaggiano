@@ -512,15 +512,15 @@ void my_log_cb(const char* buf) {
 void updateUI() {
   LV_LOG_TRACE("updating UI");
   if (state->hasConfigChanged) {
-    lv_label_set_text_fmt(lv_obj_get_child(heat_btn, 0), "H:%.2fC", state->boilerSetPoint);
-    lv_label_set_text_fmt(lv_obj_get_child(boil_btn, 0), "S:%.2fC", state->steamSetPoint);
-    lv_label_set_text_fmt(lv_obj_get_child(brew_btn, 0), "B:%.2fb", state->pressureSetPoint);
-    lv_label_set_text_fmt(lv_obj_get_child(prime_btn, 0), "P:%g+%gs", state->blooming_fill_time, state->blooming_wait_time);  // fill + wait
-    lv_label_set_text_fmt(lv_obj_get_child(auto_btn, 0), "A:%.2fs", state->brew_timer);
+    lv_label_set_text_fmt(lv_obj_get_child(heat_btn, 0), "H:%.0fC", state->boilerSetPoint);
+    lv_label_set_text_fmt(lv_obj_get_child(boil_btn, 0), "S:%.0fC", state->steamSetPoint);
+    lv_label_set_text_fmt(lv_obj_get_child(brew_btn, 0), "B:%.1fb", state->pressureSetPoint);
+    lv_label_set_text_fmt(lv_obj_get_child(prime_btn, 0), "P:%.0f+%.0fs", state->blooming_fill_time, state->blooming_wait_time);  // fill + wait
+    lv_label_set_text_fmt(lv_obj_get_child(auto_btn, 0), "A:%.0fs", state->brew_timer);
     lv_label_set_text(selectedProfileLabel, state->profile_name);
   }
-  lv_label_set_text_fmt(temp_label, "%.2fC", state->tempRead);
-  lv_label_set_text_fmt(press_label, "%.2fb", state->pressureRead);
+  lv_label_set_text_fmt(temp_label, "%.0fC", state->tempRead);
+  lv_label_set_text_fmt(press_label, "%.1fb", state->pressureRead);
   // Bloom and auto end on their own (sequencer): release the buttons and the tabs
   // the way a manual stop does.
   if (state->isBlooming == false) {
@@ -742,21 +742,21 @@ static void main_create(lv_obj_t* parent) {
   lv_obj_add_flag(heat_btn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_add_event_cb(heat_btn, main_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_t* heat_btn_label = lv_label_create(heat_btn);
-  lv_label_set_text_fmt(heat_btn_label, "H:%.2fC", state->boilerSetPoint);
+  lv_label_set_text_fmt(heat_btn_label, "H:%.0fC", state->boilerSetPoint);
   lv_obj_center(heat_btn_label);
 
   boil_btn = lv_btn_create(parent);
   lv_obj_add_flag(boil_btn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_add_event_cb(boil_btn, main_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_t* boil_btn_label = lv_label_create(boil_btn);
-  lv_label_set_text_fmt(boil_btn_label, "S:%.2fC", state->steamSetPoint);
+  lv_label_set_text_fmt(boil_btn_label, "S:%.0fC", state->steamSetPoint);
   lv_obj_center(boil_btn_label);
 
   brew_btn = lv_btn_create(parent);
   lv_obj_add_flag(brew_btn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_add_event_cb(brew_btn, main_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_t* brew_btn_label = lv_label_create(brew_btn);
-  lv_label_set_text_fmt(brew_btn_label, "B:%.2fb", state->pressureSetPoint);
+  lv_label_set_text_fmt(brew_btn_label, "B:%.1fb", state->pressureSetPoint);
   lv_obj_center(brew_btn_label);
 
   clean_btn = lv_btn_create(parent);
@@ -770,25 +770,25 @@ static void main_create(lv_obj_t* parent) {
   lv_obj_add_flag(prime_btn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_add_event_cb(prime_btn, main_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_t* prime_btn_label = lv_label_create(prime_btn);
-  lv_label_set_text_fmt(prime_btn_label, "P:%g+%gs", state->blooming_fill_time, state->blooming_wait_time);
+  lv_label_set_text_fmt(prime_btn_label, "P:%.0f+%.0fs", state->blooming_fill_time, state->blooming_wait_time);
   lv_obj_center(prime_btn_label);
 
   auto_btn = lv_btn_create(parent);
   lv_obj_add_flag(auto_btn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_add_event_cb(auto_btn, main_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_t* auto_btn_label = lv_label_create(auto_btn);
-  lv_label_set_text_fmt(auto_btn_label, "A:%.2fs", state->brew_timer);
+  lv_label_set_text_fmt(auto_btn_label, "A:%.0fs", state->brew_timer);
   lv_obj_center(auto_btn_label);
 
   main_notes_label = lv_label_create(panel1);
   lv_obj_set_style_text_color(main_notes_label, lv_color_hex(0x00AAFF), 0);
 
   temp_label = lv_label_create(panel1);
-  lv_label_set_text_fmt(temp_label, "%.2fC", state->tempRead);
+  lv_label_set_text_fmt(temp_label, "%.0fC", state->tempRead);
   lv_obj_center(temp_label);
 
   press_label = lv_label_create(panel1);
-  lv_label_set_text_fmt(press_label, "%.2fb", state->pressureRead);
+  lv_label_set_text_fmt(press_label, "%.1fb", state->pressureRead);
   lv_obj_center(press_label);
 
   time_label = lv_label_create(panel1);
