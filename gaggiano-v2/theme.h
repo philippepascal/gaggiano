@@ -17,6 +17,9 @@ lv_color_t theme_text(void);
 lv_color_t theme_muted(void);
 lv_color_t theme_amber(void);     // anything running
 lv_color_t theme_steam(void);     // steaming
+lv_color_t theme_heater(void);    // graph: heater output
+lv_color_t theme_pump(void);      // graph: pump output
+lv_color_t theme_clean(void);     // graph: clean mode
 
 // Fonts (Montserrat, built into lvgl; enabled in lv_conf.h)
 extern const lv_font_t *theme_font_small;  // 14: labels, menu, notes
@@ -52,6 +55,8 @@ void theme_apply_group_title(lv_obj_t *label);    // settings: heading of a grou
 void theme_apply_field_label(lv_obj_t *label);    // settings: label before a field
 void theme_apply_field(lv_obj_t *textarea);       // settings: one-line value field
 void theme_apply_view(lv_obj_t *view);            // a secondary view's content area
+void theme_apply_graph(lv_obj_t *chart);          // the full history chart: faint grid, thin lines
+void theme_apply_legend(lv_obj_t *label, lv_color_t color);
 
 #ifdef __cplusplus
 }

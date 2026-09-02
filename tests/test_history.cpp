@@ -22,5 +22,8 @@ int main() {
   CHECK(history_count(HISTORY_PRESSURE) == 2);
   history_push(99, 1);
   CHECK(history_count(99) == 0);
+  history_reset(HISTORY_G_MODE);
+  history_push(HISTORY_G_MODE, 2);
+  CHECK(history_count(HISTORY_G_MODE) == 1);
   return test_summary("test_history");
 }

@@ -109,6 +109,9 @@ static void fakeController(float dt) {
   pressure += (pTarget - pressure) * dt * 1.5f;
   state.tempRead = temp;
   state.pressureRead = pressure;
+  state.boilerOut = lastCmd.tempSet > temp + 2 ? 100.0f : (lastCmd.tempSet > 0 ? 30.0f : 0.0f);
+  state.pumpOut = pTarget > 0 ? (pressure < pTarget - 0.3f ? 127.0f : 60.0f) : 0.0f;
+  state.ctrlMode = lastCmd.mode;
   state.isSolenoidOn = (lastCmd.mode == GP_MODE_BREW || lastCmd.mode == GP_MODE_CLEAN) && lastCmd.pressSet > 0;
 }
 
@@ -150,7 +153,7 @@ static int duplicateProfile() { profiles.push_back(current + "-c"); return 1; }
 
 int main(int argc, char **argv) {
   const char *shot = NULL;
-  const char *scene = "idle";  // idle | heating | brewing | steaming | menu | profiles | settings | advanced
+  const char *scene = "idle";  // idle | heating | brewing | steaming | menu | profiles | settings | advanced | graph
   uint32_t shotAfter = 1000;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--shot") == 0 && i + 1 < argc) shot = argv[++i];
@@ -211,7 +214,15 @@ int main(int argc, char **argv) {
   if (strcmp(scene, "profiles") == 0) show_view_for_scene(1);
   if (strcmp(scene, "settings") == 0) show_view_for_scene(2);
   if (strcmp(scene, "advanced") == 0) show_view_for_scene(3);
-  if (strcmp(scene, "heating") == 0 || strcmp(scene, "brewing") == 0 || strcmp(scene, "steaming") == 0 || strcmp(scene, "prime") == 0) state.hasCommandChanged = true;
+  if (strcmp(scene, "graph") == 0) {
+    state.isBoilerOn = true;
+    state.isBrewing = true;
+    temp = 92.0f;
+    lv_obj_add_state(heat_btn_for_scene(), LV_STATE_CHECKED);
+    lv_obj_add_state(brew_btn_for_scene(), LV_STATE_CHECKED);
+    show_view_for_scene(4);
+  }
+  if (strcmp(scene, "heating") == 0 || strcmp(scene, "brewing") == 0 || strcmp(scene, "steaming") == 0 || strcmp(scene, "prime") == 0 || strcmp(scene, "graph") == 0) state.hasCommandChanged = true;
 
   uint32_t lastUi = 0, lastTick = nowMs(), start = nowMs();
   bool running = true;

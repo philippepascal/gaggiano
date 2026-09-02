@@ -56,6 +56,8 @@ static void settings_create(lv_obj_t* parent);
 static void advancedSettings_create(lv_obj_t* parent);
 static void profile_create(lv_obj_t* parent);
 static void main_create(lv_obj_t* parent);
+static void graph_create(lv_obj_t* parent);
+static void graph_update(uint32_t now);
 static void updateProfileTab();
 void updateSettings();
 
@@ -100,6 +102,20 @@ static lv_chart_series_t* temp_ser;
 static lv_chart_series_t* press_ser;
 static lv_obj_t* header;
 static lv_obj_t* menuDd;
+static lv_obj_t* tabGraph;
+
+// Graph view: 150 s of readings and controller outputs, plus a mode strip.
+#define GRAPH_PERIOD_MS 500
+#define STRIP_W 776
+#define STRIP_H 12
+static lv_obj_t* graph_chart;
+static lv_chart_series_t* g_temp_ser;
+static lv_chart_series_t* g_press_ser;
+static lv_chart_series_t* g_boiler_ser;
+static lv_chart_series_t* g_pump_ser;
+static lv_obj_t* g_legend[4];
+static lv_obj_t* g_strip;
+static lv_color_t g_strip_buf[LV_CANVAS_BUF_SIZE_TRUE_COLOR(STRIP_W, STRIP_H)];
 
 
 static lv_obj_t* fileList;
@@ -405,6 +421,12 @@ void enableTabs() {
   lv_obj_clear_state(menuDd, LV_STATE_DISABLED);
 }
 
+static void title_clicked(lv_event_t* e) {
+  (void)e;
+  lv_dropdown_set_selected(menuDd, 0);
+  lv_tabview_set_act(tv, 0, LV_ANIM_OFF);
+}
+
 static void menu_changed(lv_event_t* e) {
   lv_event_code_t code = lv_event_get_code(e);
   if (code == LV_EVENT_VALUE_CHANGED) {
@@ -652,6 +674,8 @@ void updateUI() {
     lv_label_set_text(time_sub_label, "");
   }
 
+  graph_update(millis());
+
   if (state->notes[0] == '\0') lv_obj_add_flag(main_notes_label, LV_OBJ_FLAG_HIDDEN);
   else lv_obj_clear_flag(main_notes_label, LV_OBJ_FLAG_HIDDEN);
 
@@ -785,7 +809,7 @@ void instantiateUI(GaggiaStateT* s,
   lv_obj_align(main_notes_label, LV_ALIGN_LEFT_MID, 200, 1);  // re-placed after the title in set_profile_title()
 
   menuDd = lv_dropdown_create(header);
-  lv_dropdown_set_options_static(menuDd, "Main\nProfiles\nSettings\nAdvanced");
+  lv_dropdown_set_options_static(menuDd, "Main\nProfiles\nSettings\nAdvanced\nGraph");
   lv_dropdown_set_text(menuDd, LV_SYMBOL_LIST);
   lv_dropdown_set_symbol(menuDd, NULL);
   lv_dropdown_set_selected_highlight(menuDd, false);
@@ -804,11 +828,19 @@ void instantiateUI(GaggiaStateT* s,
   tabProfile = lv_tabview_add_tab(tv, "Profiles");
   tabSettings = lv_tabview_add_tab(tv, "Settings");
   tabAdvance = lv_tabview_add_tab(tv, "Advanced");
+  tabGraph = lv_tabview_add_tab(tv, "Graph");
 
   main_create(tabMain);
   profile_create(tabProfile);
   settings_create(tabSettings);
   advancedSettings_create(tabAdvance);
+  graph_create(tabGraph);
+
+  // shortcut: the profile name (and the notes) bring you back to the main screen
+  lv_obj_add_flag(selectedProfileLabel, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_add_flag(main_notes_label, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_add_event_cb(selectedProfileLabel, title_clicked, LV_EVENT_CLICKED, NULL);
+  lv_obj_add_event_cb(main_notes_label, title_clicked, LV_EVENT_CLICKED, NULL);
 }
 
 /**********************
@@ -923,6 +955,90 @@ static void main_create(lv_obj_t* parent) {
   lv_obj_set_grid_cell(boil_btn, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 2, 1);
   lv_obj_set_grid_cell(clean_btn, LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, 2, 1);
   lv_obj_set_grid_cell(auto_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 2, 1);
+}
+
+static void graph_create(lv_obj_t* parent) {
+  theme_apply_view(parent);
+  lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_set_flex_flow(parent, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_style_pad_row(parent, 8, 0);
+
+  lv_obj_t* legend = lv_obj_create(parent);
+  lv_obj_remove_style_all(legend);
+  lv_obj_set_size(legend, LV_PCT(100), 30);
+  lv_obj_set_flex_flow(legend, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(legend, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_color_t colors[4] = { theme_amber(), theme_steam(), theme_heater(), theme_pump() };
+  for (int i = 0; i < 4; i++) {
+    g_legend[i] = lv_label_create(legend);
+    theme_apply_legend(g_legend[i], colors[i]);
+    lv_label_set_text(g_legend[i], "");
+  }
+
+  graph_chart = lv_chart_create(parent);
+  theme_apply_graph(graph_chart);
+  lv_obj_set_width(graph_chart, LV_PCT(100));
+  lv_obj_set_flex_grow(graph_chart, 1);
+  lv_chart_set_point_count(graph_chart, HISTORY_CAPACITY);
+  lv_chart_set_update_mode(graph_chart, LV_CHART_UPDATE_MODE_SHIFT);
+  lv_chart_set_range(graph_chart, LV_CHART_AXIS_PRIMARY_Y, 0, 160);    // °C, and percent for the outputs
+  lv_chart_set_range(graph_chart, LV_CHART_AXIS_SECONDARY_Y, 0, 120);  // bar x10
+  g_boiler_ser = lv_chart_add_series(graph_chart, theme_heater(), LV_CHART_AXIS_PRIMARY_Y);
+  g_pump_ser = lv_chart_add_series(graph_chart, theme_pump(), LV_CHART_AXIS_PRIMARY_Y);
+  g_temp_ser = lv_chart_add_series(graph_chart, theme_amber(), LV_CHART_AXIS_PRIMARY_Y);
+  g_press_ser = lv_chart_add_series(graph_chart, theme_steam(), LV_CHART_AXIS_SECONDARY_Y);
+
+  g_strip = lv_canvas_create(parent);
+  lv_canvas_set_buffer(g_strip, g_strip_buf, STRIP_W, STRIP_H, LV_IMG_CF_TRUE_COLOR);
+  lv_canvas_fill_bg(g_strip, lv_color_black(), LV_OPA_COVER);
+  lv_obj_set_size(g_strip, STRIP_W, STRIP_H);
+}
+
+static lv_color_t mode_color(int mode) {
+  switch (mode) {
+    case 1: return theme_amber();
+    case 2: return theme_steam();
+    case 3: return theme_clean();
+    default: return lv_color_black();
+  }
+}
+
+static void graph_update(uint32_t now) {
+  static uint32_t last = 0;
+  if (now - last < GRAPH_PERIOD_MS) return;
+  last = now;
+
+  history_push(HISTORY_G_TEMP, state->tempRead);
+  history_push(HISTORY_G_PRESS, state->pressureRead);
+  history_push(HISTORY_G_BOILER, state->boilerOut);
+  history_push(HISTORY_G_PUMP, state->pumpOut * 100.0f / 127.0f);
+  history_push(HISTORY_G_MODE, (float)state->ctrlMode);
+  lv_chart_set_next_value(graph_chart, g_temp_ser, (lv_coord_t)state->tempRead);
+  lv_chart_set_next_value(graph_chart, g_press_ser, (lv_coord_t)(state->pressureRead * 10));
+  lv_chart_set_next_value(graph_chart, g_boiler_ser, (lv_coord_t)state->boilerOut);
+  lv_chart_set_next_value(graph_chart, g_pump_ser, (lv_coord_t)(state->pumpOut * 100.0f / 127.0f));
+
+  if (lv_tabview_get_tab_act(tv) != 4) return;  // the rest is only drawn while the view is shown
+
+  lv_label_set_text_fmt(g_legend[0], "BOILER %.0f °C", state->tempRead);
+  lv_label_set_text_fmt(g_legend[1], "PRESSURE %.1f bar", state->pressureRead);
+  lv_label_set_text_fmt(g_legend[2], "HEATER %.0f%%", state->boilerOut);
+  lv_label_set_text_fmt(g_legend[3], "PUMP %.0f%%", state->pumpOut * 100.0f / 127.0f);
+
+  // mode strip: one column per sample, right-aligned like the chart
+  lv_canvas_fill_bg(g_strip, lv_color_black(), LV_OPA_COVER);
+  lv_draw_rect_dsc_t dsc;
+  lv_draw_rect_dsc_init(&dsc);
+  int n = history_count(HISTORY_G_MODE);
+  for (int i = 0; i < n; i++) {
+    int mode = (int)history_at(HISTORY_G_MODE, i);
+    if (mode == 0) continue;
+    int slot = HISTORY_CAPACITY - n + i;
+    lv_coord_t x0 = (lv_coord_t)((long)slot * STRIP_W / HISTORY_CAPACITY);
+    lv_coord_t x1 = (lv_coord_t)((long)(slot + 1) * STRIP_W / HISTORY_CAPACITY);
+    dsc.bg_color = mode_color(mode);
+    lv_canvas_draw_rect(g_strip, x0, 0, x1 - x0, STRIP_H, &dsc);
+  }
 }
 
 static void profile_create(lv_obj_t* parent) {

@@ -3,9 +3,18 @@
 #pragma once
 #include <stdint.h>
 
-#define HISTORY_CAPACITY 150  // pressure: 30 s at 5 Hz; temperature: 150 s at 1 Hz
+#define HISTORY_CAPACITY 300  // tiles: 150 points used; graph: 300 points at 2 Hz = 150 s
 
-enum HistoryId { HISTORY_TEMPERATURE = 0, HISTORY_PRESSURE = 1, HISTORY_COUNT = 2 };
+enum HistoryId {
+  HISTORY_TEMPERATURE = 0,  // tile, 1 Hz
+  HISTORY_PRESSURE = 1,     // tile, 5 Hz
+  HISTORY_G_TEMP = 2,       // graph series, 2 Hz
+  HISTORY_G_PRESS = 3,
+  HISTORY_G_BOILER = 4,
+  HISTORY_G_PUMP = 5,
+  HISTORY_G_MODE = 6,
+  HISTORY_COUNT = 7
+};
 
 #ifdef __cplusplus
 extern "C" {

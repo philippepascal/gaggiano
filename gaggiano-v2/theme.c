@@ -7,6 +7,9 @@ lv_color_t theme_text(void) { return lv_color_hex(0xE9ECEF); }
 lv_color_t theme_muted(void) { return lv_color_hex(0x8B949E); }
 lv_color_t theme_amber(void) { return lv_color_hex(0xD9A441); }
 lv_color_t theme_steam(void) { return lv_color_hex(0x7FB3D5); }
+lv_color_t theme_heater(void) { return lv_color_hex(0xD9603B); }
+lv_color_t theme_pump(void) { return lv_color_hex(0x6BBF8A); }
+lv_color_t theme_clean(void) { return lv_color_hex(0x4FA3A0); }
 static lv_color_t amber_ink(void) { return lv_color_hex(0x1A1408); }
 static lv_color_t dim_text(void) { return lv_color_hex(0x4A5158); }
 static lv_color_t dim_border(void) { return lv_color_hex(0x262B30); }
@@ -220,6 +223,24 @@ void theme_apply_field(lv_obj_t *ta) {
   lv_obj_set_style_border_color(ta, theme_amber(), LV_STATE_FOCUSED);
 }
 void theme_apply_view(lv_obj_t *view) { lv_obj_add_style(view, &st_view, 0); }
+
+void theme_apply_graph(lv_obj_t *chart) {
+  lv_obj_add_style(chart, &st_chart, 0);
+  lv_obj_set_style_size(chart, 0, LV_PART_INDICATOR);
+  lv_obj_set_style_line_width(chart, 2, LV_PART_ITEMS);
+  lv_obj_set_style_line_opa(chart, LV_OPA_90, LV_PART_ITEMS);
+  lv_obj_set_style_line_color(chart, theme_steel(), LV_PART_MAIN);
+  lv_obj_set_style_line_width(chart, 1, LV_PART_MAIN);
+  lv_obj_set_style_line_opa(chart, LV_OPA_50, LV_PART_MAIN);
+  lv_chart_set_div_line_count(chart, 4, 0);
+  lv_chart_set_type(chart, LV_CHART_TYPE_LINE);
+  lv_obj_clear_flag(chart, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+}
+
+void theme_apply_legend(lv_obj_t *label, lv_color_t color) {
+  lv_obj_set_style_text_font(label, theme_font_name, 0);
+  lv_obj_set_style_text_color(label, color, 0);
+}
 
 void theme_apply_chart(lv_obj_t *chart) {
   lv_obj_add_style(chart, &st_chart, 0);
