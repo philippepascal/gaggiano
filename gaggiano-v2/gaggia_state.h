@@ -1,6 +1,8 @@
-
 #ifndef GAGGIA_STATE_H
 #define GAGGIA_STATE_H
+
+#define PROFILE_NAME_MAX 32  // including the terminator; SD filename budget (D3: 24 chars + ".csv")
+#define NOTES_MAX 128        // including the terminator
 
 struct GaggiaState {
   //config and setting based
@@ -16,8 +18,8 @@ struct GaggiaState {
   float brew_timer;
   //profile meta data
   bool hasMetaDataChanged;
-  char* profile_name;
-  char* notes;
+  char profile_name[PROFILE_NAME_MAX];
+  char notes[NOTES_MAX];
   //real time read
   float tempRead;
   float pressureRead;

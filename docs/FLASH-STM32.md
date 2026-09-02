@@ -47,6 +47,9 @@ Known quirks, from experience with this build:
 - The solenoid relay can prevent DFU enumeration. Turning brew on from the screen
   before entering DFU has helped.
 - Use a direct USB port on the Mac rather than a hub, and a data-capable cable.
+  Charge-only cables power the board but the Mac never sees it. The WeAct v2.0
+  Black Pill has no CC resistors on its USB-C socket, so a C-to-C cable from a Mac
+  may not enumerate at all; use a USB-A to USB-C cable. Label the cable that works.
 - macOS occasionally needs a second attempt; `gg` retries automatically.
 - After a failed download the bootloader may still be active. Just run
   `./gg flash controller --no-build` again.
@@ -59,9 +62,9 @@ and resets; on the next boot the marker is detected before anything else runs an
 execution jumps to the ROM bootloader. `./gg flash controller` uses this automatically;
 `--no-serial-dfu` skips it. Verified on hardware on 2026-09-01.
 
-Manual use: `tools/serial-cmd.py /dev/cu.usbmodemXXXX DFU` (a bare shell redirect tends to
-close the port before the bytes leave the Mac). `tools/serial-cmd.py <port> VERSION` prints
-the firmware version string.
+Manual use: `tools/serial-cmd.py controller DFU` (a bare shell redirect tends to close the
+port before the bytes leave the Mac). `tools/serial-cmd.py controller VERSION` prints the
+firmware version string; `tools/serial-cmd.py --list` shows the ports; `--help` for more.
 
 ## Alternative: ST-Link over SWD
 

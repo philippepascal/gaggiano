@@ -17,6 +17,8 @@ jobs:
           key: arduino-data-${{ runner.os }}-${{ hashFiles('tools/targets.sh') }}
       - name: Install pinned cores
         run: ./gg setup --ci
+      - name: Host tests
+        run: ./gg test
       - name: Build all targets
         run: ./gg build all
       - uses: actions/upload-artifact@v4

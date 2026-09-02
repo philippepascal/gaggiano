@@ -1,0 +1,310 @@
+# Refactoring plan: fixes, structure and protocol (started 2026-09-01)
+
+Branch `refactoring`, on top of `main` after the migration. Companion documents:
+`docs/2026-09-01-findings.md` (project state), `docs/MIGRATION-PLAN.md` (tooling),
+`docs/BUILD.md` and `docs/FLASH-STM32.md` (how to build and flash).
+
+## Scope
+
+In: bug fixes, memory safety, code structure, a robust screen/controller protocol,
+host-side tests for the pure logic, bench verification of every step.
+Out: new features, UI redesign, core or library upgrades (plan 6.3), anything that
+changes what the machine does beyond the documented fixes below.
+
+Rule for every step: it compiles with `./gg build all`, it is flashed with `./gg flash`,
+and the bench checklist (R0.3) passes before the next step starts. One commit per
+numbered step, message prefixed `refactor:`.
+
+## How to resume after an interruption
+
+1. `git checkout refactoring && git status && git log --oneline -15`.
+2. Find the first unchecked box. Steps are ordered inside a phase; phases are ordered.
+3. Steps marked **(bench)** need both boards on USB. Nothing here needs the boards in
+   the machine until the final soak in R3.
+4. Record surprises in the notes log at the end of this file.
+
+## Decisions (answered 2026-09-01)
+
+- D1. Link-loss behaviour on the controller: after N seconds without a valid command,
+  pump off and valve closed for sure. Boiler: keep the last temperature setpoint
+  (machine stays hot, proposed) or drop to 0? Proposed N = 3 s.
+  **Decided: keep the boiler setpoint. N = 3 s.**
+- D2. Protocol stays text with a checksum (proposed), not binary. **Decided: yes.**
+- D3. Profile names capped at 24 characters (SD filename budget). Longer names are
+  truncated on rename. **Default accepted.**
+- D4. Enable the STM32 independent watchdog (resets the board if the loop hangs; a
+  reset means pump off, valve closed, boiler PWM 0 until the screen re-sends). Proposed yes.
+  **Decided: yes, try it.**
+- D5. Host tests: plain C++ with a tiny assert helper and a Makefile, run by `./gg test`.
+  No framework dependency. Proposed yes. **Default accepted.**
+- D6. `double` to `float` on the controller where values only feed float APIs. The
+  F411 has a single-precision FPU; doubles are emulated. Proposed: do it only in the
+  new code paths (protocol, sensors); leave AutoPID's doubles alone. **Default accepted.**
+
+## Bugs found by reading the code (fixed in the phases below)
+
+| # | Where | What | Effect | Fixed in |
+|---|---|---|---|---|
+| B1 | both sides, `mySubString` (three copies) | `malloc` per field, never freed | screen leaks ~4 blocks per status line (5/s); controller leaks per command. Likely the "comms sometimes stop" symptom | R1.3 (controller), R2.4 (screen) |
+| B2 | controller `readTemperature` | `newReading > 1 \|\| newReading < 200` always true | MAX6675 fault/zero readings pass into the PID | R1.2 |
+| B3 | controller `loop` | `LOOP_PERIOD - (millis() - loopStart)` is unsigned; a loop over 10 ms yields a ~49-day `delay()` | firmware freezes with outputs held at their last value | R1.1 |
+| B4 | controller `parseMessage` | unknown or truncated message falls through to `operating_mode = BREW` | mode switch on line noise, e.g. during steam | R1.3 |
+| B5 | both sides | no checksum, no field-count check | a flipped digit changes a setpoint silently | R2 (checksum, field count) |
+| B6 | controller | UART RX buffer 64 bytes, read every 200 ms; longest command 58 bytes | two commands within 200 ms truncate the second | R1.4, R2.4 (512 B on the screen) |
+| B7 | screen | commands sent once, never refreshed; controller never times out | a lost "stop" keeps the pump running; a dead link freezes the machine state | R2 (heartbeat, timeout, echo check) |
+| B8 | screen `readMessage` | `readStringUntil` blocks up to 50 ms in the UI loop; one line per pass | UI stutter, stale or skipped status lines | R2.4, R3.2 |
+| B9 | screen `gaggia_config.cpp` | `malloc(30)` + `strcat` of profile names; `sprintf` of notes into 500 bytes; `new char[500]` never freed | stack/heap overflow with long names or notes; leak per profile load | R3.1 |
+| B10 | screen `setupAndReadConfigFile` | reads `values[0..18]` without checking how many rows the CSV had | garbage settings from an old or truncated profile file | R3.1 (profile_format.cpp, tested) |
+| B11 | screen `state.notes`, `state.profile_name` | `char*` pointing at leaked heap or string literals | undefined lifetime, leak per load | R3.1 |
+| B12 | controller `parseMessage` | 500-byte line buffer on the stack plus `String` from `readStringUntil` | heap churn, stack pressure; no bound on line length | R1.3 |
+
+## Target layout (end state)
+
+```
+libraries/GaggiaProtocol/          shared by both sketches and the host tests
+  library.properties
+  src/gaggia_protocol.h            message types, field lists, limits, version
+  src/gaggia_protocol.cpp          encode / decode / checksum, no heap, no Arduino deps
+  src/line_reader.h                non-blocking line assembler over any byte source
+gaggiano-controller-v1/
+  gaggiano-controller-v1.ino       setup() / loop() only
+  config.h                         pins, periods, limits
+  sensors.{h,cpp}                  MAX6675 + ADS1115 + Kalman
+  outputs.{h,cpp}                  boiler PWM, pump (PSM), valve, allOutputsOff()
+  control.{h,cpp}                  mode logic (brew / steam / clean), PID glue
+  link.{h,cpp}                     screen UART: STAT out, CMD/TUNE in, link timeout
+  console.{h,cpp}                  USB serial: VERSION, DFU, STATUS, LOG
+  dfu_jump.{h,cpp}                 unchanged
+  PSM.{h,cpp}                      unchanged
+  build_opt.h                      -DSERIAL_RX_BUFFER_SIZE=256
+gaggiano-v2/
+  gaggiano-v2.ino                  setup() / loop() only
+  display_glue.{h,cpp}             Arduino_GFX panel, LVGL flush, touch (unchanged behaviour)
+  sequencer.{h,cpp}                brew/bloom/auto phase machine, pure logic, time injected
+  link.{h,cpp}                     controller UART: CMD/TUNE out with heartbeat, STAT in
+  storage.{h,cpp}                  SD: profiles, settings, logs (was gaggia_config.cpp)
+  gaggia_state.h                   fixed-size strings instead of char*
+  lv_buildUI.{h,c}                 UI only; no parsing helpers
+tests/
+  Makefile                         host build with the system compiler
+  test_protocol.cpp, test_sequencer.cpp, test_line_reader.cpp
+docs/PROTOCOL.md                   the wire format, one page
+```
+
+---
+
+## Phase R0: baseline and safety net (no bench)
+
+- [x] R0.1 Starting commit: `main` at 2f58621 (Migration #1). Save the current
+      binaries as `build-baseline/` locally (git-ignored) for size comparison.
+- [x] R0.2 `tests/` with a Makefile that compiles listed `.cpp` files with the host
+      `c++`, plus `./gg test`. A first trivial test proves the harness. CI runs it.
+- [x] R0.3 `docs/BENCH-CHECKLIST.md`: the manual verification run after every flash.
+      Draft:
+      1. `./gg detect` shows both boards. `./gg monitor controller`, `VERSION` answers.
+      2. Screen boots to the main tab; temperature and pressure update about 5 times/s.
+      3. Heat on: controller log shows the setpoint; boiler output rises. Heat off.
+      4. Brew on for 5 s: valve opens, pump output non-zero, brew timer counts. Brew off:
+         valve closes, pump 0.
+      5. Steam on/off, clean on/off: mode echoed by the controller.
+      6. Settings tab: change a value, Set, reboot the screen, value persists.
+      7. Profile tab: duplicate, rename, select, delete. Names survive a reboot.
+      8. Leave both boards running 10 minutes; free heap (screen) and loop counter
+         (controller) still reported and stable.
+      Items 1-2 after every flash; the full list at each checkpoint.
+- [x] R0.4 (both verified on bench) Controller console additions needed for the checklist: `STATUS` (mode,
+      setpoints, outputs, loop counter, max loop time, link state) and `LOG ON|OFF`
+      (silence the per-message debug spam). Screen: print free heap every 10 s to USB.
+
+**Checkpoint R0:** `./gg test` passes, checklist items 1-2 pass with the current
+firmware (PASSED 2026-09-01 for the controller; `STATUS` reports maxLoopMs=6 at rest), baseline sizes recorded: controller 68,080 bytes, screen 678,224 bytes.
+
+---
+
+## Phase R1: controller fixes and structure (no protocol change) **(bench)**
+
+The wire format stays exactly as today so the screen keeps working unmodified.
+
+- [x] R1.1 Fix B3: compute elapsed time, `delay` only when elapsed is below the period;
+      track the maximum loop time for `STATUS`.
+- [x] R1.2 Fix B2 (`&&`), and treat a MAX6675 open-thermocouple reading (NaN or 0) as a
+      fault: keep the last good value, count faults, expose in `STATUS`.
+- [x] R1.3 Fix B4/B12/B1 on the controller: replace `parseMessage` with a non-blocking
+      line assembler (fixed 128-byte buffer, characters pulled every loop pass) and an
+      in-place `strtod` field parser. Unknown type or wrong field count: ignore, count.
+      Delete `mySubString`, `myIndexOF`, the dead `updatePump`.
+- [x] R1.4 Fix B6: `build_opt.h` with `-DSERIAL_RX_BUFFER_SIZE=256`; verify the flag is
+      honoured in the verbose build output.
+- [x] R1.5 Split the sketch into the files listed above. Pure move, no logic change;
+      confirm the `.bin` size is within a few hundred bytes of R1.4.
+- [x] R1.6 D4: enable the independent watchdog (STM32duino `IWatchdog`, 4 s), reloaded
+      once per loop. Verify: `HANG` console command spins forever; the board resets
+      within 4 s and comes back with outputs off.
+- [x] R1.7 SKIPPED: the new parser writes into the double setpoints AutoPID points at; converting nothing else buys anything measurable (loop max 6 ms). Revisit if the loop budget gets tight.
+
+**Checkpoint R1:** full bench checklist with the unmodified screen firmware. Ten
+minutes of heat + a 30 s brew with the console showing loop max time under 10 ms.
+PASSED 2026-09-01. Console items: VERSION, STATUS, LOG, RX injection of valid and
+invalid lines, HANG -> watchdog reset in 4 s with wdReset=1, DFU flash with the watchdog
+armed. Screen-driven run captured on the controller console with LOG ON: heat on/off
+(boiler 100% then 0), brew on/off (valve 1, pump ramp 0.8 -> 126.85 at 0.4/step, then 0),
+steam on/off (pump 5.08 = 4% of 127, valve stays 0, boiler 100), clean on/off (valve 1,
+pump 255), three advanced-settings sends from Set / duplicate / delete. STATUS after:
+rx=12 rxRejected=0 rxOverflows=0 maxLoopMs=6 (with logging on), 575 status lines with
+no counter gaps. Not done: the 10-minute heat with water (bench only, no machine).
+
+---
+
+## Phase R2: shared protocol v2 **(bench)**
+
+Both sides change together; both boards are flashed together.
+
+- [x] R2.1 `docs/PROTOCOL.md`. Proposed format (D2), NMEA-style:
+
+      ```
+      $TYPE,field,field,...*HH\n
+      ```
+      `HH` is the XOR of every byte between `$` and `*`, two upper-case hex digits.
+      Fields are decimal with at most 2 decimals; a receiver rejects a line whose type
+      is unknown, whose checksum fails, or whose field count is wrong. Line length is
+      capped at 120 bytes.
+
+      | Type | Direction | Fields | When |
+      |---|---|---|---|
+      | `HELLO` | both | protocol version, firmware version string | on boot, and as reply to `HELLO` |
+      | `STAT` | controller to screen | mode, temp, pressure, valve, boilerOut, pumpOut, tempSet, pressSet, pumpPct, linkOk, faults, counter | every 200 ms |
+      | `CMD` | screen to controller | mode (0 off, 1 brew, 2 steam, 3 clean), tempSet, pressSet, pumpPct | on change and every 1 s (heartbeat) |
+      | `TUNE` | screen to controller | bbRange, pidCycle, kp, ki, kd, pumpStepUp, pumpKp, pumpKi, pumpKd | on change, and after every controller `HELLO` |
+
+      Controller rules: no valid `CMD` for N s (D1) sets mode 0, pump 0, valve closed,
+      `linkOk=0` in `STAT`. Screen rules: if `STAT` echoes a mode or setpoint different
+      from what it last sent for more than 1 s, re-send `CMD`. `TUNE` is re-sent whenever
+      the controller says `HELLO` (it rebooted). The SD log keeps the raw `STAT` lines;
+      the header row changes accordingly.
+- [x] R2.2 `libraries/GaggiaProtocol`: encoder, decoder, checksum, `line_reader.h`.
+      No heap, no `String`, no Arduino types (a `putc`-style callback for output). Host
+      tests: round trip of every message, checksum failure, truncated line, garbage
+      before `$`, field count mismatch, oversize line, two lines in one read.
+- [x] R2.3 Controller `link.cpp` on the library: `STAT` every 200 ms, `HELLO` at boot,
+      `CMD`/`TUNE` handling, link timeout. Mode changes only from a valid `CMD`.
+- [x] R2.4 Screen `link.cpp` on the library: heartbeat, echo check, `TUNE` after `HELLO`,
+      RX buffer 512 (`setRxBufferSize` before `begin`), all pending lines drained each
+      pass, newest `STAT` wins.
+- [x] R2.5 (see checkpoint notes) Flash both. Bench: full checklist, then pull the UART wire mid-brew: pump
+      stops within N s, `STAT` shows `linkOk=0` on the console; reconnect: screen
+      re-sends within 1 s, brew resumes only if still selected on the screen. Reset the
+      controller with NRST while heating: screen re-sends `TUNE` and `CMD` unprompted.
+
+**Checkpoint R2:** the above, plus `./gg test` green.
+PASSED 2026-09-01 with one item deferred. Host tests: 244 checks green. Bench, screen
+console: HELLO exchange at boot, TUNE sent, one rejected partial line at startup as
+designed, CMD heartbeat at 1 Hz, every button press one CMD change, zero rejects and
+zero re-sends over a 10-minute run, heap flat except during profile/settings saves
+(B9, next). Controller reboot with NRST while heating: screen received HELLO, re-sent
+TUNE and the heat CMD unprompted. Controller console (by injection): CMD accepted,
+mode 0 and linkOk=0 three seconds later. Deferred: the UART wire pull. The screen's
+USB bridge dropped at the moment the wire was pulled (twice during hardware handling
+in this session, looks like a ground glitch), hiding the re-send message; to be
+observed from the controller console at Checkpoint R3 instead.
+
+---
+
+## Phase R3: screen fixes and structure **(bench)**
+
+- [x] R3.1 (bench 2026-09-01: heap flat at 113,112 through two saves, duplicate, three profile switches, delete, notes save; 14 min idle flat) Fix B9/B10/B11: `gaggia_state.h` gets `char profile_name[32]` and
+      `char notes[128]`; all filename building through one `snprintf` helper with the D3
+      cap; the CSV loader checks the row count and falls back to defaults per missing
+      field; every `malloc`/`new` in `storage.cpp` and `lv_buildUI.c` removed or paired
+      with a free (target: zero heap allocation after boot outside LVGL and the SD driver).
+- [x] R3.2 Fix B8 leftovers: the `i < 20` loop hack becomes time based (`STAT` consumption
+      and UI refresh at 5 Hz, `lv_timer_handler` every 5 ms); no blocking reads remain.
+- [x] R3.3 `sequencer.cpp`: the bloom/auto/brew phase machine extracted from
+      `sendCommand` into a pure function of (state, now) that returns the desired `CMD`.
+      Host tests for the phase transitions and timers.
+- [x] R3.4 `display_glue.cpp`: panel, LVGL driver, touch and splash moved out of the
+      `.ino` unchanged.
+- [x] R3.5 Logging: `logController` keeps the file open between lines and flushes once a
+      second; `deleteLogsFile` writes the new header. Free-heap line to USB every 10 s.
+- [x] R3.6 PARTIAL: parsing helpers removed and fixed-size strings in use (done in R3.1). DEFERRED: folding the ten settings-field blocks (cosmetic, risk of pixel drift) and the delete-selects-first-profile quirk. `lv_buildUI.c`: remove the parsing helpers, use the fixed-size strings, and
+      fold the ten copy-pasted settings-field blocks into one helper. Pixel-identical
+      screens; compare by eye against `docs/images/screen-ui-2025-03-21.png`.
+- [x] R3.7 Debug output behind one log-level switch on both sides.
+
+**Checkpoint R3:** full bench checklist, then a 1-hour soak with both boards on USB:
+free heap flat on the screen, loop max time stable on the controller, no missed
+`STAT` lines in the SD log (counter field contiguous).
+PASSED 2026-09-01 (screen on USB, controller powered through the link connector).
+Checklist: heat, brew, steam, clean, prime to completion, auto to completion, settings
+save, profile duplicate/select/delete: one command change per press, zero rejects, zero
+re-sends. Two pre-existing UI bugs found and fixed on the way: the tab bar stayed
+disabled after prime/auto ended on their own; the action timer restarted at each phase
+(now continuous, and the prime button shows fill+wait). Display precision reduced to the
+degree / 0.1 bar / second. Soak 17:16 to 18:16: 360 HEAP lines all at 112,592 bytes;
+21,505 status lines received in 4,521 s (4.76/s, matching the 200 ms send period with
+loop jitter) with the reject counter unchanged; no port drops. Not done: SD log
+continuity (SDLOG left off). UART wire pull done afterwards with the controller on USB:
+`link timeout: mode off` 3 s after the unplug, boiler setpoint kept (D1). Pulling the
+four-pin link connector also cuts the screen's power in this bench setup, so the replug
+is a screen reboot: HELLO exchange, the screen's initial off command applied, heartbeat
+resumed. A data-only wire pull is not possible with this connector; the recovery path
+via heartbeat and HELLO is demonstrated by the reboot.
+
+---
+
+## Phase R4: wrap-up
+
+- [x] R4.1 README: protocol summary and link to `docs/PROTOCOL.md`; findings doc gets a
+      "resolved" column for B1-B12; this plan's boxes ticked.
+- [ ] R4.2 One test in the machine: heat, one shot, one steam. Compare against how it
+      felt before the refactor; no tuning changes are expected.
+- [ ] R4.3 PR `refactoring` to `main`.
+
+## Deferred (not this branch)
+
+- Screen boot blocks for the 5 s splash before the loop and the heartbeat start, so the
+  controller sees a 3 s link timeout on every screen reboot (harmless: mode is off
+  anyway). A non-blocking splash would remove it.
+
+- Core and library upgrades (migration plan 6.3), 16 MB partition table.
+- Items from `notes.txt`: pressure readout smoothing strategy, PID retune, steam
+  pressure hold, "stop pump when water detected" prime command, settings hash in logs.
+- `double` to `float` inside AutoPID and the PID tuning that would need re-validation.
+
+## Notes log
+
+- 2026-09-01 sensor faults: with the boards idle on the bench, the controller counted
+  122 rejected MAX6675 readings in about an hour (one every ~30 s). Before R1.2 these
+  zero readings went straight into the boiler PID (the range check was always true),
+  which fits the old "PID never settles, drops into bang-bang then overshoots" note.
+  Worth re-checking the PID behaviour in the machine before any retuning.
+
+- 2026-09-01 R3.1 bench: after deleting a profile the UI selects the first profile in
+  the list (`tigerwalk`), not the one that was selected before the duplicate. Pre-existing
+  behaviour in `delete_btn_clicked`; candidate for R3.6.
+
+- 2026-09-01 screen baseline: right after boot the screen reports
+  `HEAP free=114128 minfree=105320 psramfree=7590603`.
+- 2026-09-01 B1 measured live: with status lines flowing the screen's internal heap
+  fell about 4.1 KB per 10 s and reached `free=0` within a few minutes of boot. After
+  that, allocations spill into PSRAM at the same ~420 B/s and the UI keeps running, but
+  anything needing internal RAM (UART and SD drivers included) is at risk. This is the
+  most likely mechanism behind "comms sometimes stop". Fixed in R3.1; the after
+  measurement must show a flat HEAP line for 10 minutes.
+- 2026-09-01 bench logistics: only one working data cable, so the two boards are put on
+  USB one at a time. Either board powers the other over the shared 5 V rail (the display
+  board's power connector passes current both ways through Q1), so the UART link stays
+  up regardless of which one is on the Mac.
+
+- 2026-09-01 R1: `STATUS` reports maxLoopMs=6 at rest with debug logging off. That is
+  close to the 10 ms loop period; with `LOG ON` the USB prints likely pushed some
+  iterations past 10 ms, which is exactly the B3 trigger. B3 is fixed, but the
+  MAX6675 bit-banged read (every 250 ms) is the main cost and worth a look if the
+  budget matters later.
+- 2026-09-01 R1.6: the independent watchdog stops on the software reset used for the
+  DFU jump (verified: buttonless flash works with it armed), and `wdReset` is reported
+  by `STATUS` after a watchdog reset.
+
+- 2026-09-01: plan written from a full read of both sketches, `gaggia_config.cpp`,
+  `PSM.cpp` and the UI event handlers. The three `mySubString` copies (controller,
+  `gaggia_utils.cpp`, `lv_buildUI.c`) all leak. B3 (unsigned delay underflow) was
+  found while planning and is possibly the more direct cause of "comms stop".

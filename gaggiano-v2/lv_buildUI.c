@@ -8,6 +8,7 @@
  *********************/
 #include "lv_buildUI.h"
 #include "my_logging.h"
+#include <string.h>
 
 #if LV_MEM_CUSTOM == 0 && LV_MEM_SIZE < (38ul * 1024ul)
 #error Insufficient memory for lv_demo_widgets. Please set LV_MEM_SIZE to at least 38KB (38ul * 1024ul).  48KB is recommended.
@@ -38,8 +39,8 @@ static const lv_btnmatrix_ctrl_t kb_num_ctrl[] = { 1, 1, 1, 1,
                                                    2, 2, 2 };
 
 static int (*writeConfigFile)();
-static char* (*listProfiles)();
-static char* (*getCurrentProfile)();
+static int (*listProfiles)(char* buf, size_t size);
+static int (*getCurrentProfile)(char* buf, size_t size);
 static int (*writeCurrentProfile)(const char* profileName);
 static int (*setupAndReadConfigFile)();
 static int (*renameProfile)(const char* newName);
@@ -52,6 +53,7 @@ static void advancedSettings_create(lv_obj_t* parent);
 static void profile_create(lv_obj_t* parent);
 static void main_create(lv_obj_t* parent);
 static void updateProfileTab();
+void updateSettings();
 
 /**********************
  *  STATIC VARIABLES
@@ -131,29 +133,6 @@ static lv_style_t style_bullet;
  **********************/
 
 
-int myIndexOf(const char* str, const char ch, int fromIndex) {
-  const char* result = strchr(str + fromIndex, ch);
-  if (result == NULL) {
-    return -1;  // Substring not found
-  } else {
-    return result - str;  // Calculate the index
-  }
-}
-
-char* mySubString(const char* str, int start, int end) {
-  char* sub = (char*)malloc(sizeof(char) * (end - start));
-  if (sub == NULL) {
-    return NULL;
-  }
-
-  strncpy(sub, str + start, (end - start));
-  sub[(end - start)] = '\0';
-
-  return sub;
-}
-
-
-
 /**********************
  *      EVENT HANDLING
  **********************/
@@ -213,7 +192,8 @@ static void setButtonClicked(lv_event_t* e) {
     double newblooming_fill_time = strtod(lv_textarea_get_text(blooming_fill_time_tf), NULL);
     double newblooming_wait_time = strtod(lv_textarea_get_text(blooming_wait_time_tf), NULL);
     double newbrew_timer = strtod(lv_textarea_get_text(brew_timer_tf), NULL);
-    state->notes = lv_textarea_get_text(edit_notes_tf);
+    strncpy(state->notes, lv_textarea_get_text(edit_notes_tf), NOTES_MAX - 1);
+    state->notes[NOTES_MAX - 1] = '\0';
     state->boilerSetPoint = newBoilerSetPoint;
     state->pressureSetPoint = newPressureSetPoint;
     state->steamSetPoint = newSteamSetPoint;
@@ -310,18 +290,18 @@ static void profile_selected(lv_event_t* e) {
 }
 
 void updateProfileTab() {
-  const char* profileNames = listProfiles();
-  LV_LOG_WARN(profileNames);
-  int start = 0;
-  int end = myIndexOf(profileNames, ';', start);
+  char names[512];
+  if (listProfiles(names, sizeof(names)) < 0) names[0] = '\0';
+  LV_LOG_WARN(names);
   int index = 0;
-  while (end > 0) {
-    const char* profileName = mySubString(profileNames, start, end);
-    LV_LOG_WARN(profileName);
+  char* start = names;
+  while (*start != '\0' && index < 10) {
+    char* end = strchr(start, ';');
+    if (end == NULL) break;
+    *end = '\0';
     lv_obj_t* child = lv_obj_get_child(fileList, index);
-    lv_label_set_text(child, profileName);
+    lv_label_set_text(child, start);
     start = end + 1;
-    end = myIndexOf(profileNames, ';', start);
     index++;
   }
   for (; index < 10; index++) {
@@ -329,7 +309,8 @@ void updateProfileTab() {
     lv_label_set_text(child, "");
   }
 
-  const char* fn = getCurrentProfile();
+  char fn[PROFILE_NAME_MAX];
+  if (getCurrentProfile(fn, sizeof(fn)) < 0) fn[0] = '\0';
   lv_textarea_set_text(fileName_tf, fn);
   lv_label_set_text(selectedProfileLabel, fn);
 }
@@ -531,21 +512,24 @@ void my_log_cb(const char* buf) {
 void updateUI() {
   LV_LOG_TRACE("updating UI");
   if (state->hasConfigChanged) {
-    lv_label_set_text_fmt(lv_obj_get_child(heat_btn, 0), "H:%.2fC", state->boilerSetPoint);
-    lv_label_set_text_fmt(lv_obj_get_child(boil_btn, 0), "S:%.2fC", state->steamSetPoint);
-    lv_label_set_text_fmt(lv_obj_get_child(brew_btn, 0), "B:%.2fb", state->pressureSetPoint);
-    lv_label_set_text_fmt(lv_obj_get_child(prime_btn, 0), "P:%.2fs", state->blooming_wait_time);
-    lv_label_set_text_fmt(lv_obj_get_child(auto_btn, 0), "A:%.2fs", state->brew_timer);
+    lv_label_set_text_fmt(lv_obj_get_child(heat_btn, 0), "H:%.0fC", state->boilerSetPoint);
+    lv_label_set_text_fmt(lv_obj_get_child(boil_btn, 0), "S:%.0fC", state->steamSetPoint);
+    lv_label_set_text_fmt(lv_obj_get_child(brew_btn, 0), "B:%.1fb", state->pressureSetPoint);
+    lv_label_set_text_fmt(lv_obj_get_child(prime_btn, 0), "P:%.0f+%.0fs", state->blooming_fill_time, state->blooming_wait_time);  // fill + wait
+    lv_label_set_text_fmt(lv_obj_get_child(auto_btn, 0), "A:%.0fs", state->brew_timer);
     lv_label_set_text(selectedProfileLabel, state->profile_name);
   }
-  lv_label_set_text_fmt(temp_label, "%.2fC", state->tempRead);
-  lv_label_set_text_fmt(press_label, "%.2fb", state->pressureRead);
+  lv_label_set_text_fmt(temp_label, "%.0fC", state->tempRead);
+  lv_label_set_text_fmt(press_label, "%.1fb", state->pressureRead);
+  // Bloom and auto end on their own (sequencer): release the buttons and the tabs
+  // the way a manual stop does.
   if (state->isBlooming == false) {
     if (lv_obj_has_state(prime_btn, LV_STATE_CHECKED)) {
       lv_obj_clear_state(prime_btn, LV_STATE_CHECKED);
       lv_obj_clear_state(clean_btn, LV_STATE_DISABLED);
       lv_obj_clear_state(brew_btn, LV_STATE_DISABLED);
       lv_obj_clear_state(auto_btn, LV_STATE_DISABLED);
+      enableTabs();
     }
   }
   if (state->isAuto == false) {
@@ -554,6 +538,7 @@ void updateUI() {
       lv_obj_clear_state(clean_btn, LV_STATE_DISABLED);
       lv_obj_clear_state(brew_btn, LV_STATE_DISABLED);
       lv_obj_clear_state(prime_btn, LV_STATE_DISABLED);
+      enableTabs();
     }
   }
   if (state->actionStartTime > 0) {
@@ -646,8 +631,8 @@ void updateSettings() {
 void instantiateUI(GaggiaStateT* s,
                    AdvancedSettingsT* as,
                    int (*f)(),
-                   char* (*lp)(),
-                   char* (*gcp)(),
+                   int (*lp)(char* buf, size_t size),
+                   int (*gcp)(char* buf, size_t size),
                    int (*wcp)(const char* profileName),
                    int (*sarcf)(),
                    int (*rp)(const char* newName),
@@ -757,21 +742,21 @@ static void main_create(lv_obj_t* parent) {
   lv_obj_add_flag(heat_btn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_add_event_cb(heat_btn, main_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_t* heat_btn_label = lv_label_create(heat_btn);
-  lv_label_set_text_fmt(heat_btn_label, "H:%.2fC", state->boilerSetPoint);
+  lv_label_set_text_fmt(heat_btn_label, "H:%.0fC", state->boilerSetPoint);
   lv_obj_center(heat_btn_label);
 
   boil_btn = lv_btn_create(parent);
   lv_obj_add_flag(boil_btn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_add_event_cb(boil_btn, main_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_t* boil_btn_label = lv_label_create(boil_btn);
-  lv_label_set_text_fmt(boil_btn_label, "S:%.2fC", state->steamSetPoint);
+  lv_label_set_text_fmt(boil_btn_label, "S:%.0fC", state->steamSetPoint);
   lv_obj_center(boil_btn_label);
 
   brew_btn = lv_btn_create(parent);
   lv_obj_add_flag(brew_btn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_add_event_cb(brew_btn, main_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_t* brew_btn_label = lv_label_create(brew_btn);
-  lv_label_set_text_fmt(brew_btn_label, "B:%.2fb", state->pressureSetPoint);
+  lv_label_set_text_fmt(brew_btn_label, "B:%.1fb", state->pressureSetPoint);
   lv_obj_center(brew_btn_label);
 
   clean_btn = lv_btn_create(parent);
@@ -785,25 +770,25 @@ static void main_create(lv_obj_t* parent) {
   lv_obj_add_flag(prime_btn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_add_event_cb(prime_btn, main_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_t* prime_btn_label = lv_label_create(prime_btn);
-  lv_label_set_text_fmt(prime_btn_label, "P:%.2fs", state->blooming_wait_time);
+  lv_label_set_text_fmt(prime_btn_label, "P:%.0f+%.0fs", state->blooming_fill_time, state->blooming_wait_time);
   lv_obj_center(prime_btn_label);
 
   auto_btn = lv_btn_create(parent);
   lv_obj_add_flag(auto_btn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_add_event_cb(auto_btn, main_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_t* auto_btn_label = lv_label_create(auto_btn);
-  lv_label_set_text_fmt(auto_btn_label, "A:%.2fs", state->brew_timer);
+  lv_label_set_text_fmt(auto_btn_label, "A:%.0fs", state->brew_timer);
   lv_obj_center(auto_btn_label);
 
   main_notes_label = lv_label_create(panel1);
   lv_obj_set_style_text_color(main_notes_label, lv_color_hex(0x00AAFF), 0);
 
   temp_label = lv_label_create(panel1);
-  lv_label_set_text_fmt(temp_label, "%.2fC", state->tempRead);
+  lv_label_set_text_fmt(temp_label, "%.0fC", state->tempRead);
   lv_obj_center(temp_label);
 
   press_label = lv_label_create(panel1);
-  lv_label_set_text_fmt(press_label, "%.2fb", state->pressureRead);
+  lv_label_set_text_fmt(press_label, "%.1fb", state->pressureRead);
   lv_obj_center(press_label);
 
   time_label = lv_label_create(panel1);
@@ -860,6 +845,7 @@ static void profile_create(lv_obj_t* parent) {
   lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
 
   fileName_tf = lv_textarea_create(parent);
+  lv_textarea_set_max_length(fileName_tf, PROFILE_NAME_MAX - 1);
   lv_textarea_set_one_line(fileName_tf, true);
   lv_obj_add_event_cb(fileName_tf, setting_field_changed, LV_EVENT_ALL, kb);
 
@@ -919,6 +905,7 @@ static void settings_create(lv_obj_t* parent) {
   lv_obj_add_flag(kb2, LV_OBJ_FLAG_HIDDEN);
 
   edit_notes_tf = lv_textarea_create(panel1);
+  lv_textarea_set_max_length(edit_notes_tf, NOTES_MAX - 1);
   lv_textarea_set_one_line(edit_notes_tf, true);
   lv_obj_set_size(edit_notes_tf, LV_PCT(100), LV_SIZE_CONTENT);
   lv_obj_add_event_cb(edit_notes_tf, setting_field_changed, LV_EVENT_ALL, kb2);

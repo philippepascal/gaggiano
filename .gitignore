@@ -4,3 +4,5 @@ build/
 tools/arduino-cli.yaml
 # cores and toolchains installed by ./gg setup
 .arduino-data/
+# local baseline binaries for size comparison (refactor plan R0.1)
+build-baseline/

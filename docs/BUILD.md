@@ -61,7 +61,7 @@ checks for it at the standard install path.
 | `libraries/` | vendored Arduino libraries, including the project `lv_conf.h` for LVGL |
 | `tools/targets.sh` | FQBN, core version, baud rate and USB ids per target |
 | `tools/usb-detect.py` | USB enumeration helper used by `detect` and `flash` |
-| `tools/serial-cmd.py` | send one line to a serial port and print the reply (used for the `DFU` command) |
+| `tools/serial-cmd.py` | send one line to a serial port and print the reply; `--list` shows ports, `--help` for usage |
 | `tools/convertBmp.py` | PNG/BMP to raw RGB565 (needs Pillow) |
 | `sdcard/` | files for the display's SD card |
 | `vendor/sunton-esp32-8048s043/` | display board datasheets, schematics, manual |

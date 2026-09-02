@@ -132,6 +132,11 @@ cmd_build() {
   done
 }
 
+cmd_test() {
+  log "running host tests"
+  make -C "$REPO/tests" "$@"
+}
+
 cmd_clean() {
   log "removing $BUILD_DIR"; rm -rf "$BUILD_DIR"
   local t
@@ -200,7 +205,7 @@ flash_controller_dfu() {
       local port
       if port="$(detect_port controller run)"; then
         log "asking the running firmware to reboot into DFU via $port"
-        "$REPO/tools/serial-cmd.py" "$port" DFU 1 "$T_BAUD" >/dev/null || warn "could not send DFU command"
+        "$REPO/tools/serial-cmd.py" -t 1 -b "$T_BAUD" "$port" DFU >/dev/null || warn "could not send DFU command"
         if wait_for controller dfu 5; then log "controller entered DFU"; fi
       fi
     fi
@@ -275,6 +280,7 @@ usage: ./gg <command> [args]
   detect [--json]        list connected project boards and their ports
   monitor <target> [port]
                          serial monitor at the target's baud rate
+  test                   build and run the host-side tests in tests/
   clean [--all]          remove build/ and the compile caches; --all also removes
                          .arduino-data/ (cores and toolchains, re-downloaded by setup)
   help
@@ -291,6 +297,7 @@ main() {
     setup)   cmd_setup "$@" ;;
     build)   cmd_build "$@" ;;
     clean)   cmd_clean "$@" ;;
+    test)    cmd_test "$@" ;;
     detect)  cmd_detect "$@" ;;
     monitor) cmd_monitor "$@" ;;
     flash)   cmd_flash "$@" ;;
