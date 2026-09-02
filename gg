@@ -189,6 +189,8 @@ wait_for() {
 
 flash_screen() {
   local port="${PORT:-}"
+  local fqbn="$T_FQBN"
+  [ "${ERASE:-0}" = 1 ] && fqbn="$(printf '%s' "$T_FQBN" | sed 's/EraseFlash=none/EraseFlash=all/')"
   if [ -z "$port" ]; then
     port="$(detect_port screen run)" || die "screen not found: plug the display's USB (CH340) port in, or pass --port"
   fi
@@ -196,9 +198,10 @@ flash_screen() {
   # "Could not configure port: (6, 'Device not configured')". Retry, and use the
   # slow rate on the last attempt.
   local attempt fqbn
+  local base="$fqbn"
   for attempt in 1 2 3; do
-    fqbn="$T_FQBN"
-    [ "$attempt" = 3 ] && fqbn="$(printf '%s' "$T_FQBN" | sed 's/UploadSpeed=[0-9]*/UploadSpeed=115200/')"
+    fqbn="$base"
+    [ "$attempt" = 3 ] && fqbn="$(printf '%s' "$base" | sed 's/UploadSpeed=[0-9]*/UploadSpeed=115200/')"
     log "flashing screen on $port (attempt $attempt$([ "$attempt" = 3 ] && echo ', 115200 baud'))"
     if cli upload --fqbn "$fqbn" -p "$port" --input-dir "$BUILD_DIR/screen" "$REPO/$T_SKETCH"; then
       log "screen flashed"; return 0
@@ -265,6 +268,7 @@ cmd_flash() {
       --via) via="$2"; shift 2 ;;
       --port) PORT="$2"; shift 2 ;;
       --timeout) TIMEOUT="$2"; shift 2 ;;
+      --erase) ERASE=1; shift ;;
       --no-build) build=0; shift ;;
       --no-serial-dfu) NO_SERIAL_DFU=1; shift ;;
       *) die "unknown option $1" ;;
@@ -288,7 +292,7 @@ usage: ./gg <command> [args]
   build <target|all> [--clean] [--verbose]
                          compile into build/<target>/
   flash <target> [--no-build] [--port P] [--timeout S] [--via dfu|stlink|esptool]
-                         [--no-serial-dfu]
+                         [--no-serial-dfu] [--erase (screen: wipe the whole flash first)]
                          build then program the board (see docs/FLASH-STM32.md)
   detect [--json]        list connected project boards and their ports
   monitor <target> [port]

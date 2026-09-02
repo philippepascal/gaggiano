@@ -58,13 +58,13 @@ docs/WEB.md            what the page shows, the JSON, the CSV columns
 
 ## Phase W1: core upgrade (screen)
 
-- [ ] W1.1 `tools/targets.sh`: `ESP32_CORE_VERSION=3.3.11`, FQBN rewritten with the 3.x
+- [x] W1.1 `tools/targets.sh`: `ESP32_CORE_VERSION=3.3.11`, FQBN rewritten with the 3.x
       option names, `PartitionScheme=app3M_fat9M_16MB`. `./gg setup` installs the core.
-- [ ] W1.2 Vendored `libraries/GFX_Library_for_Arduino` replaced by the current release
+- [x] W1.2 Vendored `libraries/GFX_Library_for_Arduino` replaced by the current release
       (`arduino-cli lib install` into the sketchbook, then committed).
-- [ ] W1.3 `display_glue.cpp` ported to the new panel classes (`Arduino_ESP32RGBPanel`
+- [x] W1.3 `display_glue.cpp` ported to the new panel classes (`Arduino_ESP32RGBPanel`
       with the timings, `Arduino_RGB_Display`), same pins and timings as today.
-- [ ] W1.4 Build clean for the board; fix what the new core flags. Record flash and RAM.
+- [x] W1.4 Build clean for the board; fix what the new core flags. Record flash and RAM.
       Simulator untouched (LVGL unchanged).
 - [ ] W1.5 **(bench)** `./gg flash screen` with a full erase once (`EraseFlash=all` for
       that flash only, documented in BUILD.md), then the bench checklist items 1 to 9.
@@ -160,4 +160,7 @@ docs/WEB.md            what the page shows, the JSON, the CSV columns
 
 ## Notes log
 
-- 2026-09-02: plan written; core 3.3.11 install started into `.arduino-data`.
+- 2026-09-02: plan written; core 3.3.11 installed into `.arduino-data` (2.0.17 kept
+  alongside for a rollback). Arduino_GFX 1.2.8 -> 1.6.7. The screen built on the new
+  core at the first attempt: 790,416 bytes (25 % of the 3 MB slot), static RAM 37,856.
+  `./gg flash screen --erase` added for the one-time partition change.

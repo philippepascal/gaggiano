@@ -6,7 +6,7 @@ STM32_CORE_VERSION="2.9.0"
 STM32_INDEX_URL="https://github.com/stm32duino/BoardManagerFiles/raw/main/package_stmicroelectronics_index.json"
 
 ESP32_CORE_ID="esp32:esp32"
-ESP32_CORE_VERSION="2.0.17"
+ESP32_CORE_VERSION="3.3.11"
 ESP32_INDEX_URL="https://espressif.github.io/arduino-esp32/package_esp32_index.json"
 
 ALL_TARGETS="controller screen"
@@ -32,9 +32,10 @@ target_load() {
     screen)
       T_NAME=screen
       T_DESC="ESP32-S3 Sunton 8048S043 4.3in touch display"
+      # 16 MB flash: two 3 MB app slots (OTA) and a 9.9 MB FAT partition
       T_SKETCH=gaggiano-v2
       T_CORE="$ESP32_CORE_ID@$ESP32_CORE_VERSION"
-      T_FQBN="esp32:esp32:esp32s3:UploadSpeed=460800,USBMode=hwcdc,CDCOnBoot=default,MSCOnBoot=default,DFUOnBoot=default,UploadMode=default,CPUFreq=240,FlashMode=qio,FlashSize=16M,PartitionScheme=default,DebugLevel=none,PSRAM=opi,LoopCore=1,EventsCore=1,EraseFlash=none,JTAGAdapter=default"
+      T_FQBN="esp32:esp32:esp32s3:UploadSpeed=460800,USBMode=hwcdc,CDCOnBoot=default,MSCOnBoot=default,DFUOnBoot=default,UploadMode=default,CPUFreq=240,FlashMode=qio,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,DebugLevel=none,PSRAM=opi,LoopCore=1,EventsCore=1,EraseFlash=none,JTAGAdapter=default,ZigbeeMode=default"
       T_BAUD=115200
       T_FLASH=esptool
       # run = the board's CH340 UART bridge. native = the S3's own USB, unused by

@@ -19,7 +19,7 @@ a few GB, one-time download):
 | Target | Core | Version |
 |---|---|---|
 | controller | STMicroelectronics:stm32 | 2.9.0 |
-| screen | esp32:esp32 | 2.0.17 |
+| screen | esp32:esp32 | 3.3.11 |
 
 Nothing outside the repo is read at build time except the compilers' own caches in
 `~/Library/Caches/arduino`. The Arduino IDE and its `~/Library/Arduino15` directory are
@@ -43,6 +43,18 @@ checks for it at the standard install path.
 
 `flash` accepts `--no-build`, `--port /dev/cu.xxx`, `--timeout 120` and
 `--via stlink` (controller only, needs an ST-Link on the SWD header).
+
+## Partition scheme of the screen
+
+The screen uses the core's `app3M_fat9M_16MB` scheme: two 3 MB app slots (needed for
+over-the-air updates) and a 9.9 MB FAT partition. The first flash after changing the
+scheme (2026-09-02, core 3.3.11) must erase the whole chip once:
+
+```
+./gg flash screen --erase
+```
+
+Profiles and logs live on the SD card and are not affected.
 
 ## Troubleshooting the screen upload
 
@@ -73,7 +85,7 @@ checks for it at the standard install path.
 
 Edit the `T_FQBN` line for the target in `tools/targets.sh`. Valid option names and
 values are in the core's `boards.txt`, for example
-`.arduino-data/packages/esp32/hardware/esp32/2.0.17/boards.txt`. The full menu is
+`.arduino-data/packages/esp32/hardware/esp32/3.3.11/boards.txt`. The full menu is
 also printed by `arduino-cli --config-file tools/arduino-cli.yaml board details --fqbn <fqbn>`.
 
 ## Adding a library
