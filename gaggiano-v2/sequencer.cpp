@@ -2,6 +2,8 @@
 #include <gaggia_protocol.h>
 
 static int currentPhase = PHASE_OFF;
+static uint32_t phaseStart = 0;  // phase durations are measured from here; the
+                                 // on-screen timer (actionStartTime) runs across phases
 
 int sequencerPhase() { return currentPhase; }
 void sequencerReset() { currentPhase = PHASE_OFF; }
@@ -43,6 +45,7 @@ static void markStopped(GaggiaStateT *s, uint32_t now) {
 static void markStarted(GaggiaStateT *s, uint32_t now) {
   s->actionStartTime = (int)now;
   s->actionStopTime = 0;
+  phaseStart = now;
 }
 
 bool sequencerStep(GaggiaStateT *s, uint32_t now, SeqCommand *out) {
@@ -102,23 +105,24 @@ bool sequencerStep(GaggiaStateT *s, uint32_t now, SeqCommand *out) {
     return brew(out, 0, 0);
   }
 
-  // No button change: advance the timed phases.
-  uint32_t elapsed = now - (uint32_t)s->actionStartTime;
+  // No button change: advance the timed phases. The action timer keeps running
+  // across fill, wait and brew and holds the total once the sequence ends.
+  uint32_t elapsed = now - phaseStart;
   if (currentPhase == PHASE_BLOOM_FILL) {
     if (elapsed > (uint32_t)(s->blooming_fill_time * 1000)) {
       currentPhase = PHASE_BLOOM_WAIT;
-      s->actionStartTime = (int)now;
+      phaseStart = now;
       return brew(out, temp, 0);
     }
   } else if (currentPhase == PHASE_BLOOM_WAIT) {
     if (elapsed > (uint32_t)(s->blooming_wait_time * 1000)) {
       if (s->isBlooming) {
         currentPhase = PHASE_OFF;
-        s->actionStartTime = 0;
+        s->actionStopTime = (int)now;
         s->isBlooming = false;
       } else if (s->isAuto) {
         currentPhase = PHASE_BREW;
-        s->actionStartTime = (int)now;
+        phaseStart = now;
         return brew(out, temp, s->pressureSetPoint);
       }
     }

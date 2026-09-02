@@ -61,10 +61,12 @@ int main() {
   CHECK(sequencerStep(&S, 8100, &C));               // 7.1 s: wait phase
   CHECK(C.mode == GP_MODE_OFF); CHECK_NEAR(C.tempSet, 93, 0.01); CHECK(sequencerPhase() == PHASE_BLOOM_WAIT);
   CHECK(!sequencerStep(&S, 16000, &C));             // 7.9 s into the wait
+  CHECK(S.actionStartTime == 1000);                 // the timer runs across the phases
   CHECK(!sequencerStep(&S, 16200, &C));             // wait over: bloom ends silently
   CHECK(sequencerPhase() == PHASE_OFF);
   CHECK(!S.isBlooming);
-  CHECK(S.actionStartTime == 0);
+  CHECK(S.actionStartTime == 1000);
+  CHECK(S.actionStopTime == 16200);                 // total held on screen: 15.2 s
 
   // Auto with bloom: fill, wait, brew for brew_timer, then off.
   reset();
@@ -79,6 +81,7 @@ int main() {
   CHECK(sequencerStep(&S, 16200 + 33100, &C));      // brew timer done
   CHECK(C.mode == GP_MODE_OFF); CHECK_NEAR(C.tempSet, 93, 0.01);
   CHECK(!S.isAuto); CHECK(sequencerPhase() == PHASE_OFF);
+  CHECK(S.actionStartTime == 1000);                 // continuous through fill, wait, brew
   CHECK(S.actionStopTime == 16200 + 33100);
 
   // Auto without bloom configured: straight to brew.
