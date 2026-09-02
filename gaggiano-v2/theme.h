@@ -59,6 +59,7 @@ void theme_apply_graph(lv_obj_t *chart);          // the full history chart: fai
 void theme_apply_legend(lv_obj_t *label, lv_color_t color);
 void theme_apply_editor(lv_obj_t *overlay);       // dim layer above the keyboard
 void theme_apply_editor_value(lv_obj_t *textarea); // the value being edited, large
+void theme_apply_editor_title(lv_obj_t *label);    // the field's name, same size, muted
 
 #ifdef __cplusplus
 }

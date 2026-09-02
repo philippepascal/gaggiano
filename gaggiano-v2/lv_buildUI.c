@@ -217,14 +217,15 @@ static void editor_create(void) {
   lv_obj_add_flag(editor, LV_OBJ_FLAG_HIDDEN);
 
   editor_title = lv_label_create(editor);
-  theme_apply_tile_label(editor_title);
-  lv_obj_align(editor_title, LV_ALIGN_TOP_MID, 0, 40);
+  theme_apply_editor_title(editor_title);
+  lv_obj_set_width(editor_title, LV_PCT(90));
+  lv_obj_align(editor_title, LV_ALIGN_TOP_MID, 0, 36);
 
   editor_ta = lv_textarea_create(editor);
   theme_apply_editor_value(editor_ta);
   lv_textarea_set_one_line(editor_ta, true);
   lv_obj_set_width(editor_ta, LV_PCT(90));
-  lv_obj_align(editor_ta, LV_ALIGN_CENTER, 0, 20);
+  lv_obj_align(editor_ta, LV_ALIGN_TOP_MID, 0, 120);
 }
 
 // Tapping a field opens the editor; the editor writes the value back on OK.
