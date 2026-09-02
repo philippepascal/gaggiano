@@ -380,13 +380,6 @@ static void menu_changed(lv_event_t* e) {
   lv_event_code_t code = lv_event_get_code(e);
   if (code == LV_EVENT_VALUE_CHANGED) {
     lv_tabview_set_act(tv, lv_dropdown_get_selected(menuDd), LV_ANIM_OFF);
-  } else if (code == LV_EVENT_READY) {
-    // the list opens aligned to the button's left edge and would run off the screen:
-    // hang it from the button's right edge instead
-    lv_obj_t* list = lv_dropdown_get_list(menuDd);
-    lv_obj_set_width(list, 200);
-    lv_obj_update_layout(list);
-    lv_obj_align_to(list, menuDd, LV_ALIGN_OUT_BOTTOM_RIGHT, 0, 6);
   }
 }
 
@@ -753,6 +746,7 @@ void instantiateUI(GaggiaStateT* s,
   lv_dropdown_set_text(menuDd, LV_SYMBOL_LIST);
   lv_dropdown_set_symbol(menuDd, NULL);
   lv_dropdown_set_selected_highlight(menuDd, false);
+  lv_dropdown_set_dir(menuDd, LV_DIR_LEFT);  // the button sits at the screen edge; the list opens leftwards
   lv_obj_set_size(menuDd, 56, 34);
   lv_obj_align(menuDd, LV_ALIGN_RIGHT_MID, 0, 0);
   theme_apply_menu(menuDd);
