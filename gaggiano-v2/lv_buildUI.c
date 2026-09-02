@@ -185,6 +185,9 @@ static void editor_close(bool apply) {
   lv_obj_add_flag(editor, LV_OBJ_FLAG_HIDDEN);
   lv_obj_clear_state(editor_ta, LV_STATE_FOCUSED);
   lv_obj_clear_state(target, LV_STATE_FOCUSED);
+  // The keyboard acts on the press; without this the release lands on whatever is
+  // under the finger once the keyboard is gone (the Cancel button, on the advanced view).
+  lv_indev_wait_release(lv_indev_get_act());
   lv_indev_reset(NULL, target);  // so the same field can be tapped again
   lv_event_send(target, apply ? LV_EVENT_READY : LV_EVENT_CANCEL, NULL);
 }
@@ -483,6 +486,7 @@ static void title_clicked(lv_event_t* e) {
 static void menu_changed(lv_event_t* e) {
   lv_event_code_t code = lv_event_get_code(e);
   if (code == LV_EVENT_VALUE_CHANGED) {
+    lv_dropdown_close(menuDd);  // close before the view switches, so no half-drawn frame
     lv_tabview_set_act(tv, lv_dropdown_get_selected(menuDd), LV_ANIM_OFF);
   } else if (code == LV_EVENT_READY) {
     // the list exists only while open: make its rows big enough for a finger
@@ -490,6 +494,8 @@ static void menu_changed(lv_event_t* e) {
     lv_obj_t* label = lv_obj_get_child(list, 0);  // LVGL sizes the list from this label right after this event
     lv_obj_set_style_text_font(label, theme_font_value, 0);
     lv_obj_set_style_text_line_space(label, 28, 0);
+    lv_obj_set_style_text_font(list, theme_font_value, 0);  // the pressed row is drawn with the list's font
+    lv_obj_set_style_text_line_space(list, 28, 0);
     lv_obj_set_style_pad_ver(list, 14, 0);
     lv_obj_set_style_pad_hor(list, 28, 0);
     lv_obj_set_style_bg_color(list, theme_surface(), 0);
@@ -643,6 +649,22 @@ lv_obj_t* brew_btn_for_scene(void) { return brew_btn; }
 lv_obj_t* steam_btn_for_scene(void) { return boil_btn; }
 lv_obj_t* menu_for_scene(void) { return menuDd; }
 void show_view_for_scene(int index);
+// simulator: edit an advanced field through the editor and report what the field shows
+void editadv_for_scene(int step) {
+  if (step == 0) {
+    updateUI();
+    show_view_for_scene(3);
+    lv_event_send(boiler_PID_KP_tf, LV_EVENT_FOCUSED, NULL);
+    printf("[sim] editor open, target=%p kb=%p field='%s'\n", (void*)editor_target, (void*)editor_kb, lv_textarea_get_text(boiler_PID_KP_tf));
+  } else if (step == 1) {
+    lv_textarea_set_text(editor_ta, "7");
+    lv_event_send(editor_kb, LV_EVENT_READY, NULL);  // what the keyboard's OK does
+    printf("[sim] after OK: field='%s' editor_target=%p save disabled=%d\n", lv_textarea_get_text(boiler_PID_KP_tf), (void*)editor_target,
+           lv_obj_has_state(advancedSetBtn, LV_STATE_DISABLED));
+  } else {
+    printf("[sim] later: field='%s' save disabled=%d\n", lv_textarea_get_text(boiler_PID_KP_tf), lv_obj_has_state(advancedSetBtn, LV_STATE_DISABLED));
+  }
+}
 void edit_for_scene(void) {
   updateUI();  // fields are filled from the state on the first refresh
   show_view_for_scene(2);

@@ -22,6 +22,7 @@ extern "C" lv_obj_t *steam_btn_for_scene(void);
 extern "C" lv_obj_t *menu_for_scene(void);
 extern "C" void show_view_for_scene(int index);
 extern "C" void edit_for_scene(void);
+extern "C" void editadv_for_scene(int step);
 extern "C" void dump_tiles_for_scene(void);
 #include "sequencer.h"
 #include <gaggia_protocol.h>
@@ -217,6 +218,9 @@ int main(int argc, char **argv) {
   if (strcmp(scene, "settings") == 0) show_view_for_scene(2);
   if (strcmp(scene, "advanced") == 0) show_view_for_scene(3);
   if (strcmp(scene, "edit") == 0) edit_for_scene();
+  bool editadv = strcmp(scene, "editadv") == 0;
+  int editadvStep = 0;
+  if (editadv) editadv_for_scene(editadvStep++);
   if (strcmp(scene, "graph") == 0) {
     state.isBoilerOn = true;
     state.isBrewing = true;
@@ -257,6 +261,7 @@ int main(int argc, char **argv) {
     }
     fakeController(dt);
     if (now - lastUi >= 200) { lastUi = now; updateUI(); }
+    if (editadv && editadvStep < 6 && now - start > (uint32_t)(1000 * editadvStep)) editadv_for_scene(editadvStep++);
     lv_timer_handler();
     present();
     if (shot && now - start > shotAfter) { dump_tiles_for_scene(); saveShot(shot); running = false; }
