@@ -111,8 +111,10 @@ cmd_setup() {
     fi
   done
   if [ "$ci" = 0 ]; then
-    if p="$(cube_cli)"; then log "STM32CubeProgrammer CLI: $p"
-    else warn "STM32CubeProgrammer CLI not found; needed for 'flash controller'. Install from https://www.st.com/en/development-tools/stm32cubeprog.html"; fi
+    if command -v dfu-util >/dev/null 2>&1; then log "dfu-util present (controller flashing)"
+    elif [ "$(uname -s)" = Darwin ] && command -v brew >/dev/null 2>&1; then log "installing dfu-util with Homebrew"; brew install dfu-util
+    else warn "dfu-util not found; needed for 'flash controller' (brew install dfu-util)"; fi
+    if p="$(cube_cli)"; then log "STM32CubeProgrammer CLI present (optional: --via cubeprog)"; fi
     command -v python3 >/dev/null 2>&1 || warn "python3 not found; 'detect' and 'flash controller' need it"
     command -v st-flash >/dev/null 2>&1 && log "st-flash present (optional SWD path)"
   fi
@@ -225,9 +227,20 @@ flash_screen() {
   die "screen upload failed after 3 attempts (see docs/BUILD.md, troubleshooting)"
 }
 
+# Programs the bin through the ROM bootloader with dfu-util (Homebrew, open source).
+# STM32CubeProgrammer is not needed; --via cubeprog uses it if you prefer.
+dfu_program() {
+  local tool="${1:-dfu-util}"
+  if [ "$tool" = cubeprog ]; then
+    cli upload --fqbn "$T_FQBN" --input-dir "$BUILD_DIR/controller" "$REPO/$T_SKETCH"
+  else
+    command -v dfu-util >/dev/null 2>&1 || die "dfu-util not found (brew install dfu-util)"
+    dfu-util -d 0483:df11 -a 0 -s 0x08000000:leave -D "$BUILD_DIR/controller/$T_SKETCH.ino.bin"
+  fi
+}
+
 flash_controller_dfu() {
-  local timeout="${TIMEOUT:-60}" attempt
-  cube_cli >/dev/null || die "STM32CubeProgrammer CLI not found (./gg setup)"
+  local timeout="${TIMEOUT:-60}" attempt tool="${1:-dfu-util}"
   if detect_present controller dfu; then
     log "controller already in DFU mode"
   else
@@ -256,8 +269,8 @@ TXT
     fi
   fi
   for attempt in 1 2 3; do
-    log "download attempt $attempt"
-    if cli upload --fqbn "$T_FQBN" --input-dir "$BUILD_DIR/controller" "$REPO/$T_SKETCH"; then
+    log "download attempt $attempt ($tool)"
+    if dfu_program "$tool" 2>&1 | tr '\r' '\n' | grep -E "Downloading element|done\.|successfully|rror|Cannot|No DFU"; then
       log "controller flashed, waiting for it to come back"
       if wait_for controller run 10; then log "controller is back on $(detect_port controller run)"
       else warn "controller did not re-enumerate within 10s; press NRST"; fi
@@ -294,7 +307,8 @@ cmd_flash() {
   case "$T_NAME:$via" in
     screen:esptool)    flash_screen ;;
     screen:ota)        flash_screen_ota ;;
-    controller:dfu)    flash_controller_dfu ;;
+    controller:dfu)    flash_controller_dfu dfu-util ;;
+    controller:cubeprog) flash_controller_dfu cubeprog ;;
     controller:stlink) flash_controller_stlink ;;
     *) die "target $T_NAME cannot be flashed via '$via'" ;;
   esac
@@ -307,7 +321,7 @@ usage: ./gg <command> [args]
   setup [--ci]           install/pin cores, write tools/arduino-cli.yaml, check tools
   build <target|all> [--clean] [--verbose]
                          compile into build/<target>/
-  flash <target> [--no-build] [--port P] [--timeout S] [--via dfu|stlink|esptool]
+  flash <target> [--no-build] [--port P] [--timeout S] [--via dfu|cubeprog|stlink|esptool]
                          [--no-serial-dfu] [--erase (screen: wipe the whole flash first)]
                          [--ota [host]] (screen: over WiFi, default host gaggiano.local)
                          build then program the board (see docs/FLASH-STM32.md)

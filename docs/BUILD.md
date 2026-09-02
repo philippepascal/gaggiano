@@ -26,8 +26,8 @@ Nothing outside the repo is read at build time except the compilers' own caches 
 not used at all; they can be removed. `./gg clean --all` deletes `.arduino-data/` and
 the next `./gg setup` downloads it again.
 
-For flashing the controller you also need STM32CubeProgrammer (free, from ST). `setup`
-checks for it at the standard install path.
+Flashing the controller uses `dfu-util` from Homebrew; `setup` installs it. ST's
+STM32CubeProgrammer is optional (`--via cubeprog`).
 
 ## Commands
 

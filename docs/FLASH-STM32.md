@@ -29,8 +29,9 @@ What happens:
    below), `gg` sends it and waits up to 5 s for the bootloader to appear.
 4. Otherwise it prints the button sequence and polls for the bootloader for 60 s
    (`--timeout` to change).
-5. It downloads the binary with STM32CubeProgrammer, retrying up to 3 times, then
-   waits for the firmware's serial port to come back.
+5. It downloads the binary with `dfu-util` (Homebrew, open source; ST's
+   STM32CubeProgrammer is not needed, `--via cubeprog` uses it if installed), retrying
+   up to 3 times, then waits for the firmware's serial port to come back.
 
 ## The button sequence
 
@@ -82,8 +83,8 @@ This also enables debugging with gdb and works even when USB is dead.
 
 | Symptom | Check |
 |---|---|
-| `Target device not found` from CubeProgrammer | board not in DFU; redo the button sequence, check cable/port, relay quirk above |
-| DFU seen but download fails at a sector | run again with `--no-build`; if it persists, erase first with `STM32_Programmer_CLI --connect port=usb1 --erase all` |
+| `No DFU capable USB device available` from dfu-util | board not in DFU; redo the button sequence, check cable/port, relay quirk above |
+| DFU seen but download fails at a sector | run again with `--no-build`; if it persists, erase first with `dfu-util -d 0483:df11 -a 0 -s 0x08000000 -D /dev/zero` is not needed; use `--via cubeprog` with STM32CubeProgrammer as a second opinion |
 | Board silent after flash | the build must have `usb=CDCgen` (it does, in `tools/targets.sh`); press NRST once |
-| `STM32CubeProgrammer CLI not found` | install it from ST's site; `gg` looks in `/Applications/STMicroelectronics/...` and on `PATH`. This is the one tool that is not inside the repo |
+| `dfu-util not found` | `brew install dfu-util` (`./gg setup` does it) |
 | Two `usbmodem` ports | `./gg detect` shows which one is the controller; pass `--port` to `monitor` |
