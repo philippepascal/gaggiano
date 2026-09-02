@@ -123,7 +123,7 @@ int main() {
   }
   {
     // boot noise before '$', and CRLF after: still decodes
-    char l[GP_LINE_MAX];
+    char l[GP_LINE_MAX + 64];  // room for the prefix, the line, and the CRLF appended below
     std::snprintf(l, sizeof(l), "\x1b[0m junk %s", cline);
     size_t n = std::strlen(l);
     l[n - 1] = '\r'; l[n] = '\n'; l[n + 1] = '\0';
@@ -167,7 +167,7 @@ int main() {
   // --- reader + decoder end to end with two messages in one buffer
   {
     GpLineReader rd;
-    char two[2 * GP_LINE_MAX];
+    char two[2 * GP_LINE_MAX + 8];
     std::snprintf(two, sizeof(two), "%s%s", cline, sline);
     int got = 0;
     for (const char *p = two; *p; p++) {
