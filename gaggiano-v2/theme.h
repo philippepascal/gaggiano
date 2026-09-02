@@ -16,7 +16,8 @@ lv_color_t theme_steel(void);     // borders, active tab
 lv_color_t theme_text(void);
 lv_color_t theme_muted(void);
 lv_color_t theme_amber(void);     // anything running
-lv_color_t theme_steam(void);     // steaming
+lv_color_t theme_steam(void);     // steaming (a red, distinct from the amber)
+lv_color_t theme_pressure(void);  // graph: pressure curve
 lv_color_t theme_heater(void);    // graph: heater output
 lv_color_t theme_pump(void);      // graph: pump output
 lv_color_t theme_clean(void);     // graph: clean mode
@@ -45,6 +46,7 @@ void theme_apply_tile_unit(lv_obj_t *label);      // unit next to the reading
 void theme_apply_chart(lv_obj_t *chart);          // curve behind a tile: no grid, no points
 lv_chart_series_t *theme_chart_series(lv_obj_t *chart);
 void theme_set_hot(lv_obj_t *value, lv_obj_t *chart, lv_chart_series_t *ser, bool hot);  // amber while running
+void theme_set_btn_labels(lv_obj_t *name, lv_obj_t *value, lv_obj_t *sub, bool checked);  // name amber when idle, ink when lit
 void theme_apply_btn_name(lv_obj_t *label);
 void theme_apply_btn_value(lv_obj_t *label);
 void theme_apply_btn_sub(lv_obj_t *label);        // small third line in a button

@@ -6,7 +6,8 @@ lv_color_t theme_steel(void) { return lv_color_hex(0x3C434A); }
 lv_color_t theme_text(void) { return lv_color_hex(0xE9ECEF); }
 lv_color_t theme_muted(void) { return lv_color_hex(0x8B949E); }
 lv_color_t theme_amber(void) { return lv_color_hex(0xD9A441); }
-lv_color_t theme_steam(void) { return lv_color_hex(0x7FB3D5); }
+lv_color_t theme_steam(void) { return lv_color_hex(0xD64545); }
+lv_color_t theme_pressure(void) { return lv_color_hex(0x7FB3D5); }
 lv_color_t theme_heater(void) { return lv_color_hex(0xD9603B); }
 lv_color_t theme_pump(void) { return lv_color_hex(0x6BBF8A); }
 lv_color_t theme_clean(void) { return lv_color_hex(0x4FA3A0); }
@@ -58,7 +59,7 @@ void theme_init(void) {
   lv_style_set_text_font(&st_muted, theme_font_small);
 
   lv_style_init(&st_title);
-  lv_style_set_text_color(&st_title, theme_text());
+  lv_style_set_text_color(&st_title, theme_amber());
   lv_style_set_text_font(&st_title, theme_font_value);
 
   lv_style_init(&st_btn);
@@ -98,7 +99,7 @@ void theme_init(void) {
 
   lv_style_init(&st_btn_name);
   lv_style_set_text_font(&st_btn_name, theme_font_value);
-  lv_style_set_text_opa(&st_btn_name, LV_OPA_70);  // quieter than the value, in every button state
+  lv_style_set_text_color(&st_btn_name, theme_amber());  // theme_set_btn_labels() switches it when lit
 
   lv_style_init(&st_btn_sub);
   lv_style_set_text_font(&st_btn_sub, theme_font_name);
@@ -147,7 +148,7 @@ void theme_init(void) {
 
   lv_style_init(&st_editor_title);
   lv_style_set_text_font(&st_editor_title, theme_font_big);
-  lv_style_set_text_color(&st_editor_title, theme_muted());
+  lv_style_set_text_color(&st_editor_title, theme_amber());
   lv_style_set_text_align(&st_editor_title, LV_TEXT_ALIGN_CENTER);
 
   lv_style_init(&st_field_label);
@@ -185,7 +186,7 @@ void theme_init(void) {
   lv_style_set_clip_corner(&st_tile, true);
 
   lv_style_init(&st_tile_label);
-  lv_style_set_text_color(&st_tile_label, theme_muted());
+  lv_style_set_text_color(&st_tile_label, theme_amber());
   lv_style_set_text_font(&st_tile_label, theme_font_small);
   lv_style_set_text_letter_space(&st_tile_label, 2);
 
@@ -282,6 +283,13 @@ void theme_apply_chart(lv_obj_t *chart) {
 
 lv_chart_series_t *theme_chart_series(lv_obj_t *chart) {
   return lv_chart_add_series(chart, steel_hi(), LV_CHART_AXIS_PRIMARY_Y);
+}
+
+void theme_set_btn_labels(lv_obj_t *name, lv_obj_t *value, lv_obj_t *sub, bool checked) {
+  lv_color_t ink = amber_ink();
+  lv_obj_set_style_text_color(name, checked ? ink : theme_amber(), 0);
+  if (value) lv_obj_set_style_text_color(value, checked ? ink : theme_text(), 0);
+  if (sub) lv_obj_set_style_text_color(sub, checked ? ink : theme_muted(), 0);
 }
 
 void theme_set_hot(lv_obj_t *value, lv_obj_t *chart, lv_chart_series_t *ser, bool hot) {

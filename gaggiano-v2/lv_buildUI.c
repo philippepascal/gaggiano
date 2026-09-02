@@ -84,6 +84,7 @@ static lv_obj_t* heat_btn_label;
 static lv_obj_t* boil_btn;
 static lv_obj_t* boil_btn_label;
 static lv_obj_t* boil_btn_sub;   // pressure and pump on the steam button
+static lv_obj_t* btn_names[6];   // name labels, recolored with the checked state
 static lv_obj_t* brew_btn;
 static lv_obj_t* brew_btn_label;
 static lv_obj_t* clean_btn;
@@ -182,6 +183,7 @@ static void editor_close(bool apply) {
     lv_obj_add_flag(editor_kb, LV_OBJ_FLAG_HIDDEN);
   }
   lv_obj_add_flag(editor, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_clear_state(editor_ta, LV_STATE_FOCUSED);
   lv_obj_clear_state(target, LV_STATE_FOCUSED);
   lv_indev_reset(NULL, target);  // so the same field can be tapped again
   lv_event_send(target, apply ? LV_EVENT_READY : LV_EVENT_CANCEL, NULL);
@@ -196,10 +198,18 @@ static void editor_open(lv_obj_t* field, lv_obj_t* kb) {
   lv_textarea_set_text(editor_ta, lv_textarea_get_text(field));
   lv_textarea_set_cursor_pos(editor_ta, LV_TEXTAREA_CURSOR_LAST);
   lv_keyboard_set_textarea(kb, editor_ta);
+  lv_obj_add_state(editor_ta, LV_STATE_FOCUSED);  // cursor visible from the start
   lv_obj_set_height(kb, LV_VER_RES / 2);
   lv_obj_clear_flag(editor, LV_OBJ_FLAG_HIDDEN);
   lv_obj_clear_flag(kb, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_foreground(kb);
+}
+
+// a tap on the dimmed area (not on the value) closes the editor, keeping the edit
+static void editor_bg_clicked(lv_event_t* e) {
+  if (lv_event_get_code(e) != LV_EVENT_CLICKED || editor_target == NULL) return;
+  bool changed = strcmp(lv_textarea_get_text(editor_ta), lv_textarea_get_text(editor_target)) != 0;
+  editor_close(changed);
 }
 
 static void editor_kb_event(lv_event_t* e) {
@@ -215,6 +225,7 @@ static void editor_create(void) {
   lv_obj_set_pos(editor, 0, 0);
   lv_obj_clear_flag(editor, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_add_flag(editor, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_event_cb(editor, editor_bg_clicked, LV_EVENT_CLICKED, NULL);
 
   editor_title = lv_label_create(editor);
   theme_apply_editor_title(editor_title);
@@ -478,6 +489,17 @@ static void menu_changed(lv_event_t* e) {
   lv_event_code_t code = lv_event_get_code(e);
   if (code == LV_EVENT_VALUE_CHANGED) {
     lv_tabview_set_act(tv, lv_dropdown_get_selected(menuDd), LV_ANIM_OFF);
+  } else if (code == LV_EVENT_READY) {
+    // the list exists only while open: make its rows big enough for a finger
+    lv_obj_t* list = lv_dropdown_get_list(menuDd);
+    lv_obj_t* label = lv_obj_get_child(list, 0);  // LVGL sizes the list from this label right after this event
+    lv_obj_set_style_text_font(label, theme_font_value, 0);
+    lv_obj_set_style_text_line_space(label, 28, 0);
+    lv_obj_set_style_pad_ver(list, 14, 0);
+    lv_obj_set_style_pad_hor(list, 28, 0);
+    lv_obj_set_style_bg_color(list, theme_surface(), 0);
+    lv_obj_set_style_border_color(list, theme_steel(), 0);
+    lv_obj_set_style_max_height(list, LV_VER_RES - 2 * HEADER_H, 0);  // the theme caps lists at 2 x DPI
   }
 }
 
@@ -737,6 +759,16 @@ void updateUI() {
 
   graph_update(millis());
 
+  // button labels follow the checked state (amber names when idle, ink on a lit button)
+  {
+    lv_obj_t* btns[6] = { heat_btn, brew_btn, prime_btn, boil_btn, clean_btn, auto_btn };
+    lv_obj_t* values[6] = { heat_btn_label, brew_btn_label, prime_btn_label, boil_btn_label, clean_btn_label, auto_btn_label };
+    for (int i = 0; i < 6; i++) {
+      theme_set_btn_labels(btn_names[i], values[i], btns[i] == boil_btn ? boil_btn_sub : NULL,
+                           lv_obj_has_state(btns[i], LV_STATE_CHECKED));
+    }
+  }
+
   if (state->notes[0] == '\0') lv_obj_add_flag(main_notes_label, LV_OBJ_FLAG_HIDDEN);
   else lv_obj_clear_flag(main_notes_label, LV_OBJ_FLAG_HIDDEN);
 
@@ -971,6 +1003,7 @@ static lv_obj_t* action_btn_create(lv_obj_t* parent, const char* name, bool stea
   lv_obj_t* nameLabel = lv_label_create(btn);
   theme_apply_btn_name(nameLabel);
   lv_label_set_text(nameLabel, name);
+  for (int i = 0; i < 6; i++) if (btn_names[i] == NULL) { btn_names[i] = nameLabel; break; }
 
   lv_obj_t* value = lv_label_create(btn);
   theme_apply_btn_value(value);
@@ -1036,7 +1069,7 @@ static void graph_create(lv_obj_t* parent) {
   lv_obj_set_size(legend, LV_PCT(100), 30);
   lv_obj_set_flex_flow(legend, LV_FLEX_FLOW_ROW);
   lv_obj_set_flex_align(legend, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_color_t colors[4] = { theme_amber(), theme_steam(), theme_heater(), theme_pump() };
+  lv_color_t colors[4] = { theme_amber(), theme_pressure(), theme_heater(), theme_pump() };
   for (int i = 0; i < 4; i++) {
     g_legend[i] = lv_label_create(legend);
     theme_apply_legend(g_legend[i], colors[i]);
@@ -1054,7 +1087,7 @@ static void graph_create(lv_obj_t* parent) {
   g_boiler_ser = lv_chart_add_series(graph_chart, theme_heater(), LV_CHART_AXIS_PRIMARY_Y);
   g_pump_ser = lv_chart_add_series(graph_chart, theme_pump(), LV_CHART_AXIS_PRIMARY_Y);
   g_temp_ser = lv_chart_add_series(graph_chart, theme_amber(), LV_CHART_AXIS_PRIMARY_Y);
-  g_press_ser = lv_chart_add_series(graph_chart, theme_steam(), LV_CHART_AXIS_SECONDARY_Y);
+  g_press_ser = lv_chart_add_series(graph_chart, theme_pressure(), LV_CHART_AXIS_SECONDARY_Y);
   lv_chart_set_all_value(graph_chart, g_boiler_ser, LV_CHART_POINT_NONE);
   lv_chart_set_all_value(graph_chart, g_pump_ser, LV_CHART_POINT_NONE);
   lv_chart_set_all_value(graph_chart, g_temp_ser, LV_CHART_POINT_NONE);
