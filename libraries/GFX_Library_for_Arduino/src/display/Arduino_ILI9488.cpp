@@ -1,7 +1,3 @@
-/*
- * start rewrite from:
- * https://github.com/nopnop2002/esp-idf-parallel-tft
- */
 #include "Arduino_ILI9488.h"
 
 Arduino_ILI9488::Arduino_ILI9488(Arduino_DataBus *bus, int8_t rst, uint8_t r, bool ips)
@@ -9,9 +5,9 @@ Arduino_ILI9488::Arduino_ILI9488(Arduino_DataBus *bus, int8_t rst, uint8_t r, bo
 {
 }
 
-void Arduino_ILI9488::begin(int32_t speed)
+bool Arduino_ILI9488::begin(int32_t speed)
 {
-  Arduino_TFT::begin(speed);
+  return Arduino_TFT::begin(speed);
 }
 
 /**************************************************************************/
@@ -50,14 +46,14 @@ void Arduino_ILI9488::writeAddrWindow(int16_t x, int16_t y, uint16_t w, uint16_t
     _currentX = x;
     _currentW = w;
     x += _xStart;
-    _bus->writeC8D16D16(ILI9488_CASET, x, x + w - 1);
+    _bus->writeC8D16D16Split(ILI9488_CASET, x, x + w - 1);
   }
   if ((y != _currentY) || (h != _currentH))
   {
     _currentY = y;
     _currentH = h;
     y += _yStart;
-    _bus->writeC8D16D16(ILI9488_PASET, y, y + h - 1);
+    _bus->writeC8D16D16Split(ILI9488_PASET, y, y + h - 1);
   }
 
   _bus->writeCommand(ILI9488_RAMWR); // write to RAM
@@ -65,7 +61,7 @@ void Arduino_ILI9488::writeAddrWindow(int16_t x, int16_t y, uint16_t w, uint16_t
 
 void Arduino_ILI9488::invertDisplay(bool i)
 {
-  _bus->sendCommand(i ? ILI9488_INVON : ILI9488_INVOFF);
+  _bus->sendCommand((_ips ^ i) ? ILI9488_INVON : ILI9488_INVOFF);
 }
 
 void Arduino_ILI9488::displayOn(void)
@@ -94,49 +90,18 @@ void Arduino_ILI9488::tftInit()
     digitalWrite(_rst, HIGH);
     delay(ILI9488_RST_DELAY);
   }
-
-  uint8_t ili9488_init_operations[] = {
-      BEGIN_WRITE,
-      WRITE_COMMAND_8, ILI9488_SWRESET,
-      END_WRITE,
-
-      DELAY, ILI9488_RST_DELAY,
-
-      BEGIN_WRITE,
-      WRITE_COMMAND_8, 0x28,   //Display Off
-      WRITE_C8_D8, 0x3A, 0x55, //Pixel read=565, write=565.
-
-      WRITE_C8_D16, 0xC0, 0x10, 0x10, //Power Control 1 [0E 0E]
-      WRITE_C8_D8, 0xC1, 0x41,        //Power Control 2 [43]
-      WRITE_COMMAND_8, 0xC5,
-      WRITE_BYTES, 4, 0x00, 0x22, 0x80, 0x40, //VCOM  Control 1 [00 40 00 40]
-      WRITE_C8_D8, 0x36, 0x98,                //Memory Access [00]
-      WRITE_C8_D8, 0xB0, 0x00,                //Interface     [00]
-      WRITE_C8_D16, 0xB1, 0xB0, 0x11,         //Frame Rate Control [B0 11]
-      WRITE_C8_D8, 0xB4, 0x02,                //Inversion Control [02]
-      WRITE_COMMAND_8, 0xB6,
-      WRITE_BYTES, 3, 0x02, 0x02, 0x3B, // Display Function Control [02 02 3B] .kbv NL=480
-      WRITE_C8_D8, 0xB7, 0xC6,          //Entry Mode      [06]
-      WRITE_C8_D8, 0x3A, 0x55,          //Interlace Pixel Format [XX]
-      WRITE_COMMAND_8, 0xF7,
-      WRITE_BYTES, 4, 0xA9, 0x51, 0x2C, 0x82, //Adjustment Control 3 [A9 51 2C 82]
-      WRITE_COMMAND_8, ILI9488_SLPOUT,        // Sleep Out
-      END_WRITE,
-
-      DELAY, ILI9488_SLPOUT_DELAY,
-
-      BEGIN_WRITE,
-      WRITE_COMMAND_8, ILI9488_DISPON, // Display on
-      END_WRITE};
+  else
+  {
+    // Software Rest
+    _bus->sendCommand(ILI9488_SWRESET);
+    delay(ILI9488_RST_DELAY);
+  }
 
   _bus->batchOperation(ili9488_init_operations, sizeof(ili9488_init_operations));
 
-  if (_ips)
-  {
-    _bus->sendCommand(ILI9488_INVON);
-  }
-  else
-  {
-    _bus->sendCommand(ILI9488_INVOFF);
-  }
+  _bus->beginWrite();
+  _bus->writeC8D8(0x3A, 0x55); // Interface Pixel Format, 16 bit
+  _bus->endWrite();
+
+  invertDisplay(false);
 }

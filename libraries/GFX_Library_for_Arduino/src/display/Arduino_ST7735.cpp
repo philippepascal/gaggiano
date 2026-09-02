@@ -14,7 +14,7 @@ Arduino_ST7735::Arduino_ST7735(
 {
 }
 
-void Arduino_ST7735::begin(int32_t speed)
+bool Arduino_ST7735::begin(int32_t speed)
 {
 #if defined(ESP8266) || defined(ESP32)
   if (speed == GFX_NOT_DEFINED)
@@ -29,7 +29,8 @@ void Arduino_ST7735::begin(int32_t speed)
   }
 #endif
   _override_datamode = SPI_MODE0; // always use SPI_MODE0
-  Arduino_TFT::begin(speed);
+
+  return Arduino_TFT::begin(speed);
 }
 
 // Companion code to the above tables.  Reads and issues
@@ -53,49 +54,9 @@ void Arduino_ST7735::tftInit()
     delay(ST7735_RST_DELAY);
   }
 
-  uint8_t st7735_init_operations[] = {
-      BEGIN_WRITE,
-      WRITE_COMMAND_8, ST7735_SLPOUT, // 2: Out of sleep mode, no args, w/delay
-      END_WRITE,
-
-      DELAY, ST7735_SLPOUT_DELAY,
-
-      BEGIN_WRITE,
-      WRITE_C8_D8, ST7735_COLMOD, 0x05, // 3: Set color mode, 16-bit color
-
-      WRITE_COMMAND_8, ST7735_GMCTRP1, // Gamma Adjustments (pos. polarity), 16 args:
-      WRITE_BYTES, 16,
-      0x09, 0x16, 0x09, 0x20, // (Not entirely necessary, but provides
-      0x21, 0x1B, 0x13, 0x19, //  accurate colors)
-      0x17, 0x15, 0x1E, 0x2B,
-      0x04, 0x05, 0x02, 0x0E,
-
-      WRITE_COMMAND_8, ST7735_GMCTRN1, // Gamma Adjustments (neg. polarity), 16 args:
-      WRITE_BYTES, 16,
-      0x0B, 0x14, 0x08, 0x1E, // (Not entirely necessary, but provides
-      0x22, 0x1D, 0x18, 0x1E, //  accurate colors)
-      0x1B, 0x1A, 0x24, 0x2B,
-      0x06, 0x06, 0x02, 0x0F,
-      END_WRITE,
-
-      DELAY, 10,
-
-      BEGIN_WRITE,
-      WRITE_COMMAND_8, ST7735_NORON, // 5: Normal display on, no args, w/delay
-      END_WRITE,
-
-      DELAY, 10,
-
-      BEGIN_WRITE,
-      WRITE_COMMAND_8, ST7735_DISPON, // 6: Main screen turn on, no args, w/delay
-      END_WRITE};
-
   _bus->batchOperation(st7735_init_operations, sizeof(st7735_init_operations));
 
-  if (_ips)
-  {
-    _bus->sendCommand(ST7735_INVON);
-  }
+  invertDisplay(false);
 }
 
 void Arduino_ST7735::writeAddrWindow(int16_t x, int16_t y, uint16_t w, uint16_t h)
@@ -155,14 +116,13 @@ void Arduino_ST7735::setRotation(uint8_t r)
     break;
   }
   _bus->beginWrite();
-  _bus->writeCommand(ST7735_MADCTL);
-  _bus->write(r);
+  _bus->writeC8D8(ST7735_MADCTL, r);
   _bus->endWrite();
 }
 
 void Arduino_ST7735::invertDisplay(bool i)
 {
-  _bus->sendCommand(_ips ? (i ? ST7735_INVOFF : ST7735_INVON) : (i ? ST7735_INVON : ST7735_INVOFF));
+  _bus->sendCommand((_ips ^ i) ? ST7735_INVON : ST7735_INVOFF);
 }
 
 void Arduino_ST7735::displayOn(void)
