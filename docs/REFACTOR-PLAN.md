@@ -242,7 +242,12 @@ disabled after prime/auto ended on their own; the action timer restarted at each
 degree / 0.1 bar / second. Soak 17:16 to 18:16: 360 HEAP lines all at 112,592 bytes;
 21,505 status lines received in 4,521 s (4.76/s, matching the 200 ms send period with
 loop jitter) with the reject counter unchanged; no port drops. Not done: SD log
-continuity (SDLOG left off) and the UART wire pull (needs the controller on USB).
+continuity (SDLOG left off). UART wire pull done afterwards with the controller on USB:
+`link timeout: mode off` 3 s after the unplug, boiler setpoint kept (D1). Pulling the
+four-pin link connector also cuts the screen's power in this bench setup, so the replug
+is a screen reboot: HELLO exchange, the screen's initial off command applied, heartbeat
+resumed. A data-only wire pull is not possible with this connector; the recovery path
+via heartbeat and HELLO is demonstrated by the reboot.
 
 ---
 
@@ -255,6 +260,10 @@ continuity (SDLOG left off) and the UART wire pull (needs the controller on USB)
 - [ ] R4.3 PR `refactoring` to `main`.
 
 ## Deferred (not this branch)
+
+- Screen boot blocks for the 5 s splash before the loop and the heartbeat start, so the
+  controller sees a 3 s link timeout on every screen reboot (harmless: mode is off
+  anyway). A non-blocking splash would remove it.
 
 - Core and library upgrades (migration plan 6.3), 16 MB partition table.
 - Items from `notes.txt`: pressure readout smoothing strategy, PID retune, steam
