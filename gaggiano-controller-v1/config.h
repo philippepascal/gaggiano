@@ -1,7 +1,7 @@
 // Pins, periods and limits for the STM32F411 controller. Single place to edit.
 #pragma once
 
-#define FIRMWARE_VERSION "controller-2026-09-01-r2"  // sent in HELLO: no commas, max 31 chars
+#define FIRMWARE_VERSION "controller-2026-09-02-r3"  // sent in HELLO: no commas, max 31 chars
 
 #define LOOP_PERIOD_MS 10
 
@@ -22,6 +22,7 @@
 #define PUMP_ZC_MODE RISING
 #define PUMP_RANGE 127
 #define PUMP_MAX 255
+#define STEAM_PUMP_MAX_PERCENT 50  // cap on the pump while steaming (solenoid closed); the max-pressure setpoint is the main guard
 #define BOILER_RELAY_PIN PB5
 #define BOILER_RELAY_FREQ_HZ 30
 

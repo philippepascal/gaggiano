@@ -55,7 +55,8 @@ Once the screen is on the network (`docs/WEB.md`):
 
 The build is sent as an HTTP upload to the screen's own web server (`POST /update`), so
 it works whenever the Mac can reach the screen, including across an IoT network. The
-panel shows the progress and restarts by itself. The web page has the same upload under
+panel goes dark while the flash is written (redraws would come out garbled) and comes
+back with the restart; the progress is printed on the USB console. The web page has the same upload under
 "Update firmware", usable from a phone. The password is `gaggiano` unless
 `tools/ota-password` (git-ignored) says otherwise; the screen's own password is set on
 its WiFi view ("Firmware update" password) and defaults to `gaggiano`. The USB path keeps working as before.

@@ -76,9 +76,7 @@ void updatePump2() {
       pumpValue = 0;
     } else {
       float p = pressureOutputPercent;
-      if (pressureOutputPercent > 10) {  // just safety, solenoid is closed!
-        p = 10;
-      }
+      if (p > STEAM_PUMP_MAX_PERCENT) p = STEAM_PUMP_MAX_PERCENT;  // solenoid is closed: keep a guard
       pumpValue = (p * PUMP_RANGE) / 100;
     }
     setPump(pumpValue);

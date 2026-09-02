@@ -7,6 +7,7 @@
 #include "net.h"
 #include "sequencer.h"
 #include "storage.h"
+#include "display_glue.h"
 #include "web_page.h"
 #include <Arduino.h>
 #include <WebServer.h>
@@ -183,8 +184,9 @@ static void updateUpload() {
     sequencerReset();
     linkSetCommand(GP_MODE_OFF, 0, 0, 0);
     Serial.printf("update: start (%s)\n", up.filename.c_str());
-    ui_show_progress("Updating firmware");  // a label on a black screen: nothing else is drawn
+    ui_show_progress("Updating firmware");
     lv_timer_handler();
+    displayBacklight(false);  // flash writes stall the panel: redraws come out garbled, so show nothing
     if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { updateFailed = true; Update.printError(Serial); }
   } else if (up.status == UPLOAD_FILE_WRITE) {
     if (!updateAuthorized || updateFailed) return;
@@ -209,6 +211,7 @@ static void updateUpload() {
 static void updateDone() {
   if (!updateAuthorized) { server.send(403, "text/plain", "wrong password"); return; }
   if (updateFailed || Update.hasError()) {
+    displayBacklight(true);
     ui_show_progress("Update failed");
     lv_timer_handler();
     delay(1500);
