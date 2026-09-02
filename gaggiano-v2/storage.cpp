@@ -104,8 +104,14 @@ int deleteLogsFile() {
   if (!storageReady()) return -1;
   if (logFile) logFile.close();
   if (!fileSystem->remove(logsPath)) Serial.println("SD: no log file to delete");
-  return logController("$STAT,mode,temp,pressure,valve,boilerOut,pumpOut,tempSet,pressSet,pumpPct,linkOk,faults,counter*00");  // the time column is prepended
+  return logController("mode,temp,pressure,valve,heater,pump,tempSet,pressSet,pumpPct,linkOk,faults,counter");  // "time," is prepended
 }
+
+void storageLogFlush() {
+  if (logFile) logFile.close();  // reopened by the next logController()
+}
+
+const char *storageLogPath() { return logsPath; }
 
 // ---------------------------------------------------------------- profiles
 

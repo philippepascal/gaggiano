@@ -107,6 +107,20 @@ static void applyStat(const GpStat &st, uint32_t now) {
   }
 }
 
+// Log rows: every status line while the controller runs something, one per second
+// otherwise, so a day of idling stays small and a shot keeps its detail.
+static void logStat(const GpStat &st, uint32_t now) {
+  static uint32_t lastRow = 0;
+  if (!isControllerLoggingOn) return;
+  if (st.mode == GP_MODE_OFF && now - lastRow < 1000) return;
+  lastRow = now;
+  char row[160];
+  snprintf(row, sizeof(row), "%d,%.2f,%.2f,%d,%.1f,%.1f,%.2f,%.2f,%.2f,%d,%lu,%lu", st.mode, st.temp, st.pressure,
+           st.valve, st.boilerOut, st.pumpOut * 100.0f / 127.0f, st.tempSet, st.pressSet, st.pumpPct, st.linkOk,
+           (unsigned long)st.faults, (unsigned long)st.counter);
+  logController(row);
+}
+
 static void handleLine(const char *line, size_t len, uint32_t now) {
   GpMessage m;
   GpResult r = gp_decode(line, len, &m);
@@ -121,8 +135,8 @@ static void handleLine(const char *line, size_t len, uint32_t now) {
   linkRxLines++;
   switch (m.type) {
     case GP_STAT:
-      if (isControllerLoggingOn) logController(line);
       applyStat(m.stat, now);
+      logStat(m.stat, now);
       break;
     case GP_HELLO:
       Serial.print("controller hello: ");

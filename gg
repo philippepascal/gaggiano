@@ -125,6 +125,7 @@ cmd_build() {
   extra=("$@")   # e.g. --clean, --verbose
   for t in $targets; do
     target_load "$t"
+    [ "$t" = screen ] && python3 "$REPO/tools/embed-web.py"
     log "building $t ($T_SKETCH)"
     cli compile --fqbn "$T_FQBN" --build-property "$COMMON_BUILD_PROPS" \
       --warnings default --output-dir "$BUILD_DIR/$t" ${extra[@]+"${extra[@]}"} "$REPO/$T_SKETCH"
