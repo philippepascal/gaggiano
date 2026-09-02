@@ -125,8 +125,8 @@ docs/WEB.md            what the page shows, the JSON, the CSV columns
       valve, heater, pump, tempSet, pressSet, pumpPct, linkOk, faults, counter. The
       firmware writes that format from W3.3 on (one line per STAT, 5 per second; a
       setting to log at 1 Hz instead if the card fills).
-- [ ] W4.4 **(bench)** open `http://gaggiano.local` on the phone during a brew; the graph
-      follows the panel; the download opens in a spreadsheet.
+- [x] W4.4 **(bench)** open `http://gaggiano.local` on the phone during a brew; the graph
+      follows the panel; the download opens in a spreadsheet. (2026-09-02, by IP)
 
 **Checkpoint W4:** live page and log download from a phone.
 
@@ -160,6 +160,13 @@ docs/WEB.md            what the page shows, the JSON, the CSV columns
 - The delete-selects-first-profile quirk (UI plan U4.2).
 
 ## Notes log
+
+- 2026-09-02 after the bench round: session logs are one dated file per boot under
+  `/gaggia/logs/` (renamed when the clock arrives, last 10 kept), listed, viewable and
+  downloadable from the page; `/api/history` carries `end` and `period`; the panel's
+  bounce buffers went to 16 lines against residual pixel flashes under WiFi traffic
+  (heap with WiFi up 93 KB); the backlight is switched off during a firmware write,
+  where flash programming stalls the panel refresh. Two more OTA updates done this way.
 
 - 2026-09-02 OTA: ArduinoOTA (the espota protocol) authenticated but the device could
   not connect back to the Mac: the screen is on an IoT network (192.168.20.x) and the Mac
