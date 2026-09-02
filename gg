@@ -193,7 +193,8 @@ flash_screen_ota() {
   [ -f "$REPO/tools/ota-password" ] && pass="$(cat "$REPO/tools/ota-password")"
   log "uploading build/screen/$T_SKETCH.ino.bin to http://$host/update"
   local reply
-  reply="$(curl -s -m 180 -F "password=$pass" -F "firmware=@$BUILD_DIR/screen/$T_SKETCH.ino.bin" "http://$host/update")" || die "upload failed (is the screen on WiFi? try the IP instead of the name)"
+  local size; size=$(stat -f %z "$BUILD_DIR/screen/$T_SKETCH.ino.bin" 2>/dev/null || stat -c %s "$BUILD_DIR/screen/$T_SKETCH.ino.bin")
+  reply="$(curl -s -m 180 -F "password=$pass" -F "size=$size" -F "firmware=@$BUILD_DIR/screen/$T_SKETCH.ino.bin" "http://$host/update")" || die "upload failed (is the screen on WiFi? try the IP instead of the name)"
   case "$reply" in
     ok*) log "screen updated over WiFi; it restarts by itself" ;;
     *) die "screen answered: $reply" ;;

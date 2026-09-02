@@ -1,5 +1,6 @@
 #include "net.h"
 #include "timezones.h"
+#include "config.h"
 #include <Arduino.h>
 #include <WiFi.h>
 #include <Preferences.h>
@@ -12,6 +13,7 @@ static Preferences prefs;
 static char ssid[33] = "";
 static char password[65] = "";
 static int tzIndex = 0;
+static char otaPassword[33] = OTA_DEFAULT_PASSWORD;
 static NetState state = NET_NO_CREDENTIALS;
 static uint32_t lastAttempt = 0;
 static bool timeValid = false;
@@ -39,6 +41,7 @@ void netBegin() {
   prefs.getString("ssid", ssid, sizeof(ssid));
   prefs.getString("pass", password, sizeof(password));
   tzIndex = prefs.getInt("tz", timezoneDefault());
+  prefs.getString("otapass", otaPassword, sizeof(otaPassword));
   if (tzIndex < 0 || tzIndex >= timezoneCount()) tzIndex = timezoneDefault();
   WiFi.persistent(false);  // we keep the credentials ourselves
   applyTimezone();
@@ -142,6 +145,14 @@ void netSetTimezone(int index) {
 }
 
 int netTimezone() { return tzIndex; }
+
+void netSetOtaPassword(const char *pw) {
+  strncpy(otaPassword, pw, sizeof(otaPassword) - 1);
+  otaPassword[sizeof(otaPassword) - 1] = '\0';
+  prefs.putString("otapass", otaPassword);
+}
+
+const char *netOtaPassword() { return otaPassword; }
 
 bool netLocalTime(char *buf, size_t size, const char *fmt) {
   if (!timeValid) {

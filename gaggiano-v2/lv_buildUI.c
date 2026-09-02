@@ -134,6 +134,7 @@ static lv_obj_t* wifi_ssid_tf;
 static lv_obj_t* wifi_pass_tf;
 static lv_obj_t* wifi_tz_dd;
 static lv_obj_t* wifi_status_label;
+static lv_obj_t* wifi_ota_tf;
 static bool wifiScanShown = true;  // false while a scan runs and its result is not yet listed
 static lv_obj_t* header_clock;
 static lv_obj_t* header_wifi;
@@ -687,6 +688,14 @@ void ui_hide_notice(void) {
   if (notice != NULL) lv_obj_add_flag(notice, LV_OBJ_FLAG_HIDDEN);
 }
 
+// Progress screen: opaque black with one label, so LVGL draws nothing else underneath
+// while the firmware is being written.
+void ui_show_progress(const char* text) {
+  ui_show_notice(text);
+  lv_obj_set_style_bg_opa(notice, LV_OPA_COVER, 0);
+  lv_obj_set_style_bg_color(notice, lv_color_black(), 0);
+}
+
 // Hooks for the simulator's scenes (checked state of the action buttons).
 lv_obj_t* heat_btn_for_scene(void) { return heat_btn; }
 lv_obj_t* brew_btn_for_scene(void) { return brew_btn; }
@@ -1184,6 +1193,13 @@ static void wifi_forget_clicked(lv_event_t* e) {
   wifi_refresh();
 }
 
+static void wifi_ota_changed(lv_event_t* e) {
+  if (lv_event_get_code(e) == LV_EVENT_READY) {  // the editor applied a new value
+    const char* pw = lv_textarea_get_text(wifi_ota_tf);
+    if (pw[0] != '\0') netSetOtaPassword(pw);
+  }
+}
+
 static void wifi_tz_changed(lv_event_t* e) {
   if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) netSetTimezone((int)lv_dropdown_get_selected(wifi_tz_dd));
 }
@@ -1233,6 +1249,12 @@ static void wifi_create(lv_obj_t* parent) {
   lv_obj_set_size(wifi_tz_dd, LV_PCT(100), 40);
   lv_obj_add_event_cb(wifi_tz_dd, wifi_tz_changed, LV_EVENT_ALL, NULL);
 
+  g = group_create(right, "FIRMWARE UPDATE");
+  wifi_ota_tf = field_create(g, "Password", kb);
+  lv_obj_set_user_data(wifi_ota_tf, (void*)"UPDATE PASSWORD");
+  lv_obj_set_width(wifi_ota_tf, 220);
+  lv_obj_add_event_cb(wifi_ota_tf, wifi_ota_changed, LV_EVENT_ALL, NULL);
+
   lv_obj_t* row = lv_obj_create(right);
   lv_obj_remove_style_all(row);
   lv_obj_set_size(row, LV_PCT(100), 52);
@@ -1255,6 +1277,7 @@ static void wifi_enter(void) {
   struct NetStatus st;
   netGetStatus(&st);
   lv_textarea_set_text(wifi_ssid_tf, st.ssid);
+  lv_textarea_set_text(wifi_ota_tf, netOtaPassword());
   lv_dropdown_set_selected(wifi_tz_dd, (uint16_t)netTimezone());
   if (netScanStart() == 0) wifiScanShown = false;
   wifi_refresh();

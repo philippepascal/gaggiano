@@ -47,6 +47,9 @@ int netScanCount(void) {
 const char *netScanSsid(int i) { static const char *n[] = {"Kitchen", "Neighbour-5G", "CoffeeLab"}; return (i >= 0 && i < 3) ? n[i] : ""; }
 int netScanRssi(int i) { static const int r[] = {-48, -71, -83}; return (i >= 0 && i < 3) ? r[i] : 0; }
 void netSetTimezone(int index) { tz = index; }
+static char otaPw[33] = "gaggiano";
+void netSetOtaPassword(const char *pw) { strncpy(otaPw, pw, 32); otaPw[32] = '\0'; std::printf("[net] ota password set\n"); }
+const char *netOtaPassword(void) { return otaPw; }
 int netTimezone(void) { return tz; }
 bool netLocalTime(char *buf, size_t size, const char *fmt) {
   if (state != NET_CONNECTED) { strncpy(buf, "--:--", size - 1); buf[size - 1] = '\0'; return false; }

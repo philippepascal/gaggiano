@@ -7,19 +7,17 @@
 #include "net.h"
 #include "sequencer.h"
 #include "storage.h"
-#include "display_glue.h"
 #include "web_page.h"
 #include <Arduino.h>
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include <SD.h>
 #include <Update.h>
-#include <Preferences.h>
 #include <gaggia_protocol.h>
 
-extern "C" void ui_show_notice(const char *text);
+extern "C" void ui_show_progress(const char *text);
 extern "C" void ui_hide_notice(void);
-static char otaPassword[33] = OTA_DEFAULT_PASSWORD;
+
 
 extern GaggiaStateT state;
 
@@ -170,11 +168,13 @@ static void handleLogFile() {  // /logs/<name>[?download]
 
 static bool updateAuthorized = false;
 static bool updateFailed = false;
+static size_t updateTotal = 0;  // from the "size" form field when the sender knows it
 
 static void updateUpload() {
   HTTPUpload &up = server.upload();
   if (up.status == UPLOAD_FILE_START) {
-    updateAuthorized = server.hasArg("password") && server.arg("password") == otaPassword;
+    updateAuthorized = server.hasArg("password") && server.arg("password") == netOtaPassword();
+    updateTotal = server.hasArg("size") ? (size_t)server.arg("size").toInt() : 0;
     updateFailed = false;
     if (!updateAuthorized) return;
     // stop whatever is running before the flash is rewritten
@@ -183,9 +183,8 @@ static void updateUpload() {
     sequencerReset();
     linkSetCommand(GP_MODE_OFF, 0, 0, 0);
     Serial.printf("update: start (%s)\n", up.filename.c_str());
-    ui_show_notice("Updating firmware...");
+    ui_show_progress("Updating firmware");  // a label on a black screen: nothing else is drawn
     lv_timer_handler();
-    displayBacklight(false);  // flash writes stall the panel's refresh: nothing to see until the restart
     if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { updateFailed = true; Update.printError(Serial); }
   } else if (up.status == UPLOAD_FILE_WRITE) {
     if (!updateAuthorized || updateFailed) return;
@@ -195,7 +194,7 @@ static void updateUpload() {
     if (!updateAuthorized || updateFailed) return;
     if (Update.end(true)) {
       Serial.printf("update: %u bytes, restarting\n", (unsigned)up.totalSize);
-      ui_show_notice("Update done, restarting");
+      ui_show_progress("Update done, restarting");
     } else {
       updateFailed = true;
       Update.printError(Serial);
@@ -210,8 +209,7 @@ static void updateUpload() {
 static void updateDone() {
   if (!updateAuthorized) { server.send(403, "text/plain", "wrong password"); return; }
   if (updateFailed || Update.hasError()) {
-    displayBacklight(true);
-    ui_show_notice("Update failed");
+    ui_show_progress("Update failed");
     lv_timer_handler();
     delay(1500);
     ui_hide_notice();
@@ -235,10 +233,7 @@ void webBegin() {
   server.on("/logs.csv", handleLog);
   server.on("/update", HTTP_POST, updateDone, updateUpload);
   server.on("/logs", handleLogList);
-  Preferences prefs;
-  prefs.begin("gaggiano", true);
-  prefs.getString("otapass", otaPassword, sizeof(otaPassword));
-  prefs.end();
+
   server.onNotFound([]() {
     if (server.uri().startsWith("/logs/")) handleLogFile();
     else server.send(404, "text/plain", "not found");

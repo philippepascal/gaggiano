@@ -27,6 +27,8 @@ int netScanCount(void);                                         // -1 while scan
 const char *netScanSsid(int index);
 int netScanRssi(int index);
 void netSetTimezone(int index);  // index in timezones.h; saved
+void netSetOtaPassword(const char *password);  // saved in NVS; used by the /update endpoint
+const char *netOtaPassword(void);
 int netTimezone(void);
 // Local time through strftime; false (and "--:--") when the clock is not valid yet.
 bool netLocalTime(char *buf, size_t size, const char *fmt);

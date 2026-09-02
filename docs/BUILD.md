@@ -57,8 +57,8 @@ The build is sent as an HTTP upload to the screen's own web server (`POST /updat
 it works whenever the Mac can reach the screen, including across an IoT network. The
 panel shows the progress and restarts by itself. The web page has the same upload under
 "Update firmware", usable from a phone. The password is `gaggiano` unless
-`tools/ota-password` (git-ignored) says otherwise; the firmware reads its own from NVS
-key `otapass` when present. The USB path keeps working as before.
+`tools/ota-password` (git-ignored) says otherwise; the screen's own password is set on
+its WiFi view ("Firmware update" password) and defaults to `gaggiano`. The USB path keeps working as before.
 
 ## Partition scheme of the screen
 
