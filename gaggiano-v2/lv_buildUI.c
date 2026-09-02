@@ -889,6 +889,11 @@ void instantiateUI(GaggiaStateT* s,
   tabSettings = lv_tabview_add_tab(tv, "Settings");
   tabAdvance = lv_tabview_add_tab(tv, "Advanced");
   tabGraph = lv_tabview_add_tab(tv, "Graph");
+  // the tabview and its pages come with the default theme's dark grey: make them black
+  theme_apply_screen(tv);
+  theme_apply_screen(lv_tabview_get_content(tv));
+  lv_obj_t* pages[] = { tabMain, tabProfile, tabSettings, tabAdvance, tabGraph };
+  for (int i = 0; i < 5; i++) theme_apply_screen(pages[i]);
 
   main_create(tabMain);
   profile_create(tabProfile);
