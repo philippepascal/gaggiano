@@ -50,7 +50,9 @@
 #define LV_MEM_CUSTOM 0
 #if LV_MEM_CUSTOM == 0
     /*Size of the memory available for `lv_mem_alloc()` in bytes (>= 2kB)*/
+#ifndef LV_MEM_SIZE  /* the host simulator passes a larger pool: 64-bit widgets are bigger */
     #define LV_MEM_SIZE (48U * 1024U)          /*[bytes]*/
+#endif
 
     /*Set an address for the memory pool instead of allocating it as a normal array. Can be in external SRAM too.*/
     #define LV_MEM_ADR 0     /*0: unused*/

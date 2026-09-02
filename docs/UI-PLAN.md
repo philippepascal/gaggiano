@@ -65,21 +65,23 @@ tests/test_history.cpp
 
 ## Phase U1: simulator on the Mac (no bench)
 
-- [ ] U1.1 `sim/Makefile`: compiles every `.c` under `libraries/lvgl/src`, plus
+- [x] U1.1 `sim/Makefile`: compiles every `.c` under `libraries/lvgl/src`, plus
       `gaggiano-v2/lv_buildUI.c`, `theme.c`, `history.cpp`, `sequencer.cpp`, and
       `sim/main.cpp`, with `-I libraries` (for `lv_conf.h`), `-I gaggiano-v2`, SDL2
       from `sdl2-config`. Object files under `sim/build/`, git-ignored. `./gg sim`
       builds and runs it.
-- [ ] U1.2 `sim/main.cpp`: 800x480 SDL window; LVGL display driver whose flush copies
+- [x] U1.2 `sim/main.cpp`: 800x480 SDL window; LVGL display driver whose flush copies
       the draw buffer into an SDL texture; pointer driver from SDL mouse events; a
       fake `GaggiaStateT` and `AdvancedSettingsT`; stub callbacks for the storage
       functions (profiles from a small in-memory list); keys to drive the state:
       `t`/`T` temperature up/down, `p`/`P` pressure, `b` toggles a fake brew, `s`
       steam, `q` quit. The sequencer runs in the loop so bloom/auto behave.
-- [ ] U1.3 The current UI (before any redesign) runs in the window. Screenshot it
+- [x] U1.3 The current UI (before any redesign) runs in the window. Screenshot it
       into `docs/images/ui-before.png` with SDL (key `w` writes a BMP; convert once).
 
 **Checkpoint U1:** `./gg sim` opens the window and the old UI is usable with the mouse.
+Status 2026-09-02: headless `--shot` verified (docs/images/ui-before.png); the interactive
+window needs a GUI session, to be tried by hand.
 
 ---
 
@@ -168,6 +170,13 @@ unchanged.
 - Custom font sizes beyond 48 (needs the LVGL font converter; not required now).
 
 ## Notes log
+
+- 2026-09-02 U1: LVGL's 48 KB pool overflows on the host (64-bit pointers make every
+  widget bigger) and the assert handler then spins forever, which looked like a hang.
+  `LV_MEM_SIZE` in `lv_conf.h` is now overridable and the simulator passes 512 KB. The
+  device keeps 48 KB. `lv_buildUI.c` needed `<stdio.h>`/`<stdlib.h>` (Arduino.h had
+  been providing them). The simulator's `--shot` mode uses no SDL at all, so it runs
+  from a terminal without a GUI session.
 
 - 2026-09-02: plan written. `docs/images/screen-ui-2025-03-21.png` was an Arduino IDE
   capture, renamed to `arduino-ide-esp32-settings-2025-03.png`; there is no screenshot

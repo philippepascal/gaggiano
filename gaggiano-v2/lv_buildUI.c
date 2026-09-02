@@ -8,6 +8,8 @@
  *********************/
 #include "lv_buildUI.h"
 #include "my_logging.h"
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #if LV_MEM_CUSTOM == 0 && LV_MEM_SIZE < (38ul * 1024ul)
