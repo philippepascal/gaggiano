@@ -24,7 +24,7 @@ static lv_color_t steel_hi(void) { return lv_color_hex(0x6B7480); }
 static lv_style_t st_screen, st_header, st_surface, st_muted, st_title, st_header_notes, st_menu;
 static lv_style_t st_btn, st_btn_on, st_btn_on_steam, st_btn_dis, st_btn_name, st_btn_value;
 static lv_style_t st_tile, st_tile_label, st_tile_value, st_tile_unit, st_chart;
-static lv_style_t st_group_title;
+static lv_style_t st_group_title, st_editor, st_editor_value;
 static lv_style_t st_btn_sub, st_list, st_list_row, st_list_row_sel, st_field_label, st_field, st_view;
 
 void theme_init(void) {
@@ -129,6 +129,21 @@ void theme_init(void) {
   lv_style_set_text_font(&st_group_title, theme_font_small);
   lv_style_set_text_color(&st_group_title, theme_amber());
   lv_style_set_text_letter_space(&st_group_title, 2);
+
+  lv_style_init(&st_editor);
+  lv_style_set_bg_color(&st_editor, lv_color_black());
+  lv_style_set_bg_opa(&st_editor, LV_OPA_80);
+  lv_style_set_border_width(&st_editor, 0);
+  lv_style_set_radius(&st_editor, 0);
+  lv_style_set_pad_all(&st_editor, 0);
+
+  lv_style_init(&st_editor_value);
+  lv_style_set_text_font(&st_editor_value, theme_font_big);
+  lv_style_set_text_color(&st_editor_value, theme_text());
+  lv_style_set_text_align(&st_editor_value, LV_TEXT_ALIGN_CENTER);
+  lv_style_set_bg_opa(&st_editor_value, LV_OPA_TRANSP);
+  lv_style_set_border_width(&st_editor_value, 0);
+  lv_style_set_pad_all(&st_editor_value, 4);
 
   lv_style_init(&st_field_label);
   lv_style_set_text_font(&st_field_label, theme_font_name);
@@ -235,6 +250,12 @@ void theme_apply_graph(lv_obj_t *chart) {
   lv_chart_set_div_line_count(chart, 4, 0);
   lv_chart_set_type(chart, LV_CHART_TYPE_LINE);
   lv_obj_clear_flag(chart, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+}
+
+void theme_apply_editor(lv_obj_t *overlay) { lv_obj_add_style(overlay, &st_editor, 0); }
+void theme_apply_editor_value(lv_obj_t *ta) {
+  lv_obj_add_style(ta, &st_editor_value, 0);
+  lv_obj_set_style_text_color(ta, theme_amber(), LV_PART_CURSOR);
 }
 
 void theme_apply_legend(lv_obj_t *label, lv_color_t color) {

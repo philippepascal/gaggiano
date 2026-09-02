@@ -64,6 +64,7 @@ void updateSettings();
 #define HEADER_H 44
 #define TILE_H 140
 #define GAP 12
+#define TILE_POINTS 150  // fewer points than tile pixels: LVGL misdraws otherwise
 
 /**********************
  *  STATIC VARIABLES
@@ -102,6 +103,14 @@ static lv_chart_series_t* temp_ser;
 static lv_chart_series_t* press_ser;
 static lv_obj_t* header;
 static lv_obj_t* menuDd;
+
+// Field editor: a dim overlay over the top half with the field's name and its value in
+// large type, the keyboard in the bottom half. Nothing underneath moves.
+static lv_obj_t* editor;
+static lv_obj_t* editor_title;
+static lv_obj_t* editor_ta;
+static lv_obj_t* editor_target;  // the field being edited
+static lv_obj_t* editor_kb;      // the keyboard in use (numeric or full)
 static lv_obj_t* tabGraph;
 
 // Graph view: 150 s of readings and controller outputs, plus a mode strip.
@@ -163,32 +172,69 @@ static lv_obj_t* tv;
  *      EVENT HANDLING
  **********************/
 
+static void editor_close(bool apply) {
+  if (editor_target == NULL) return;
+  lv_obj_t* target = editor_target;
+  editor_target = NULL;
+  if (apply) lv_textarea_set_text(target, lv_textarea_get_text(editor_ta));  // fires VALUE_CHANGED
+  if (editor_kb != NULL) {
+    lv_keyboard_set_textarea(editor_kb, NULL);
+    lv_obj_add_flag(editor_kb, LV_OBJ_FLAG_HIDDEN);
+  }
+  lv_obj_add_flag(editor, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_clear_state(target, LV_STATE_FOCUSED);
+  lv_indev_reset(NULL, target);  // so the same field can be tapped again
+  lv_event_send(target, apply ? LV_EVENT_READY : LV_EVENT_CANCEL, NULL);
+}
+
+static void editor_open(lv_obj_t* field, lv_obj_t* kb) {
+  if (editor_target != NULL) return;
+  editor_target = field;
+  editor_kb = kb;
+  const char* title = (const char*)lv_obj_get_user_data(field);
+  lv_label_set_text(editor_title, title != NULL ? title : "");
+  lv_textarea_set_text(editor_ta, lv_textarea_get_text(field));
+  lv_textarea_set_cursor_pos(editor_ta, LV_TEXTAREA_CURSOR_LAST);
+  lv_keyboard_set_textarea(kb, editor_ta);
+  lv_obj_set_height(kb, LV_VER_RES / 2);
+  lv_obj_clear_flag(editor, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_clear_flag(kb, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_move_foreground(kb);
+}
+
+static void editor_kb_event(lv_event_t* e) {
+  lv_event_code_t code = lv_event_get_code(e);
+  if (code == LV_EVENT_READY) editor_close(true);
+  else if (code == LV_EVENT_CANCEL) editor_close(false);
+}
+
+static void editor_create(void) {
+  editor = lv_obj_create(lv_layer_top());
+  theme_apply_editor(editor);
+  lv_obj_set_size(editor, LV_HOR_RES, LV_VER_RES / 2);
+  lv_obj_set_pos(editor, 0, 0);
+  lv_obj_clear_flag(editor, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_add_flag(editor, LV_OBJ_FLAG_HIDDEN);
+
+  editor_title = lv_label_create(editor);
+  theme_apply_tile_label(editor_title);
+  lv_obj_align(editor_title, LV_ALIGN_TOP_MID, 0, 40);
+
+  editor_ta = lv_textarea_create(editor);
+  theme_apply_editor_value(editor_ta);
+  lv_textarea_set_one_line(editor_ta, true);
+  lv_obj_set_width(editor_ta, LV_PCT(90));
+  lv_obj_align(editor_ta, LV_ALIGN_CENTER, 0, 20);
+}
+
+// Tapping a field opens the editor; the editor writes the value back on OK.
 static void setting_field_changed(lv_event_t* e) {
   lv_event_code_t code = lv_event_get_code(e);
   lv_obj_t* ta = lv_event_get_target(e);
   lv_obj_t* kb = lv_event_get_user_data(e);
   if (code == LV_EVENT_FOCUSED) {
-    if (lv_indev_get_type(lv_indev_get_act()) != LV_INDEV_TYPE_KEYPAD) {
-      lv_keyboard_set_textarea(kb, ta);
-      lv_obj_set_style_max_height(kb, LV_HOR_RES * 2 / 3, 0);
-      lv_obj_update_layout(tv); /*Be sure the sizes are recalculated*/
-      lv_obj_set_height(tv, LV_VER_RES - HEADER_H - lv_obj_get_height(kb));
-      lv_obj_clear_flag(kb, LV_OBJ_FLAG_HIDDEN);
-      lv_obj_scroll_to_view_recursive(ta, LV_ANIM_OFF);
-    }
-  } else if (code == LV_EVENT_DEFOCUSED) {
-    lv_keyboard_set_textarea(kb, NULL);
-    lv_obj_set_height(tv, LV_VER_RES - HEADER_H);
-    lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
-    lv_indev_reset(NULL, ta);
-
-  } else if (code == LV_EVENT_READY || code == LV_EVENT_CANCEL) {
-    lv_obj_set_height(tv, LV_VER_RES - HEADER_H);
-    lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_clear_state(ta, LV_STATE_FOCUSED);
-    lv_indev_reset(NULL, ta); /*To forget the last clicked object to make it focusable again*/
+    if (lv_indev_get_type(lv_indev_get_act()) != LV_INDEV_TYPE_KEYPAD) editor_open(ta, kb);
   } else if (code == LV_EVENT_VALUE_CHANGED) {
-    // LV_LOG_WARN("Setting changed");
     lv_obj_clear_state(setBtn, LV_STATE_DISABLED);
     lv_obj_clear_state(advancedSetBtn, LV_STATE_DISABLED);
   }
@@ -578,6 +624,20 @@ lv_obj_t* heat_btn_for_scene(void) { return heat_btn; }
 lv_obj_t* brew_btn_for_scene(void) { return brew_btn; }
 lv_obj_t* steam_btn_for_scene(void) { return boil_btn; }
 lv_obj_t* menu_for_scene(void) { return menuDd; }
+void show_view_for_scene(int index);
+void edit_for_scene(void) {
+  updateUI();  // fields are filled from the state on the first refresh
+  show_view_for_scene(2);
+  lv_event_send(brew_temp_tf, LV_EVENT_FOCUSED, NULL);
+}
+void dump_tiles_for_scene(void) {
+  lv_coord_t* pts = lv_chart_get_y_array(temp_chart, temp_ser);
+  int cnt = (int)lv_chart_get_point_count(temp_chart);
+  printf("[sim] temp chart points (%d):", cnt);
+  for (int i = 0; i < cnt; i++) if (pts[i] != LV_CHART_POINT_NONE) printf(" [%d]=%d", i, (int)pts[i]);
+  printf("\n[sim] temp chart x=%d y=%d w=%d h=%d\n", (int)lv_obj_get_x(temp_chart), (int)lv_obj_get_y(temp_chart),
+         (int)lv_obj_get_width(temp_chart), (int)lv_obj_get_height(temp_chart));
+}
 void show_view_for_scene(int index) {
   lv_dropdown_set_selected(menuDd, index);
   lv_tabview_set_act(tv, index, LV_ANIM_OFF);
@@ -835,6 +895,7 @@ void instantiateUI(GaggiaStateT* s,
   settings_create(tabSettings);
   advancedSettings_create(tabAdvance);
   graph_create(tabGraph);
+  editor_create();
 
   // shortcut: the profile name (and the notes) bring you back to the main screen
   lv_obj_add_flag(selectedProfileLabel, LV_OBJ_FLAG_CLICKABLE);
@@ -859,10 +920,11 @@ static lv_obj_t* tile_create(lv_obj_t* parent, const char* name, const char* uni
     theme_apply_chart(chart);
     lv_obj_set_size(chart, LV_PCT(100), LV_PCT(100));
     lv_obj_center(chart);
-    lv_chart_set_point_count(chart, HISTORY_CAPACITY);
+    lv_chart_set_point_count(chart, TILE_POINTS);
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, range_min, range_max);
     *chart_out = chart;
     *ser_out = theme_chart_series(chart);
+    lv_chart_set_all_value(chart, *ser_out, LV_CHART_POINT_NONE);  // no line until real readings arrive
   }
 
   lv_obj_t* label = lv_label_create(tile);
@@ -987,6 +1049,10 @@ static void graph_create(lv_obj_t* parent) {
   g_pump_ser = lv_chart_add_series(graph_chart, theme_pump(), LV_CHART_AXIS_PRIMARY_Y);
   g_temp_ser = lv_chart_add_series(graph_chart, theme_amber(), LV_CHART_AXIS_PRIMARY_Y);
   g_press_ser = lv_chart_add_series(graph_chart, theme_steam(), LV_CHART_AXIS_SECONDARY_Y);
+  lv_chart_set_all_value(graph_chart, g_boiler_ser, LV_CHART_POINT_NONE);
+  lv_chart_set_all_value(graph_chart, g_pump_ser, LV_CHART_POINT_NONE);
+  lv_chart_set_all_value(graph_chart, g_temp_ser, LV_CHART_POINT_NONE);
+  lv_chart_set_all_value(graph_chart, g_press_ser, LV_CHART_POINT_NONE);
 
   g_strip = lv_canvas_create(parent);
   g_strip_buf = (lv_color_t*)lv_mem_alloc(LV_CANVAS_BUF_SIZE_TRUE_COLOR(STRIP_W, STRIP_H));
@@ -1067,6 +1133,7 @@ static void profile_create(lv_obj_t* parent) {
   // the actions: name field (shown by Rename) and three tall buttons
   lv_obj_t* kb = lv_keyboard_create(lv_scr_act());
   lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_event_cb(kb, editor_kb_event, LV_EVENT_ALL, NULL);
 
   lv_obj_t* actions = lv_obj_create(parent);
   lv_obj_remove_style_all(actions);
@@ -1077,6 +1144,7 @@ static void profile_create(lv_obj_t* parent) {
 
   fileName_tf = lv_textarea_create(actions);
   theme_apply_field(fileName_tf);
+  lv_obj_set_user_data(fileName_tf, (void*)"PROFILE NAME");
   lv_obj_set_width(fileName_tf, LV_PCT(100));
   lv_textarea_set_max_length(fileName_tf, PROFILE_NAME_MAX - 1);
   lv_textarea_set_one_line(fileName_tf, true);
@@ -1131,6 +1199,7 @@ static lv_obj_t* field_create(lv_obj_t* group, const char* text, lv_obj_t* kb) {
 
   lv_obj_t* tf = lv_textarea_create(row);
   theme_apply_field(tf);
+  lv_obj_set_user_data(tf, (void*)text);  // the editor shows it as the title
   lv_textarea_set_one_line(tf, true);
   lv_obj_set_size(tf, 150, 40);
   lv_obj_add_event_cb(tf, setting_field_changed, LV_EVENT_ALL, kb);
@@ -1164,6 +1233,7 @@ static lv_obj_t* view_btn_create(lv_obj_t* parent, const char* text, lv_event_cb
 static lv_obj_t* numeric_keyboard_create(void) {
   lv_obj_t* kb = lv_keyboard_create(lv_scr_act());
   lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_event_cb(kb, editor_kb_event, LV_EVENT_ALL, NULL);
   lv_keyboard_set_map(kb, LV_KEYBOARD_MODE_USER_1, kb_num_map, kb_num_ctrl);
   lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_USER_1);
   return kb;
@@ -1180,8 +1250,10 @@ static void settings_create(lv_obj_t* parent) {
   lv_obj_t* kb = numeric_keyboard_create();
   lv_obj_t* kb2 = lv_keyboard_create(lv_scr_act());
   lv_obj_add_flag(kb2, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_event_cb(kb2, editor_kb_event, LV_EVENT_ALL, NULL);
 
   edit_notes_tf = lv_textarea_create(parent);
+  lv_obj_set_user_data(edit_notes_tf, (void*)"NOTES");
   theme_apply_field(edit_notes_tf);
   lv_textarea_set_max_length(edit_notes_tf, NOTES_MAX - 1);
   lv_textarea_set_one_line(edit_notes_tf, true);

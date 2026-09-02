@@ -57,6 +57,8 @@ void theme_apply_field(lv_obj_t *textarea);       // settings: one-line value fi
 void theme_apply_view(lv_obj_t *view);            // a secondary view's content area
 void theme_apply_graph(lv_obj_t *chart);          // the full history chart: faint grid, thin lines
 void theme_apply_legend(lv_obj_t *label, lv_color_t color);
+void theme_apply_editor(lv_obj_t *overlay);       // dim layer above the keyboard
+void theme_apply_editor_value(lv_obj_t *textarea); // the value being edited, large
 
 #ifdef __cplusplus
 }

@@ -21,6 +21,8 @@ extern "C" lv_obj_t *brew_btn_for_scene(void);
 extern "C" lv_obj_t *steam_btn_for_scene(void);
 extern "C" lv_obj_t *menu_for_scene(void);
 extern "C" void show_view_for_scene(int index);
+extern "C" void edit_for_scene(void);
+extern "C" void dump_tiles_for_scene(void);
 #include "sequencer.h"
 #include <gaggia_protocol.h>
 
@@ -214,6 +216,7 @@ int main(int argc, char **argv) {
   if (strcmp(scene, "profiles") == 0) show_view_for_scene(1);
   if (strcmp(scene, "settings") == 0) show_view_for_scene(2);
   if (strcmp(scene, "advanced") == 0) show_view_for_scene(3);
+  if (strcmp(scene, "edit") == 0) edit_for_scene();
   if (strcmp(scene, "graph") == 0) {
     state.isBoilerOn = true;
     state.isBrewing = true;
@@ -256,7 +259,7 @@ int main(int argc, char **argv) {
     if (now - lastUi >= 200) { lastUi = now; updateUI(); }
     lv_timer_handler();
     present();
-    if (shot && now - start > shotAfter) { saveShot(shot); running = false; }
+    if (shot && now - start > shotAfter) { dump_tiles_for_scene(); saveShot(shot); running = false; }
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
   }
   if (!headless) {
