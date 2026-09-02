@@ -521,12 +521,15 @@ void updateUI() {
   }
   lv_label_set_text_fmt(temp_label, "%.2fC", state->tempRead);
   lv_label_set_text_fmt(press_label, "%.2fb", state->pressureRead);
+  // Bloom and auto end on their own (sequencer): release the buttons and the tabs
+  // the way a manual stop does.
   if (state->isBlooming == false) {
     if (lv_obj_has_state(prime_btn, LV_STATE_CHECKED)) {
       lv_obj_clear_state(prime_btn, LV_STATE_CHECKED);
       lv_obj_clear_state(clean_btn, LV_STATE_DISABLED);
       lv_obj_clear_state(brew_btn, LV_STATE_DISABLED);
       lv_obj_clear_state(auto_btn, LV_STATE_DISABLED);
+      enableTabs();
     }
   }
   if (state->isAuto == false) {
@@ -535,6 +538,7 @@ void updateUI() {
       lv_obj_clear_state(clean_btn, LV_STATE_DISABLED);
       lv_obj_clear_state(brew_btn, LV_STATE_DISABLED);
       lv_obj_clear_state(prime_btn, LV_STATE_DISABLED);
+      enableTabs();
     }
   }
   if (state->actionStartTime > 0) {
