@@ -66,7 +66,7 @@ docs/WEB.md            what the page shows, the JSON, the CSV columns
       with the timings, `Arduino_RGB_Display`), same pins and timings as today.
 - [x] W1.4 Build clean for the board; fix what the new core flags. Record flash and RAM.
       Simulator untouched (LVGL unchanged).
-- [ ] W1.5 **(bench)** `./gg flash screen` with a full erase once (`EraseFlash=all` for
+- [x] W1.5 **(bench)** `./gg flash screen` with a full erase once (`EraseFlash=all` for
       that flash only, documented in BUILD.md), then the bench checklist items 1 to 9.
       `STATUS` heap noted as the new baseline.
 
@@ -87,7 +87,7 @@ docs/WEB.md            what the page shows, the JSON, the CSV columns
       signal). Rendered in the simulator with a fake status.
 - [x] W2.3 Header: a small WiFi symbol next to the menu when connected (dim when not).
 - [x] W2.4 `STATUS` console line gains wifi state, IP, RSSI.
-- [ ] W2.5 **(bench)** join the home network from the panel, power cycle, it reconnects
+- [x] W2.5 **(bench)** join the home network from the panel, power cycle, it reconnects
       by itself. Heap before/after connection recorded.
 
 **Checkpoint W2:** the screen is on the network after a power cycle without touching it.
@@ -104,7 +104,7 @@ docs/WEB.md            what the page shows, the JSON, the CSV columns
 - [x] W3.3 `storage.cpp`: log lines prefixed with the ISO timestamp when time is valid,
       `-` otherwise; header row updated. "Last shot" keeps seconds; the log carries the
       wall clock.
-- [ ] W3.4 **(bench)** clock correct on the panel after boot; a log line shows the time.
+- [x] W3.4 **(bench)** clock correct on the panel after boot; a log line shows the time.
 
 **Checkpoint W3:** correct local time on the header and in the log.
 
@@ -159,6 +159,14 @@ docs/WEB.md            what the page shows, the JSON, the CSV columns
 - The delete-selects-first-profile quirk (UI plan U4.2).
 
 ## Notes log
+
+- 2026-09-02 bench: erase-flash and first boot on core 3.3.11 fine, UI unchanged, WiFi
+  joined from the panel, NTP time, web and OTA announced, reconnect after a power cycle.
+  Then two findings: free internal heap with WiFi up was 29 KB (boot 80 KB; the new core
+  reserves more for WiFi), and the picture drifted sideways every half second, the known
+  ESP32-S3 RGB-panel starvation while WiFi runs. Fix: LVGL draw buffer 120 -> 48 lines
+  (frees ~115 KB internal) and 8-line bounce buffers on the panel (`bounce_buffer_size_px`
+  in Arduino_GFX). Heap with WiFi up: 115 KB.
 
 - 2026-09-02 W4/W5 built, bench pending: `webui.cpp` (WebServer, `/`, `/api/status`,
   `/api/history` streamed, `/logs.csv`, mDNS once connected), the page in

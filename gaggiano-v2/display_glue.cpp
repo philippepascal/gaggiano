@@ -14,7 +14,8 @@ static Arduino_ESP32RGBPanel *rgbpanel = new Arduino_ESP32RGBPanel(
     8 /* B0 */, 3 /* B1 */, 46 /* B2 */, 9 /* B3 */, 1 /* B4 */,
     0 /* hsync_polarity */, 8 /* hsync_front_porch */, 4 /* hsync_pulse_width */, 8 /* hsync_back_porch */,
     0 /* vsync_polarity */, 8 /* vsync_front_porch */, 4 /* vsync_pulse_width */, 8 /* vsync_back_porch */,
-    1 /* pclk_active_neg */, 14000000 /* prefer_speed, as before the core upgrade */);
+    1 /* pclk_active_neg */, 14000000 /* prefer_speed, as before the core upgrade */, false /* useBigEndian */,
+    0 /* de_idle_high */, 0 /* pclk_idle_high */, 800 * PANEL_BOUNCE_LINES /* bounce_buffer_size_px */);
 
 static Arduino_RGB_Display *gfx = new Arduino_RGB_Display(800 /* width */, 480 /* height */, rgbpanel, 0 /* rotation */, true /* auto_flush */);
 
@@ -65,14 +66,15 @@ bool displaySetup() {
 
   screenWidth = gfx->width();
   screenHeight = gfx->height();
-  // A quarter-screen draw buffer in internal RAM (fast; PSRAM would be too slow for the flush).
-  disp_draw_buf = (lv_color_t *)heap_caps_malloc(sizeof(lv_color_t) * screenWidth * screenHeight / 4,
-                                                 MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  // The draw buffer lives in internal RAM (PSRAM would be too slow for the flush).
+  // DRAW_BUFFER_LINES rows: small enough to leave room for WiFi and the panel's bounce buffers.
+  size_t px = (size_t)screenWidth * DRAW_BUFFER_LINES;
+  disp_draw_buf = (lv_color_t *)heap_caps_malloc(sizeof(lv_color_t) * px, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
   if (!disp_draw_buf) {
     Serial.println("LVGL draw buffer allocation failed");
     return false;
   }
-  lv_disp_draw_buf_init(&draw_buf, disp_draw_buf, NULL, screenWidth * screenHeight / 4);
+  lv_disp_draw_buf_init(&draw_buf, disp_draw_buf, NULL, px);
 
   lv_disp_drv_init(&disp_drv);
   disp_drv.hor_res = screenWidth;

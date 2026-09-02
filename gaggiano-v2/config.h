@@ -18,6 +18,8 @@
 
 // --- display
 #define TFT_BL 2  // backlight
+#define DRAW_BUFFER_LINES 48   // LVGL draw buffer height (internal RAM: 800 x lines x 2 bytes)
+#define PANEL_BOUNCE_LINES 8   // RGB panel bounce buffers in internal RAM: keeps the picture steady while WiFi runs
 #define UI_REFRESH_MS 200  // readings shown 5 times a second; widgets run every pass
 #define SPLASH_MS 5000
 
