@@ -515,7 +515,7 @@ void updateUI() {
     lv_label_set_text_fmt(lv_obj_get_child(heat_btn, 0), "H:%.2fC", state->boilerSetPoint);
     lv_label_set_text_fmt(lv_obj_get_child(boil_btn, 0), "S:%.2fC", state->steamSetPoint);
     lv_label_set_text_fmt(lv_obj_get_child(brew_btn, 0), "B:%.2fb", state->pressureSetPoint);
-    lv_label_set_text_fmt(lv_obj_get_child(prime_btn, 0), "P:%.2fs", state->blooming_wait_time);
+    lv_label_set_text_fmt(lv_obj_get_child(prime_btn, 0), "P:%g+%gs", state->blooming_fill_time, state->blooming_wait_time);  // fill + wait
     lv_label_set_text_fmt(lv_obj_get_child(auto_btn, 0), "A:%.2fs", state->brew_timer);
     lv_label_set_text(selectedProfileLabel, state->profile_name);
   }
@@ -770,7 +770,7 @@ static void main_create(lv_obj_t* parent) {
   lv_obj_add_flag(prime_btn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_add_event_cb(prime_btn, main_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_t* prime_btn_label = lv_label_create(prime_btn);
-  lv_label_set_text_fmt(prime_btn_label, "P:%.2fs", state->blooming_wait_time);
+  lv_label_set_text_fmt(prime_btn_label, "P:%g+%gs", state->blooming_fill_time, state->blooming_wait_time);
   lv_obj_center(prime_btn_label);
 
   auto_btn = lv_btn_create(parent);
