@@ -470,14 +470,9 @@ static void delete_btn_clicked(lv_event_t* e) {
   }
 }
 
-// While an action runs the other views are not reachable: the menu is disabled.
-void disableTabs() {
-  lv_obj_add_state(menuDd, LV_STATE_DISABLED);
-}
-
-void enableTabs() {
-  lv_obj_clear_state(menuDd, LV_STATE_DISABLED);
-}
+// The other views stay reachable while an action runs (the graph is useful then).
+void disableTabs() {}
+void enableTabs() {}
 
 static void title_clicked(lv_event_t* e) {
   (void)e;
@@ -705,10 +700,12 @@ void updateUI() {
     lv_chart_set_next_value(temp_chart, temp_ser, (lv_coord_t)(state->tempRead * 10));
   }
   bool running = state->actionStartTime > 0 && state->actionStopTime == 0;
-  theme_set_hot(temp_label, temp_chart, temp_ser, state->isBoilerOn || state->isSteaming);
+  theme_set_hot(temp_label, temp_chart, temp_ser, state->isBoilerOn || state->isSteaming,
+                state->isSteaming ? theme_steam() : theme_amber());
   theme_set_hot(press_label, press_chart, press_ser,
-                state->isSolenoidOn || state->isBrewing || state->isCleaning || state->isBlooming || state->isAuto);
-  theme_set_hot(time_label, NULL, NULL, running);
+                state->isSolenoidOn || state->isBrewing || state->isCleaning || state->isBlooming || state->isAuto,
+                theme_pressure());
+  theme_set_hot(time_label, NULL, NULL, running, theme_pump());
 
   // Bloom and auto end on their own (sequencer): release the buttons and the menu
   // the way a manual stop does.
@@ -749,7 +746,7 @@ void updateUI() {
   else if (state->isSteaming) phase = "STEAM";
   if (phase != NULL) {
     lv_label_set_text(time_sub_label, phase);
-    lv_obj_set_style_text_color(time_sub_label, theme_amber(), 0);
+    lv_obj_set_style_text_color(time_sub_label, theme_pump(), 0);
   } else if (state->lastBrewTime > 0) {
     lv_label_set_text_fmt(time_sub_label, "LAST SHOT %.0f S", state->lastBrewTime);
     lv_obj_set_style_text_color(time_sub_label, theme_muted(), 0);
@@ -763,9 +760,10 @@ void updateUI() {
   {
     lv_obj_t* btns[6] = { heat_btn, brew_btn, prime_btn, boil_btn, clean_btn, auto_btn };
     lv_obj_t* values[6] = { heat_btn_label, brew_btn_label, prime_btn_label, boil_btn_label, clean_btn_label, auto_btn_label };
+    lv_color_t idle[6] = { theme_amber(), theme_pressure(), theme_pressure(), theme_steam(), theme_clean(), theme_pump() };
     for (int i = 0; i < 6; i++) {
       theme_set_btn_labels(btn_names[i], values[i], btns[i] == boil_btn ? boil_btn_sub : NULL,
-                           lv_obj_has_state(btns[i], LV_STATE_CHECKED));
+                           lv_obj_has_state(btns[i], LV_STATE_CHECKED), idle[i]);
     }
   }
 
@@ -947,7 +945,7 @@ void instantiateUI(GaggiaStateT* s,
  **********************/
 
 // One reading tile: curve behind, label top-left, big value + unit bottom-left.
-static lv_obj_t* tile_create(lv_obj_t* parent, const char* name, const char* unit, lv_obj_t** value_out,
+static lv_obj_t* tile_create(lv_obj_t* parent, const char* name, const char* unit, lv_color_t color, lv_obj_t** value_out,
                              lv_obj_t** chart_out, lv_chart_series_t** ser_out, lv_coord_t range_min, lv_coord_t range_max) {
   lv_obj_t* tile = lv_obj_create(parent);
   theme_apply_tile(tile);
@@ -967,6 +965,7 @@ static lv_obj_t* tile_create(lv_obj_t* parent, const char* name, const char* uni
 
   lv_obj_t* label = lv_label_create(tile);
   theme_apply_tile_label(label);
+  lv_obj_set_style_text_color(label, color, 0);
   lv_label_set_text(label, name);
   lv_obj_align(label, LV_ALIGN_TOP_LEFT, 14, 10);
 
@@ -991,9 +990,9 @@ static lv_obj_t* tile_create(lv_obj_t* parent, const char* name, const char* uni
 }
 
 // One action button: name over value.
-static lv_obj_t* action_btn_create(lv_obj_t* parent, const char* name, bool steam, lv_obj_t** value_out, lv_obj_t** sub_out) {
+static lv_obj_t* action_btn_create(lv_obj_t* parent, const char* name, lv_color_t color, lv_obj_t** value_out, lv_obj_t** sub_out) {
   lv_obj_t* btn = lv_btn_create(parent);
-  theme_apply_btn(btn, steam);
+  theme_apply_btn(btn, color);
   lv_obj_add_flag(btn, LV_OBJ_FLAG_CHECKABLE);
   lv_obj_add_event_cb(btn, main_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_set_flex_flow(btn, LV_FLEX_FLOW_COLUMN);
@@ -1029,11 +1028,12 @@ static void main_create(lv_obj_t* parent) {
   static lv_coord_t row_dsc[] = { TILE_H, LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
   lv_obj_set_grid_dsc_array(parent, col_dsc, row_dsc);
 
-  lv_obj_t* temp_tile = tile_create(parent, "BOILER", "°C", &temp_label, &temp_chart, &temp_ser, 20 * 10, 160 * 10);
-  lv_obj_t* press_tile = tile_create(parent, "PRESSURE", "bar", &press_label, &press_chart, &press_ser, 0, 12 * 10);
-  lv_obj_t* time_tile = tile_create(parent, "TIMER", "s", &time_label, NULL, NULL, 0, 0);
+  lv_obj_t* temp_tile = tile_create(parent, "BOILER", "°C", theme_amber(), &temp_label, &temp_chart, &temp_ser, 20 * 10, 160 * 10);
+  lv_obj_t* press_tile = tile_create(parent, "PRESSURE", "bar", theme_pressure(), &press_label, &press_chart, &press_ser, 0, 14 * 10);
+  lv_obj_t* time_tile = tile_create(parent, "TIMER", "s", theme_pump(), &time_label, NULL, NULL, 0, 0);
   time_sub_label = lv_label_create(time_tile);
   theme_apply_tile_label(time_sub_label);
+  lv_obj_set_style_text_color(time_sub_label, theme_pump(), 0);
   lv_label_set_text(time_sub_label, "");
   lv_obj_align(time_sub_label, LV_ALIGN_TOP_RIGHT, -14, 10);
 
@@ -1041,13 +1041,13 @@ static void main_create(lv_obj_t* parent) {
   lv_obj_set_grid_cell(press_tile, LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
   lv_obj_set_grid_cell(time_tile, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
 
-  heat_btn = action_btn_create(parent, "Heat", false, &heat_btn_label, NULL);
-  brew_btn = action_btn_create(parent, "Brew", false, &brew_btn_label, NULL);
-  prime_btn = action_btn_create(parent, "Prime", false, &prime_btn_label, NULL);
-  boil_btn = action_btn_create(parent, "Steam", true, &boil_btn_label, &boil_btn_sub);
+  heat_btn = action_btn_create(parent, "Heat", theme_amber(), &heat_btn_label, NULL);
+  brew_btn = action_btn_create(parent, "Brew", theme_pressure(), &brew_btn_label, NULL);
+  prime_btn = action_btn_create(parent, "Prime", theme_pressure(), &prime_btn_label, NULL);
+  boil_btn = action_btn_create(parent, "Steam", theme_steam(), &boil_btn_label, &boil_btn_sub);
   lv_obj_set_style_pad_row(boil_btn, 2, 0);  // three lines have to fit
-  clean_btn = action_btn_create(parent, "Clean", false, &clean_btn_label, NULL);
-  auto_btn = action_btn_create(parent, "Auto", false, &auto_btn_label, NULL);
+  clean_btn = action_btn_create(parent, "Clean", theme_clean(), &clean_btn_label, NULL);
+  auto_btn = action_btn_create(parent, "Auto", theme_pump(), &auto_btn_label, NULL);
   lv_label_set_text(clean_btn_label, "9 bar");
 
   lv_obj_set_grid_cell(heat_btn, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 1, 1);
@@ -1082,8 +1082,8 @@ static void graph_create(lv_obj_t* parent) {
   lv_obj_set_flex_grow(graph_chart, 1);
   lv_chart_set_point_count(graph_chart, HISTORY_CAPACITY);
   lv_chart_set_update_mode(graph_chart, LV_CHART_UPDATE_MODE_SHIFT);
-  lv_chart_set_range(graph_chart, LV_CHART_AXIS_PRIMARY_Y, 0, 160);    // °C, and percent for the outputs
-  lv_chart_set_range(graph_chart, LV_CHART_AXIS_SECONDARY_Y, 0, 120);  // bar x10
+  lv_chart_set_range(graph_chart, LV_CHART_AXIS_PRIMARY_Y, 0, 160);    // °C; outputs are scaled so 100 % is the top
+  lv_chart_set_range(graph_chart, LV_CHART_AXIS_SECONDARY_Y, 0, 140);  // bar x10
   g_boiler_ser = lv_chart_add_series(graph_chart, theme_heater(), LV_CHART_AXIS_PRIMARY_Y);
   g_pump_ser = lv_chart_add_series(graph_chart, theme_pump(), LV_CHART_AXIS_PRIMARY_Y);
   g_temp_ser = lv_chart_add_series(graph_chart, theme_amber(), LV_CHART_AXIS_PRIMARY_Y);
@@ -1102,7 +1102,7 @@ static void graph_create(lv_obj_t* parent) {
 
 static lv_color_t mode_color(int mode) {
   switch (mode) {
-    case 1: return theme_amber();
+    case 1: return theme_pressure();
     case 2: return theme_steam();
     case 3: return theme_clean();
     default: return lv_color_black();
@@ -1121,8 +1121,8 @@ static void graph_update(uint32_t now) {
   history_push(HISTORY_G_MODE, (float)state->ctrlMode);
   lv_chart_set_next_value(graph_chart, g_temp_ser, (lv_coord_t)state->tempRead);
   lv_chart_set_next_value(graph_chart, g_press_ser, (lv_coord_t)(state->pressureRead * 10));
-  lv_chart_set_next_value(graph_chart, g_boiler_ser, (lv_coord_t)state->boilerOut);
-  lv_chart_set_next_value(graph_chart, g_pump_ser, (lv_coord_t)(state->pumpOut * 100.0f / 127.0f));
+  lv_chart_set_next_value(graph_chart, g_boiler_ser, (lv_coord_t)(state->boilerOut * 1.6f));
+  lv_chart_set_next_value(graph_chart, g_pump_ser, (lv_coord_t)(state->pumpOut * 100.0f / 127.0f * 1.6f));
 
   if (lv_tabview_get_tab_act(tv) != 4) return;  // the rest is only drawn while the view is shown
 
@@ -1196,7 +1196,7 @@ static void profile_create(lv_obj_t* parent) {
   lv_obj_t** btns[] = { &fileName_btn, &duplicate_btn, &delete_btn };
   for (int i = 0; i < 3; i++) {
     lv_obj_t* btn = lv_btn_create(actions);
-    theme_apply_btn(btn, false);
+    theme_apply_btn(btn, theme_amber());
     lv_obj_set_width(btn, LV_PCT(100));
     lv_obj_set_flex_grow(btn, 1);
     lv_obj_add_event_cb(btn, cbs[i], LV_EVENT_ALL, NULL);
@@ -1258,7 +1258,7 @@ static lv_obj_t* column_create(lv_obj_t* parent, int col, int row) {
 
 static lv_obj_t* view_btn_create(lv_obj_t* parent, const char* text, lv_event_cb_t cb) {
   lv_obj_t* btn = lv_btn_create(parent);
-  theme_apply_btn(btn, false);
+  theme_apply_btn(btn, theme_amber());
   lv_obj_set_height(btn, 52);
   lv_obj_set_flex_grow(btn, 1);
   lv_obj_add_event_cb(btn, cb, LV_EVENT_ALL, NULL);

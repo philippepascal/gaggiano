@@ -285,20 +285,22 @@ lv_chart_series_t *theme_chart_series(lv_obj_t *chart) {
   return lv_chart_add_series(chart, steel_hi(), LV_CHART_AXIS_PRIMARY_Y);
 }
 
-void theme_set_btn_labels(lv_obj_t *name, lv_obj_t *value, lv_obj_t *sub, bool checked) {
+void theme_set_btn_labels(lv_obj_t *name, lv_obj_t *value, lv_obj_t *sub, bool checked, lv_color_t idle) {
   lv_color_t ink = amber_ink();
-  lv_obj_set_style_text_color(name, checked ? ink : theme_amber(), 0);
+  lv_obj_set_style_text_color(name, checked ? ink : idle, 0);
   if (value) lv_obj_set_style_text_color(value, checked ? ink : theme_text(), 0);
   if (sub) lv_obj_set_style_text_color(sub, checked ? ink : theme_muted(), 0);
 }
 
-void theme_set_hot(lv_obj_t *value, lv_obj_t *chart, lv_chart_series_t *ser, bool hot) {
-  lv_obj_set_style_text_color(value, hot ? theme_amber() : theme_text(), 0);
-  if (chart && ser) lv_chart_set_series_color(chart, ser, hot ? theme_amber() : steel_hi());
+void theme_set_hot(lv_obj_t *value, lv_obj_t *chart, lv_chart_series_t *ser, bool hot, lv_color_t color) {
+  lv_obj_set_style_text_color(value, hot ? color : theme_text(), 0);
+  if (chart && ser) lv_chart_set_series_color(chart, ser, hot ? color : steel_hi());
 }
 
-void theme_apply_btn(lv_obj_t *btn, bool steam) {
+void theme_apply_btn(lv_obj_t *btn, lv_color_t lit) {
   lv_obj_add_style(btn, &st_btn, 0);
-  lv_obj_add_style(btn, steam ? &st_btn_on_steam : &st_btn_on, LV_STATE_CHECKED);
+  lv_obj_add_style(btn, &st_btn_on, LV_STATE_CHECKED);
+  lv_obj_set_style_bg_color(btn, lit, LV_STATE_CHECKED);
+  lv_obj_set_style_border_color(btn, lit, LV_STATE_CHECKED);
   lv_obj_add_style(btn, &st_btn_dis, LV_STATE_DISABLED);
 }

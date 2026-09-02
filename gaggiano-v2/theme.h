@@ -34,7 +34,7 @@ void theme_init(void);  // call once after lv_init(), before building screens
 void theme_apply_screen(lv_obj_t *scr);
 void theme_apply_header(lv_obj_t *obj);           // header strip (the tab buttons area)
 void theme_apply_surface(lv_obj_t *obj);          // plain panel on the surface color
-void theme_apply_btn(lv_obj_t *btn, bool steam);  // idle / checked (amber or steam) / disabled
+void theme_apply_btn(lv_obj_t *btn, lv_color_t lit);  // idle / checked (filled with `lit`) / disabled
 void theme_apply_muted(lv_obj_t *label);          // secondary text
 void theme_apply_title(lv_obj_t *label);          // header title (profile name)
 void theme_apply_header_notes(lv_obj_t *label);   // notes after the title, one line
@@ -45,8 +45,8 @@ void theme_apply_tile_value(lv_obj_t *label);     // big reading
 void theme_apply_tile_unit(lv_obj_t *label);      // unit next to the reading
 void theme_apply_chart(lv_obj_t *chart);          // curve behind a tile: no grid, no points
 lv_chart_series_t *theme_chart_series(lv_obj_t *chart);
-void theme_set_hot(lv_obj_t *value, lv_obj_t *chart, lv_chart_series_t *ser, bool hot);  // amber while running
-void theme_set_btn_labels(lv_obj_t *name, lv_obj_t *value, lv_obj_t *sub, bool checked);  // name amber when idle, ink when lit
+void theme_set_hot(lv_obj_t *value, lv_obj_t *chart, lv_chart_series_t *ser, bool hot, lv_color_t color);  // colored while running
+void theme_set_btn_labels(lv_obj_t *name, lv_obj_t *value, lv_obj_t *sub, bool checked, lv_color_t idle);  // name colored when idle, ink when lit
 void theme_apply_btn_name(lv_obj_t *label);
 void theme_apply_btn_value(lv_obj_t *label);
 void theme_apply_btn_sub(lv_obj_t *label);        // small third line in a button
