@@ -24,6 +24,8 @@ extern "C" void show_view_for_scene(int index);
 extern "C" void edit_for_scene(void);
 extern "C" void editadv_for_scene(int step);
 extern "C" void dump_tiles_for_scene(void);
+extern "C" void wifi_for_scene(void);
+extern "C" void net_stub_preset_connected(void);
 #include "sequencer.h"
 #include <gaggia_protocol.h>
 
@@ -218,6 +220,8 @@ int main(int argc, char **argv) {
   if (strcmp(scene, "settings") == 0) show_view_for_scene(2);
   if (strcmp(scene, "advanced") == 0) show_view_for_scene(3);
   if (strcmp(scene, "edit") == 0) edit_for_scene();
+  if (strcmp(scene, "wifi") == 0) { net_stub_preset_connected(); wifi_for_scene(); }
+  if (strcmp(scene, "wifi-off") == 0) wifi_for_scene();
   bool editadv = strcmp(scene, "editadv") == 0;
   int editadvStep = 0;
   if (editadv) editadv_for_scene(editadvStep++);

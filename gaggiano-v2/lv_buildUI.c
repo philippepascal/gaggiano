@@ -11,6 +11,8 @@
 #include "theme.h"
 #include "history.h"
 #include "sequencer.h"
+#include "net.h"
+#include "timezones.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -57,6 +59,15 @@ static void advancedSettings_create(lv_obj_t* parent);
 static void profile_create(lv_obj_t* parent);
 static void main_create(lv_obj_t* parent);
 static void graph_create(lv_obj_t* parent);
+static void wifi_create(lv_obj_t* parent);
+static void wifi_refresh(void);
+static void wifi_enter(void);
+static void header_net_refresh(void);
+static lv_obj_t* group_create(lv_obj_t* column, const char* title);
+static lv_obj_t* field_create(lv_obj_t* group, const char* text, lv_obj_t* kb);
+static lv_obj_t* column_create(lv_obj_t* parent, int col, int row);
+static lv_obj_t* view_btn_create(lv_obj_t* parent, const char* text, lv_event_cb_t cb);
+static void editor_kb_event(lv_event_t* e);
 static void graph_update(uint32_t now);
 static void updateProfileTab();
 void updateSettings();
@@ -113,6 +124,19 @@ static lv_obj_t* editor_ta;
 static lv_obj_t* editor_target;  // the field being edited
 static lv_obj_t* editor_kb;      // the keyboard in use (numeric or full)
 static lv_obj_t* tabGraph;
+static lv_obj_t* tabWifi;
+#define VIEW_WIFI 5
+
+// WiFi view
+static lv_obj_t* wifiList;
+static char wifiNames[10][33];
+static lv_obj_t* wifi_ssid_tf;
+static lv_obj_t* wifi_pass_tf;
+static lv_obj_t* wifi_tz_dd;
+static lv_obj_t* wifi_status_label;
+static bool wifiScanShown = true;  // false while a scan runs and its result is not yet listed
+static lv_obj_t* header_clock;
+static lv_obj_t* header_wifi;
 
 // Graph view: 150 s of readings and controller outputs, plus a mode strip.
 #define GRAPH_PERIOD_MS 500
@@ -258,11 +282,9 @@ static void setting_field_changed(lv_event_t* e) {
 static void tab_changed(lv_event_t* e) {
   lv_event_code_t code = lv_event_get_code(e);
   if (code == LV_EVENT_VALUE_CHANGED) {
-    if (lv_tabview_get_tab_act(tv) == 1) {
-      //profile is selected.
-      LV_LOG_WARN(" ---------- Profile Selected ----------");
-      updateProfileTab();
-    }
+    int act = lv_tabview_get_tab_act(tv);
+    if (act == 1) updateProfileTab();
+    if (act == VIEW_WIFI) wifi_enter();
   }
 }
 static void setButtonClicked(lv_event_t* e) {
@@ -678,6 +700,9 @@ void dump_tiles_for_scene(void) {
   printf("\n[sim] temp chart x=%d y=%d w=%d h=%d\n", (int)lv_obj_get_x(temp_chart), (int)lv_obj_get_y(temp_chart),
          (int)lv_obj_get_width(temp_chart), (int)lv_obj_get_height(temp_chart));
 }
+void wifi_for_scene(void) {
+  lv_tabview_set_act(tv, VIEW_WIFI, LV_ANIM_OFF);
+}
 void show_view_for_scene(int index) {
   lv_dropdown_set_selected(menuDd, index);
   lv_tabview_set_act(tv, index, LV_ANIM_OFF);
@@ -694,7 +719,7 @@ static void set_profile_title(const char* name) {
   // the notes follow the title; the menu button keeps the last 80 px
   lv_obj_update_layout(selectedProfileLabel);
   lv_coord_t titleEnd = lv_obj_get_x2(selectedProfileLabel) + 20;
-  lv_obj_set_width(main_notes_label, LV_HOR_RES - titleEnd - 80);
+  lv_obj_set_width(main_notes_label, LV_HOR_RES - titleEnd - 190);
   lv_obj_align_to(main_notes_label, selectedProfileLabel, LV_ALIGN_OUT_RIGHT_MID, 20, 2);
 }
 
@@ -777,6 +802,15 @@ void updateUI() {
   }
 
   graph_update(millis());
+  {
+    static uint32_t lastNet = 0;
+    uint32_t nowMs = millis();
+    if (nowMs - lastNet >= 1000) {
+      lastNet = nowMs;
+      header_net_refresh();
+      if (lv_tabview_get_tab_act(tv) == VIEW_WIFI) wifi_refresh();
+    }
+  }
 
   // button labels follow the checked state (amber names when idle, ink on a lit button)
   {
@@ -921,6 +955,16 @@ void instantiateUI(GaggiaStateT* s,
   lv_obj_set_width(main_notes_label, 300);
   lv_obj_align(main_notes_label, LV_ALIGN_LEFT_MID, 200, 1);  // re-placed after the title in set_profile_title()
 
+  header_wifi = lv_label_create(header);
+  theme_apply_header_notes(header_wifi);
+  lv_label_set_text(header_wifi, LV_SYMBOL_WIFI);
+  lv_obj_align(header_wifi, LV_ALIGN_RIGHT_MID, -72, 0);
+
+  header_clock = lv_label_create(header);
+  theme_apply_header_notes(header_clock);
+  lv_label_set_text(header_clock, "");
+  lv_obj_align(header_clock, LV_ALIGN_RIGHT_MID, -108, 1);
+
   menuDd = lv_dropdown_create(header);
   lv_dropdown_set_options_static(menuDd, "Main\nProfiles\nSettings\nAdvanced\nGraph");
   lv_dropdown_set_text(menuDd, LV_SYMBOL_LIST);
@@ -942,17 +986,19 @@ void instantiateUI(GaggiaStateT* s,
   tabSettings = lv_tabview_add_tab(tv, "Settings");
   tabAdvance = lv_tabview_add_tab(tv, "Advanced");
   tabGraph = lv_tabview_add_tab(tv, "Graph");
+  tabWifi = lv_tabview_add_tab(tv, "WiFi");  // not in the menu: reached from Advanced
   // the tabview and its pages come with the default theme's dark grey: make them black
   theme_apply_screen(tv);
   theme_apply_screen(lv_tabview_get_content(tv));
-  lv_obj_t* pages[] = { tabMain, tabProfile, tabSettings, tabAdvance, tabGraph };
-  for (int i = 0; i < 5; i++) theme_apply_screen(pages[i]);
+  lv_obj_t* pages[] = { tabMain, tabProfile, tabSettings, tabAdvance, tabGraph, tabWifi };
+  for (int i = 0; i < 6; i++) theme_apply_screen(pages[i]);
 
   main_create(tabMain);
   profile_create(tabProfile);
   settings_create(tabSettings);
   advancedSettings_create(tabAdvance);
   graph_create(tabGraph);
+  wifi_create(tabWifi);
   editor_create();
 
   // shortcut: the profile name (and the notes) bring you back to the main screen
@@ -1078,6 +1124,162 @@ static void main_create(lv_obj_t* parent) {
   lv_obj_set_grid_cell(boil_btn, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 2, 1);
   lv_obj_set_grid_cell(clean_btn, LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, 2, 1);
   lv_obj_set_grid_cell(auto_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 2, 1);
+}
+
+// ---------------------------------------------------------------- WiFi view
+
+static void wifi_btn_clicked(lv_event_t* e) {
+  if (lv_event_get_code(e) == LV_EVENT_CLICKED) lv_tabview_set_act(tv, VIEW_WIFI, LV_ANIM_OFF);
+}
+
+static void wifi_row_clicked(lv_event_t* e) {
+  if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+  const char* name = (const char*)lv_obj_get_user_data(lv_event_get_target(e));
+  if (name != NULL && name[0] != '\0') lv_textarea_set_text(wifi_ssid_tf, name);
+}
+
+static void wifi_scan_clicked(lv_event_t* e) {
+  if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+  if (netScanStart() == 0) {
+    wifiScanShown = false;
+    lv_label_set_text(wifi_status_label, "Scanning...");
+  }
+}
+
+static void wifi_connect_clicked(lv_event_t* e) {
+  if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+  const char* ssid = lv_textarea_get_text(wifi_ssid_tf);
+  if (ssid[0] == '\0') return;
+  netSetCredentials(ssid, lv_textarea_get_text(wifi_pass_tf));
+  wifi_refresh();
+}
+
+static void wifi_forget_clicked(lv_event_t* e) {
+  if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+  netForget();
+  lv_textarea_set_text(wifi_ssid_tf, "");
+  lv_textarea_set_text(wifi_pass_tf, "");
+  wifi_refresh();
+}
+
+static void wifi_tz_changed(lv_event_t* e) {
+  if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) netSetTimezone((int)lv_dropdown_get_selected(wifi_tz_dd));
+}
+
+static void wifi_create(lv_obj_t* parent) {
+  theme_apply_view(parent);
+  lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
+  static lv_coord_t col_dsc[] = { LV_GRID_FR(2), LV_GRID_FR(3), LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t row_dsc[] = { LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
+  lv_obj_set_grid_dsc_array(parent, col_dsc, row_dsc);
+  lv_obj_set_style_pad_column(parent, 24, 0);
+
+  // left: the networks found
+  wifiList = lv_obj_create(parent);
+  theme_apply_list(wifiList);
+  lv_obj_set_flex_flow(wifiList, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_grid_cell(wifiList, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+  for (int i = 0; i < 10; i++) {
+    lv_obj_t* lbl = lv_label_create(wifiList);
+    theme_apply_list_row(lbl);
+    lv_obj_set_style_text_font(lbl, theme_font_name, 0);
+    lv_obj_set_width(lbl, LV_PCT(100));
+    lv_obj_add_flag(lbl, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(lbl, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_event_cb(lbl, wifi_row_clicked, LV_EVENT_ALL, NULL);
+    lv_label_set_text(lbl, "");
+  }
+
+  // right: network, password, time zone, actions, status
+  lv_obj_t* kb = lv_keyboard_create(lv_scr_act());
+  lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_event_cb(kb, editor_kb_event, LV_EVENT_ALL, NULL);
+
+  lv_obj_t* right = column_create(parent, 1, 0);
+  lv_obj_t* g = group_create(right, "NETWORK");
+  wifi_ssid_tf = field_create(g, "Name", kb);
+  lv_obj_set_user_data(wifi_ssid_tf, (void*)"NETWORK NAME");
+  lv_obj_set_width(wifi_ssid_tf, 220);
+  wifi_pass_tf = field_create(g, "Password", kb);
+  lv_obj_set_user_data(wifi_pass_tf, (void*)"PASSWORD");
+  lv_obj_set_width(wifi_pass_tf, 220);
+
+  g = group_create(right, "TIME ZONE");
+  wifi_tz_dd = lv_dropdown_create(g);
+  lv_dropdown_set_options_static(wifi_tz_dd, timezoneOptions());
+  theme_apply_field(wifi_tz_dd);
+  lv_obj_set_size(wifi_tz_dd, LV_PCT(100), 40);
+  lv_obj_add_event_cb(wifi_tz_dd, wifi_tz_changed, LV_EVENT_ALL, NULL);
+
+  lv_obj_t* row = lv_obj_create(right);
+  lv_obj_remove_style_all(row);
+  lv_obj_set_size(row, LV_PCT(100), 52);
+  lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+  lv_obj_set_style_pad_column(row, GAP, 0);
+  view_btn_create(row, "Scan", wifi_scan_clicked);
+  view_btn_create(row, "Connect", wifi_connect_clicked);
+  view_btn_create(row, "Forget", wifi_forget_clicked);
+
+  wifi_status_label = lv_label_create(right);
+  theme_apply_muted(wifi_status_label);
+  lv_obj_set_style_text_font(wifi_status_label, theme_font_name, 0);
+  lv_obj_set_width(wifi_status_label, LV_PCT(100));
+  lv_label_set_long_mode(wifi_status_label, LV_LABEL_LONG_WRAP);
+  lv_label_set_text(wifi_status_label, "");
+}
+
+// Called when the view opens: show the saved network, start a scan.
+static void wifi_enter(void) {
+  struct NetStatus st;
+  netGetStatus(&st);
+  lv_textarea_set_text(wifi_ssid_tf, st.ssid);
+  lv_dropdown_set_selected(wifi_tz_dd, (uint16_t)netTimezone());
+  if (netScanStart() == 0) wifiScanShown = false;
+  wifi_refresh();
+}
+
+// Status line and scan list; called once a second while the view is shown.
+static void wifi_refresh(void) {
+  struct NetStatus st;
+  netGetStatus(&st);
+  char clock[16];
+  netLocalTime(clock, sizeof(clock), "%H:%M");
+  switch (st.state) {
+    case NET_CONNECTED: lv_label_set_text_fmt(wifi_status_label, "Connected to %s\n%s  %d dBm  %s", st.ssid, st.ip, st.rssi, clock); break;
+    case NET_CONNECTING: lv_label_set_text_fmt(wifi_status_label, "Connecting to %s...", st.ssid); break;
+    case NET_FAILED: lv_label_set_text_fmt(wifi_status_label, "Could not join %s, retrying", st.ssid); break;
+    default: lv_label_set_text(wifi_status_label, "No network saved"); break;
+  }
+  if (!wifiScanShown) {
+    int n = netScanCount();
+    if (n >= 0) {
+      wifiScanShown = true;
+      for (int i = 0; i < 10; i++) {
+        lv_obj_t* row = lv_obj_get_child(wifiList, i);
+        if (i < n) {
+          strncpy(wifiNames[i], netScanSsid(i), 32);
+          wifiNames[i][32] = '\0';
+          lv_label_set_text_fmt(row, "%s   %d", wifiNames[i], netScanRssi(i));
+          lv_obj_set_user_data(row, wifiNames[i]);
+          theme_set_selected(row, strcmp(wifiNames[i], st.ssid) == 0);
+          lv_obj_clear_flag(row, LV_OBJ_FLAG_HIDDEN);
+        } else {
+          lv_obj_add_flag(row, LV_OBJ_FLAG_HIDDEN);
+        }
+      }
+      if (n == 0) lv_label_set_text(wifi_status_label, "No network found");
+    }
+  }
+}
+
+// Header clock and WiFi symbol: once a second, whatever the view.
+static void header_net_refresh(void) {
+  struct NetStatus st;
+  netGetStatus(&st);
+  lv_obj_set_style_text_color(header_wifi, st.state == NET_CONNECTED ? theme_text() : lv_color_hex(0x3A4048), 0);
+  char clock[16];
+  if (st.timeValid && netLocalTime(clock, sizeof(clock), "%H:%M")) lv_label_set_text(header_clock, clock);
+  else lv_label_set_text(header_clock, "");
 }
 
 static void graph_create(lv_obj_t* parent) {
@@ -1383,6 +1585,7 @@ static void advancedSettings_create(lv_obj_t* parent) {
   lv_obj_set_grid_cell(row, LV_GRID_ALIGN_STRETCH, 0, 2, LV_GRID_ALIGN_STRETCH, 1, 1);
   advancedSetBtn = view_btn_create(row, "Save", advancedSetButtonClicked);
   view_btn_create(row, "Cancel", advancedCancelButtonClicked);
+  view_btn_create(row, "WiFi", wifi_btn_clicked);
 }
 
 // #endif

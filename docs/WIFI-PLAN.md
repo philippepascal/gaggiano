@@ -76,17 +76,17 @@ docs/WEB.md            what the page shows, the JSON, the CSV columns
 
 ## Phase W2: WiFi setup view and connection
 
-- [ ] W2.1 `net.{h,cpp}`: credentials and time zone in NVS (`Preferences`, namespace
+- [x] W2.1 `net.{h,cpp}`: credentials and time zone in NVS (`Preferences`, namespace
       `gaggiano`); `netBegin()` connects at boot if credentials exist; reconnect with
       backoff; `netStatus()` returns state, SSID, IP, RSSI; `netScan()` lists networks
       (asynchronous, results polled). `netSetCredentials()` saves and reconnects.
-- [ ] W2.2 WiFi view (tab 6, not in the menu): reached from a "WiFi" button on the
+- [x] W2.2 WiFi view (tab 6, not in the menu): reached from a "WiFi" button on the
       Advanced view, with the usual back through the profile name. Contents: network
       list from the scan (tap to pick), password field (editor overlay, full keyboard),
       time zone dropdown, Connect / Forget buttons, a status line (connected as ..., IP,
       signal). Rendered in the simulator with a fake status.
-- [ ] W2.3 Header: a small WiFi symbol next to the menu when connected (dim when not).
-- [ ] W2.4 `STATUS` console line gains wifi state, IP, RSSI.
+- [x] W2.3 Header: a small WiFi symbol next to the menu when connected (dim when not).
+- [x] W2.4 `STATUS` console line gains wifi state, IP, RSSI.
 - [ ] W2.5 **(bench)** join the home network from the panel, power cycle, it reconnects
       by itself. Heap before/after connection recorded.
 
@@ -96,12 +96,12 @@ docs/WEB.md            what the page shows, the JSON, the CSV columns
 
 ## Phase W3: time
 
-- [ ] W3.1 Time zone table: 12 common zones as (name, POSIX TZ string) in
+- [x] W3.1 Time zone table: 12 common zones as (name, POSIX TZ string) in
       `timezones.{h,cpp}` (pure, host-tested for the format), default
       America/Los_Angeles; the WiFi view dropdown uses it.
-- [ ] W3.2 `net.cpp`: `configTzTime()` once connected; `netTimeValid()` when the clock is
+- [x] W3.2 `net.cpp`: `configTzTime()` once connected; `netTimeValid()` when the clock is
       set. Header shows the clock (HH:MM) left of the WiFi symbol when valid.
-- [ ] W3.3 `storage.cpp`: log lines prefixed with the ISO timestamp when time is valid,
+- [x] W3.3 `storage.cpp`: log lines prefixed with the ISO timestamp when time is valid,
       `-` otherwise; header row updated. "Last shot" keeps seconds; the log carries the
       wall clock.
 - [ ] W3.4 **(bench)** clock correct on the panel after boot; a log line shows the time.
@@ -159,6 +159,13 @@ docs/WEB.md            what the page shows, the JSON, the CSV columns
 - The delete-selects-first-profile quirk (UI plan U4.2).
 
 ## Notes log
+
+- 2026-09-02 W2/W3 built and rendered in the simulator (`--scene wifi`, `wifi-off`),
+  bench pending: `net.cpp` (WiFi STA with reconnect, credentials and zone in NVS, SNTP
+  via `configTzTime`), `timezones.cpp` (12 zones, tested), WiFi view reached from the
+  Advanced view, header clock and WiFi symbol, `STATUS` fields, timestamped log lines.
+  Firmware 1,386,571 bytes (44 % of the 3 MB slot): the WiFi stack adds ~600 KB, which
+  is why the partition change came first. Static RAM 62 KB.
 
 - 2026-09-02: plan written; core 3.3.11 installed into `.arduino-data` (2.0.17 kept
   alongside for a rollback). Arduino_GFX 1.2.8 -> 1.6.7. The screen built on the new

@@ -1,5 +1,6 @@
 #include "storage.h"
 #include "profile_format.h"
+#include "net.h"
 #include <Arduino.h>
 #include <FS.h>
 #include <SD.h>
@@ -86,6 +87,10 @@ int logController(const char *message) {
       return -1;
     }
   }
+  char ts[24];
+  if (!netLocalTime(ts, sizeof(ts), "%Y-%m-%dT%H:%M:%S")) strcpy(ts, "-");
+  logFile.print(ts);
+  logFile.print(',');
   int n = logFile.println(message);
   uint32_t now = millis();
   if (now - lastLogFlush >= LOG_FLUSH_MS) {
@@ -99,7 +104,7 @@ int deleteLogsFile() {
   if (!storageReady()) return -1;
   if (logFile) logFile.close();
   if (!fileSystem->remove(logsPath)) Serial.println("SD: no log file to delete");
-  return logController("$STAT,mode,temp,pressure,valve,boilerOut,pumpOut,tempSet,pressSet,pumpPct,linkOk,faults,counter*00");
+  return logController("$STAT,mode,temp,pressure,valve,boilerOut,pumpOut,tempSet,pressSet,pumpPct,linkOk,faults,counter*00");  // the time column is prepended
 }
 
 // ---------------------------------------------------------------- profiles
