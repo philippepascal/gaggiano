@@ -1,5 +1,6 @@
 #include "webui.h"
 #include "config.h"
+#include <lvgl.h>
 #include "gaggia_state.h"
 #include "history.h"
 #include "link.h"
@@ -11,6 +12,13 @@
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include <SD.h>
+#include <Update.h>
+#include <Preferences.h>
+#include <gaggia_protocol.h>
+
+extern "C" void ui_show_notice(const char *text);
+extern "C" void ui_hide_notice(void);
+static char otaPassword[33] = OTA_DEFAULT_PASSWORD;
 
 extern GaggiaStateT state;
 
@@ -107,6 +115,70 @@ static void handleLog() {
   f.close();
 }
 
+// ---- firmware update by HTTP upload (POST /update, multipart "firmware", field "password").
+// A push model: it works when the sender can reach the screen, which is the direction
+// that works across an IoT network. The panel shows the progress.
+
+static bool updateAuthorized = false;
+static bool updateFailed = false;
+
+static void updateUpload() {
+  HTTPUpload &up = server.upload();
+  if (up.status == UPLOAD_FILE_START) {
+    updateAuthorized = server.hasArg("password") && server.arg("password") == otaPassword;
+    updateFailed = false;
+    if (!updateAuthorized) return;
+    // stop whatever is running before the flash is rewritten
+    state.isBrewing = state.isSteaming = state.isCleaning = state.isBlooming = state.isAuto = false;
+    state.isBoilerOn = false;
+    sequencerReset();
+    linkSetCommand(GP_MODE_OFF, 0, 0, 0);
+    Serial.printf("update: start (%s)\n", up.filename.c_str());
+    ui_show_notice("Updating firmware...");
+    lv_timer_handler();
+    if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { updateFailed = true; Update.printError(Serial); }
+  } else if (up.status == UPLOAD_FILE_WRITE) {
+    if (!updateAuthorized || updateFailed) return;
+    if (Update.write(up.buf, up.currentSize) != up.currentSize) { updateFailed = true; Update.printError(Serial); }
+    static uint32_t lastShown = 0;
+    if (millis() - lastShown > 500) {
+      lastShown = millis();
+      char text[48];
+      snprintf(text, sizeof(text), "Updating firmware %u KB", (unsigned)(up.totalSize / 1024));
+      ui_show_notice(text);
+      lv_timer_handler();
+    }
+  } else if (up.status == UPLOAD_FILE_END) {
+    if (!updateAuthorized || updateFailed) return;
+    if (Update.end(true)) {
+      Serial.printf("update: %u bytes, restarting\n", (unsigned)up.totalSize);
+      ui_show_notice("Update done, restarting");
+    } else {
+      updateFailed = true;
+      Update.printError(Serial);
+    }
+    lv_timer_handler();
+  } else if (up.status == UPLOAD_FILE_ABORTED) {
+    Update.abort();
+    updateFailed = true;
+  }
+}
+
+static void updateDone() {
+  if (!updateAuthorized) { server.send(403, "text/plain", "wrong password"); return; }
+  if (updateFailed || Update.hasError()) {
+    ui_show_notice("Update failed");
+    lv_timer_handler();
+    delay(1500);
+    ui_hide_notice();
+    server.send(500, "text/plain", "update failed");
+    return;
+  }
+  server.send(200, "text/plain", "ok, restarting");
+  delay(300);
+  ESP.restart();
+}
+
 static void handleIndex() {
   server.sendHeader("Cache-Control", "no-store");
   server.send_P(200, "text/html", WEB_INDEX_HTML);
@@ -117,6 +189,11 @@ void webBegin() {
   server.on("/api/status", handleStatus);
   server.on("/api/history", handleHistory);
   server.on("/logs.csv", handleLog);
+  server.on("/update", HTTP_POST, updateDone, updateUpload);
+  Preferences prefs;
+  prefs.begin("gaggiano", true);
+  prefs.getString("otapass", otaPassword, sizeof(otaPassword));
+  prefs.end();
   server.onNotFound([]() { server.send(404, "text/plain", "not found"); });
   server.begin();
 }

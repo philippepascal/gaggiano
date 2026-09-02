@@ -53,6 +53,13 @@
     <a class="btn" href="/api/history">History (JSON)</a>
   </div>
   <div class="foot" id="foot">Last 150 s. Updated every second while this page is open.</div>
+  <details class="foot"><summary>Update firmware</summary>
+    <form method="post" action="/update" enctype="multipart/form-data" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input type="file" name="firmware" accept=".bin" required>
+      <input type="password" name="password" placeholder="password" required>
+      <button type="submit" class="btn" style="font:inherit;cursor:pointer">Upload</button>
+    </form>
+  </details>
 </main>
 <script>
 (function () {

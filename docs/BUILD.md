@@ -53,9 +53,12 @@ Once the screen is on the network (`docs/WEB.md`):
 ./gg flash screen --ota 192.168.1.42
 ```
 
-The panel shows the progress and restarts by itself. The OTA password is `gaggiano`
-unless `tools/ota-password` (git-ignored) says otherwise; the firmware reads its own
-from NVS key `otapass` when present. The USB path keeps working as before.
+The build is sent as an HTTP upload to the screen's own web server (`POST /update`), so
+it works whenever the Mac can reach the screen, including across an IoT network. The
+panel shows the progress and restarts by itself. The web page has the same upload under
+"Update firmware", usable from a phone. The password is `gaggiano` unless
+`tools/ota-password` (git-ignored) says otherwise; the firmware reads its own from NVS
+key `otapass` when present. The USB path keeps working as before.
 
 ## Partition scheme of the screen
 

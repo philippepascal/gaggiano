@@ -1,7 +1,9 @@
 # The screen's web page
 
 Once the screen is on WiFi (Advanced, then WiFi on the panel), open
-`http://gaggiano.local` on a phone or computer on the same network. No login.
+`http://gaggiano.local` on a phone or computer on the same network. No login. If the
+name does not resolve (some Macs are slow with `.local`), use the IP shown on the WiFi
+view.
 
 | Path | What |
 |---|---|
@@ -9,6 +11,7 @@ Once the screen is on WiFi (Advanced, then WiFi on the panel), open
 | `/api/status` | JSON, one object: profile, notes, time, temp, pressure, valve, heater %, pump %, tempSet, pressSet, ctrlMode, link, the six button states, phase, timer, lastShot, heap |
 | `/api/history` | JSON arrays of the last 300 samples (2 per second): temp, pressure, heater, pump, mode |
 | `/logs.csv` | the SD card log as a download |
+| `/update` | POST, multipart `firmware` + `password`: flashes the screen and restarts (see BUILD.md) |
 
 The page polls `/api/status` once a second and appends a sample every half second.
 

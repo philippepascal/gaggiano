@@ -191,11 +191,13 @@ wait_for() {
 flash_screen_ota() {
   local host="${OTA_HOST:-gaggiano.local}" pass="gaggiano"
   [ -f "$REPO/tools/ota-password" ] && pass="$(cat "$REPO/tools/ota-password")"
-  local espota; espota="$(ls "$(data_dir)"/packages/esp32/hardware/esp32/*/tools/espota.py | tail -1)"
-  [ -f "$espota" ] || die "espota.py not found in the esp32 core"
-  log "sending build/screen/$T_SKETCH.ino.bin to $host over WiFi"
-  python3 "$espota" -i "$host" -p 3232 -a "$pass" -f "$BUILD_DIR/screen/$T_SKETCH.ino.bin" -r || die "OTA upload failed (is the screen on WiFi? password in tools/ota-password?)"
-  log "screen updated over the air; it restarts by itself"
+  log "uploading build/screen/$T_SKETCH.ino.bin to http://$host/update"
+  local reply
+  reply="$(curl -s -m 180 -F "password=$pass" -F "firmware=@$BUILD_DIR/screen/$T_SKETCH.ino.bin" "http://$host/update")" || die "upload failed (is the screen on WiFi? try the IP instead of the name)"
+  case "$reply" in
+    ok*) log "screen updated over WiFi; it restarts by itself" ;;
+    *) die "screen answered: $reply" ;;
+  esac
 }
 
 flash_screen() {

@@ -134,12 +134,13 @@ docs/WEB.md            what the page shows, the JSON, the CSV columns
 
 ## Phase W5: over-the-air update
 
-- [x] W5.1 `ota.{h,cpp}`: `ArduinoOTA` with a password from NVS (default set at build,
-      changeable on the WiFi view), hostname `gaggiano`; progress shown on the panel;
-      actions stopped and the controller sent an off command before the update.
-- [x] W5.2 `./gg flash screen --ota [host]`: `arduino-cli upload` with the network port
-      (`gaggiano.local` by default), password from `tools/ota-password` (git-ignored).
-- [ ] W5.3 **(bench)** one OTA update from the Mac with no cable, then a power cycle.
+- [x] W5.1 (changed to an HTTP upload, see notes) firmware update with a password from NVS;
+      progress shown on the panel; actions stopped and the controller sent an off command
+      before the update.
+- [x] W5.2 `./gg flash screen --ota [host]`: `curl` upload to `/update` (`gaggiano.local` by
+      default), password from `tools/ota-password` (git-ignored).
+- [x] W5.3 **(bench)** one OTA update from the Mac with no cable, then a power cycle.
+      2026-09-02: 1.47 MB in 24 s by IP, restart, page back with 118 KB heap.
 
 **Checkpoint W5:** the screen updates over WiFi; the USB path still works.
 
@@ -159,6 +160,13 @@ docs/WEB.md            what the page shows, the JSON, the CSV columns
 - The delete-selects-first-profile quirk (UI plan U4.2).
 
 ## Notes log
+
+- 2026-09-02 OTA: ArduinoOTA (the espota protocol) authenticated but the device could
+  not connect back to the Mac: the screen is on an IoT network (192.168.20.x) and the Mac
+  on the main one; connections from the IoT side are blocked, as they should be.
+  Replaced by an HTTP upload to the screen's own server (`POST /update`, `Update`
+  library), which only needs the Mac-to-screen direction. The web page has the same
+  upload form. `.local` resolution from this Mac is slow; the IP works immediately.
 
 - 2026-09-02 bench: erase-flash and first boot on core 3.3.11 fine, UI unchanged, WiFi
   joined from the panel, NTP time, web and OTA announced, reconnect after a power cycle.

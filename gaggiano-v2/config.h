@@ -9,7 +9,7 @@
 #define CONTROLLER_BAUD 115200
 #define CONTROLLER_RX_BUFFER 512  // several STAT lines can queue while the UI is busy
 
-// --- over-the-air updates (ArduinoOTA); the password can be overridden in NVS ("otapass")
+// --- firmware update over HTTP (POST /update); the password can be overridden in NVS ("otapass")
 #define OTA_DEFAULT_PASSWORD "gaggiano"
 
 // --- USB console

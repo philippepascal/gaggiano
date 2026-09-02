@@ -18,7 +18,6 @@
 #include "console.h"
 #include "net.h"
 #include "webui.h"
-#include "ota.h"
 
 GaggiaStateT state = { false, 98, 8.0, 134, 0, 0, 0, 0, 0, 0, false, "", "", 0, 0, false, 0, false, false, false, false, false, false, false, false, 0, 0 };
 AdvancedSettingsT advancedSettings = { false, false, 3, 1000, 10, 0.2, 0.1, 1, 100, 1, 0.1, 0.05 };
@@ -34,7 +33,6 @@ void setup() {
   linkSetCommand(GP_MODE_OFF, 0, 0, 0);  // initial command: everything off; starts the 1 s heartbeat
   netBegin();
   webBegin();
-  otaBegin();
 
   if (!displaySetup()) return;  // no display: keep the link and console alive anyway
 
@@ -55,7 +53,6 @@ void loop() {
   linkPoll(now);
   netPoll(now);
   webPoll(now);
-  otaPoll(now);
   consolePoll(now);
   if (now - lastUiRefresh >= UI_REFRESH_MS) {
     lastUiRefresh = now;
