@@ -107,33 +107,33 @@ the dropped 24/26/36 fonts weighed more than the new 20/28/48).
 
 ## Phase U3: main screen (no bench until the end)
 
-- [ ] U3.1 `history.{h,cpp}`: `HistoryBuffer` with a fixed capacity (150 points),
+- [x] U3.1 `history.{h,cpp}`: `HistoryBuffer` with a fixed capacity (150 points),
       `push(value)`, `count()`, `at(i)`; three buffers (temperature, pressure, timer
       is not curved). Fed from `updateUI` at 5 Hz for pressure and 1 Hz for
       temperature (2-minute window). Host test: wrap-around, ordering, empty state.
-- [ ] U3.2 Header: 44 px row; profile label (Montserrat 20, text color), notes label
+- [x] U3.2 Header: 44 px row; profile label (Montserrat 20, text color), notes label
       (14, muted, single line, clipped with an ellipsis, hidden when empty), menu icon
       button on the right (`LV_SYMBOL_LIST`). The tabview keeps the views but its tab
       bar height is 0; the menu is a dropdown with Profiles, Settings, Advanced and
       switches with `lv_tabview_set_act`. On a non-main view the icon shows
       `LV_SYMBOL_LEFT` and returns to Main. Disabling the tabs during an action
       becomes disabling the menu button.
-- [ ] U3.3 Tiles: three `lv_obj` at 116 px on the surface color, radius 6. Inside each:
+- [x] U3.3 Tiles: three `lv_obj` at 116 px on the surface color, radius 6. Inside each:
       an `lv_chart` (line, no points, no grid, 150 points, shift mode, line 2 px in the
       tile accent, 40 % opacity) filling the tile, a 12 px uppercase label top-left,
       the value (48) with its unit (20, muted) bottom-left. Temperature and pressure
       tiles turn amber (value and curve) while their action runs; the timer tile turns
       amber while a timer runs. Pressure axis fixed 0 to 12 bar, temperature 20 to 160.
-- [ ] U3.4 Buttons: grid 3 columns x 2 rows, 12 px gaps, stretch to the remaining
+- [x] U3.4 Buttons: grid 3 columns x 2 rows, 12 px gaps, stretch to the remaining
       height. Each button: name (20) over value (28). Values: Heat "93 °C", Brew
       "9.0 bar", Prime "7 + 8 s", Steam "135 °C · 4 bar · 4 %" (28 may not fit three
       values; fall back to 20 for that one and check in the simulator), Clean "9 bar",
       Auto "33 s". States: idle (surface, steel border), on (amber fill, dark text;
       steel blue for Steam), disabled (dim text and border).
-- [ ] U3.5 Notes moved to the header; the bottom panel goes away; the button grid
+- [x] U3.5 Notes moved to the header; the bottom panel goes away; the button grid
       takes the space. Timer tile gets "last shot" from `lastBrewTime` when idle (the
       field exists in the state and is unused today; set it when a brew or auto ends).
-- [ ] U3.6 Simulator pass through every state: idle, heating, brewing, steaming,
+- [x] U3.6 Simulator pass through every state: idle, heating, brewing, steaming,
       cleaning, prime, auto, and the notes present/absent. Screenshot to
       `docs/images/ui-main.png`.
 - [ ] U3.7 **(bench)** Flash; bench checklist items 4 to 7; check the curve moves with
@@ -172,6 +172,12 @@ unchanged.
 - Custom font sizes beyond 48 (needs the LVGL font converter; not required now).
 
 ## Notes log
+
+- 2026-09-02 U3: main screen built and rendered in the simulator in the idle and
+  brewing scenes (`docs/images/ui-main-idle.png`, `ui-main-brewing.png`). Board build
+  752,800 bytes (57 %): the chart widget and the flex/grid layouts cost about 100 KB
+  over U2. The simulator got `--scene idle|heating|brewing|steaming` and `--after ms`.
+  The perf monitor overlay (FPS/CPU in the corner, on the device too until now) is off.
 
 - 2026-09-02 U1: LVGL's 48 KB pool overflows on the host (64-bit pointers make every
   widget bigger) and the assert handler then spins forever, which looked like a hang.

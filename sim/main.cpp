@@ -16,6 +16,9 @@
 #include <lvgl.h>
 #include "gaggia_state.h"
 #include "lv_buildUI.h"
+extern "C" lv_obj_t *heat_btn_for_scene(void);   // simulator hooks exported by lv_buildUI.c
+extern "C" lv_obj_t *brew_btn_for_scene(void);
+extern "C" lv_obj_t *steam_btn_for_scene(void);
 #include "sequencer.h"
 #include <gaggia_protocol.h>
 
@@ -145,8 +148,12 @@ static int duplicateProfile() { profiles.push_back(current + "-c"); return 1; }
 
 int main(int argc, char **argv) {
   const char *shot = NULL;
+  const char *scene = "idle";  // idle | heating | brewing | steaming
+  uint32_t shotAfter = 1000;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--shot") == 0 && i + 1 < argc) shot = argv[++i];
+    else if (strcmp(argv[i], "--scene") == 0 && i + 1 < argc) scene = argv[++i];
+    else if (strcmp(argv[i], "--after") == 0 && i + 1 < argc) shotAfter = (uint32_t)atoi(argv[++i]);
   }
   setvbuf(stdout, NULL, _IONBF, 0);  // progress visible even when piped
   headless = shot != NULL;
@@ -176,7 +183,23 @@ int main(int argc, char **argv) {
   instantiateUI(&state, &advancedSettings, writeConfigFile, listProfiles, getCurrentProfile, writeCurrentProfile,
                 setupAndReadConfigFile, renameProfile, deleteProfile, duplicateProfile);
   setupAndReadConfigFile();
-  std::printf("[sim] UI built, entering the loop\n");
+  std::printf("[sim] UI built, entering the loop (scene %s)\n", scene);
+  if (strcmp(scene, "heating") == 0 || strcmp(scene, "brewing") == 0) {
+    state.isBoilerOn = true;
+    temp = 90.0f;
+    lv_obj_add_state(heat_btn_for_scene(), LV_STATE_CHECKED);
+  }
+  if (strcmp(scene, "brewing") == 0) {
+    state.isBrewing = true;
+    state.lastBrewTime = 31;
+    lv_obj_add_state(brew_btn_for_scene(), LV_STATE_CHECKED);
+  }
+  if (strcmp(scene, "steaming") == 0) {
+    state.isSteaming = true;
+    temp = 128.0f;
+    lv_obj_add_state(steam_btn_for_scene(), LV_STATE_CHECKED);
+  }
+  if (strcmp(scene, "idle") != 0) state.hasCommandChanged = true;
 
   uint32_t lastUi = 0, lastTick = nowMs(), start = nowMs();
   bool running = true;
@@ -210,7 +233,7 @@ int main(int argc, char **argv) {
     if (now - lastUi >= 200) { lastUi = now; updateUI(); }
     lv_timer_handler();
     present();
-    if (shot && now - start > 1000) { saveShot(shot); running = false; }
+    if (shot && now - start > shotAfter) { saveShot(shot); running = false; }
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
   }
   if (!headless) {

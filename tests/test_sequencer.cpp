@@ -40,6 +40,7 @@ int main() {
   CHECK(press(&GaggiaState::isBrewing, false, 30000));
   CHECK(C.mode == GP_MODE_OFF); CHECK_NEAR(C.tempSet, 93, 0.01);   // heat stays on
   CHECK(S.actionStopTime == 30000);
+  CHECK_NEAR(S.lastBrewTime, 25.0, 0.01);                          // 5000 -> 30000
 
   // Steam: temp from the steam setpoint, pump percent carried.
   reset();
@@ -83,6 +84,7 @@ int main() {
   CHECK(!S.isAuto); CHECK(sequencerPhase() == PHASE_OFF);
   CHECK(S.actionStartTime == 1000);                 // continuous through fill, wait, brew
   CHECK(S.actionStopTime == 16200 + 33100);
+  CHECK_NEAR(S.lastBrewTime, (16200 + 33100 - 1000) / 1000.0, 0.01);
 
   // Auto without bloom configured: straight to brew.
   reset();

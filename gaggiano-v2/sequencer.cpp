@@ -2,11 +2,15 @@
 #include <gaggia_protocol.h>
 
 static int currentPhase = PHASE_OFF;
+static bool wasBrewing = false;  // a manual brew is running; its duration becomes lastBrewTime
 static uint32_t phaseStart = 0;  // phase durations are measured from here; the
                                  // on-screen timer (actionStartTime) runs across phases
 
 int sequencerPhase() { return currentPhase; }
-void sequencerReset() { currentPhase = PHASE_OFF; }
+void sequencerReset() {
+  currentPhase = PHASE_OFF;
+  wasBrewing = false;
+}
 
 // "Brew" as the old firmware called it: pump to a pressure when pressure > 0,
 // otherwise everything off with the boiler holding temp.
@@ -42,6 +46,10 @@ static void markStopped(GaggiaStateT *s, uint32_t now) {
   if (s->actionStartTime > 0 && s->actionStopTime == 0) s->actionStopTime = (int)now;
 }
 
+static void rememberShot(GaggiaStateT *s, uint32_t now) {
+  if (s->actionStartTime > 0) s->lastBrewTime = (now - (uint32_t)s->actionStartTime) / 1000.0f;
+}
+
 static void markStarted(GaggiaStateT *s, uint32_t now) {
   s->actionStartTime = (int)now;
   s->actionStopTime = 0;
@@ -60,6 +68,7 @@ bool sequencerStep(GaggiaStateT *s, uint32_t now, SeqCommand *out) {
     s->hasCommandChanged = false;
     if (s->isBrewing) {
       markStarted(s, now);
+      wasBrewing = true;
       return brew(out, temp, s->pressureSetPoint);
     }
     if (s->isCleaning) {
@@ -96,6 +105,10 @@ bool sequencerStep(GaggiaStateT *s, uint32_t now, SeqCommand *out) {
       markStopped(s, now);
       return steam(out, s->steamSetPoint, s->steam_max_pressure, s->steam_pump_output_percent);
     }
+    if (wasBrewing) {
+      rememberShot(s, now);
+      wasBrewing = false;
+    }
     if (s->isBoilerOn) {
       markStopped(s, now);
       return brew(out, s->boilerSetPoint, 0);
@@ -131,6 +144,7 @@ bool sequencerStep(GaggiaStateT *s, uint32_t now, SeqCommand *out) {
       currentPhase = PHASE_OFF;
       s->actionStopTime = (int)now;
       s->isAuto = false;
+      rememberShot(s, now);
       return brew(out, temp, 0);
     }
   }

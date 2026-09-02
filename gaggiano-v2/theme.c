@@ -16,8 +16,11 @@ const lv_font_t *theme_font_name = &lv_font_montserrat_20;
 const lv_font_t *theme_font_value = &lv_font_montserrat_28;
 const lv_font_t *theme_font_big = &lv_font_montserrat_48;
 
-static lv_style_t st_screen, st_header, st_surface, st_muted, st_title;
-static lv_style_t st_btn, st_btn_on, st_btn_on_steam, st_btn_dis;
+static lv_color_t steel_hi(void) { return lv_color_hex(0x6B7480); }
+
+static lv_style_t st_screen, st_header, st_surface, st_muted, st_title, st_header_notes, st_menu;
+static lv_style_t st_btn, st_btn_on, st_btn_on_steam, st_btn_dis, st_btn_name, st_btn_value;
+static lv_style_t st_tile, st_tile_label, st_tile_value, st_tile_unit, st_chart;
 
 void theme_init(void) {
   // The default theme (dark) is the base for widgets we do not style by hand.
@@ -73,6 +76,55 @@ void theme_init(void) {
   lv_style_set_border_color(&st_btn_on_steam, theme_steam());
   lv_style_set_text_color(&st_btn_on_steam, amber_ink());
 
+  lv_style_init(&st_header_notes);
+  lv_style_set_text_color(&st_header_notes, theme_muted());
+  lv_style_set_text_font(&st_header_notes, theme_font_small);
+
+  lv_style_init(&st_menu);
+  lv_style_set_bg_color(&st_menu, theme_surface());
+  lv_style_set_bg_opa(&st_menu, LV_OPA_COVER);
+  lv_style_set_border_color(&st_menu, theme_steel());
+  lv_style_set_border_width(&st_menu, 1);
+  lv_style_set_radius(&st_menu, 6);
+  lv_style_set_shadow_width(&st_menu, 0);
+  lv_style_set_text_color(&st_menu, theme_text());
+  lv_style_set_text_font(&st_menu, theme_font_name);
+  lv_style_set_pad_all(&st_menu, 4);
+
+  lv_style_init(&st_btn_name);
+  lv_style_set_text_font(&st_btn_name, theme_font_name);
+
+  lv_style_init(&st_btn_value);
+  lv_style_set_text_font(&st_btn_value, theme_font_value);
+
+  lv_style_init(&st_tile);
+  lv_style_set_bg_color(&st_tile, theme_surface());
+  lv_style_set_bg_opa(&st_tile, LV_OPA_COVER);
+  lv_style_set_border_width(&st_tile, 0);
+  lv_style_set_radius(&st_tile, 6);
+  lv_style_set_shadow_width(&st_tile, 0);
+  lv_style_set_pad_all(&st_tile, 0);
+  lv_style_set_clip_corner(&st_tile, true);
+
+  lv_style_init(&st_tile_label);
+  lv_style_set_text_color(&st_tile_label, theme_muted());
+  lv_style_set_text_font(&st_tile_label, theme_font_small);
+  lv_style_set_text_letter_space(&st_tile_label, 2);
+
+  lv_style_init(&st_tile_value);
+  lv_style_set_text_color(&st_tile_value, theme_text());
+  lv_style_set_text_font(&st_tile_value, theme_font_big);
+
+  lv_style_init(&st_tile_unit);
+  lv_style_set_text_color(&st_tile_unit, theme_muted());
+  lv_style_set_text_font(&st_tile_unit, theme_font_name);
+
+  lv_style_init(&st_chart);
+  lv_style_set_bg_opa(&st_chart, LV_OPA_TRANSP);
+  lv_style_set_border_width(&st_chart, 0);
+  lv_style_set_pad_all(&st_chart, 0);
+  lv_style_set_radius(&st_chart, 0);
+
   lv_style_init(&st_btn_dis);
   lv_style_set_bg_color(&st_btn_dis, theme_surface());
   lv_style_set_border_color(&st_btn_dis, dim_border());
@@ -84,6 +136,38 @@ void theme_apply_header(lv_obj_t *obj) { lv_obj_add_style(obj, &st_header, 0); }
 void theme_apply_surface(lv_obj_t *obj) { lv_obj_add_style(obj, &st_surface, 0); }
 void theme_apply_muted(lv_obj_t *label) { lv_obj_add_style(label, &st_muted, 0); }
 void theme_apply_title(lv_obj_t *label) { lv_obj_add_style(label, &st_title, 0); }
+
+void theme_apply_header_notes(lv_obj_t *label) { lv_obj_add_style(label, &st_header_notes, 0); }
+void theme_apply_menu(lv_obj_t *dd) {
+  lv_obj_add_style(dd, &st_menu, 0);
+  lv_obj_add_style(dd, &st_btn_dis, LV_STATE_DISABLED);
+}
+void theme_apply_tile(lv_obj_t *tile) { lv_obj_add_style(tile, &st_tile, 0); }
+void theme_apply_tile_label(lv_obj_t *label) { lv_obj_add_style(label, &st_tile_label, 0); }
+void theme_apply_tile_value(lv_obj_t *label) { lv_obj_add_style(label, &st_tile_value, 0); }
+void theme_apply_tile_unit(lv_obj_t *label) { lv_obj_add_style(label, &st_tile_unit, 0); }
+void theme_apply_btn_name(lv_obj_t *label) { lv_obj_add_style(label, &st_btn_name, 0); }
+void theme_apply_btn_value(lv_obj_t *label) { lv_obj_add_style(label, &st_btn_value, 0); }
+
+void theme_apply_chart(lv_obj_t *chart) {
+  lv_obj_add_style(chart, &st_chart, 0);
+  lv_obj_set_style_size(chart, 0, LV_PART_INDICATOR);        // no points
+  lv_obj_set_style_line_width(chart, 2, LV_PART_ITEMS);
+  lv_obj_set_style_line_opa(chart, LV_OPA_60, LV_PART_ITEMS);
+  lv_chart_set_div_line_count(chart, 0, 0);
+  lv_chart_set_type(chart, LV_CHART_TYPE_LINE);
+  lv_chart_set_update_mode(chart, LV_CHART_UPDATE_MODE_SHIFT);
+  lv_obj_clear_flag(chart, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+}
+
+lv_chart_series_t *theme_chart_series(lv_obj_t *chart) {
+  return lv_chart_add_series(chart, steel_hi(), LV_CHART_AXIS_PRIMARY_Y);
+}
+
+void theme_set_hot(lv_obj_t *value, lv_obj_t *chart, lv_chart_series_t *ser, bool hot) {
+  lv_obj_set_style_text_color(value, hot ? theme_amber() : theme_text(), 0);
+  if (chart && ser) lv_chart_set_series_color(chart, ser, hot ? theme_amber() : steel_hi());
+}
 
 void theme_apply_btn(lv_obj_t *btn, bool steam) {
   lv_obj_add_style(btn, &st_btn, 0);
