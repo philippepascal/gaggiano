@@ -47,7 +47,7 @@
  *=========================*/
 
 /*1: use custom malloc/free, 0: use the built-in `lv_mem_alloc()` and `lv_mem_free()`*/
-#define LV_MEM_CUSTOM 0
+#define LV_MEM_CUSTOM 1  /* widgets live in PSRAM on the board (internal RAM is needed for the draw buffer) */
 #if LV_MEM_CUSTOM == 0
     /*Size of the memory available for `lv_mem_alloc()` in bytes (>= 2kB)*/
 #ifndef LV_MEM_SIZE  /* the host simulator passes a larger pool: 64-bit widgets are bigger */
@@ -63,10 +63,17 @@
     #endif
 
 #else       /*LV_MEM_CUSTOM*/
-    #define LV_MEM_CUSTOM_INCLUDE <stdlib.h>   /*Header for the dynamic memory function*/
-    #define LV_MEM_CUSTOM_ALLOC   malloc
-    #define LV_MEM_CUSTOM_FREE    free
-    #define LV_MEM_CUSTOM_REALLOC realloc
+    #ifdef ESP_PLATFORM
+        #define LV_MEM_CUSTOM_INCLUDE "esp32-hal-psram.h"  /* ps_malloc & co: 8 MB of PSRAM */
+        #define LV_MEM_CUSTOM_ALLOC   ps_malloc
+        #define LV_MEM_CUSTOM_FREE    free
+        #define LV_MEM_CUSTOM_REALLOC ps_realloc
+    #else
+        #define LV_MEM_CUSTOM_INCLUDE <stdlib.h>   /* host simulator */
+        #define LV_MEM_CUSTOM_ALLOC   malloc
+        #define LV_MEM_CUSTOM_FREE    free
+        #define LV_MEM_CUSTOM_REALLOC realloc
+    #endif
 #endif     /*LV_MEM_CUSTOM*/
 
 /*Number of the intermediate memory buffer used during rendering and other internal processing mechanisms.

@@ -12,11 +12,7 @@ extern bool isControllerLoggingOn;
 
 bool debugLog = true;
 
-static unsigned lvglPoolUsed() {
-  lv_mem_monitor_t mon;
-  lv_mem_monitor(&mon);
-  return mon.used_pct;
-}
+
 static uint32_t lastHeapReport = 0;
 
 void consoleSetup() {
@@ -27,13 +23,13 @@ void consoleSetup() {
 static void printStatus(uint32_t now) {
   Serial.printf("STATUS profile=%s heat=%d brew=%d steam=%d clean=%d bloom=%d auto=%d phase=%d "
                 "controller=%s ctrlMode=%d temp=%.2f press=%.2f valve=%d rx=%lu rxRejected=%lu rxOverflows=%lu tx=%lu "
-                "sd=%d sdlog=%d heap=%u minheap=%u lvglpool=%u%%\n",
+                "sd=%d sdlog=%d heap=%u minheap=%u psramfree=%u\n",
                 state.profile_name, state.isBoilerOn, state.isBrewing, state.isSteaming, state.isCleaning,
                 state.isBlooming, state.isAuto, sequencerPhase(), linkControllerAlive(now) ? "alive" : "silent",
                 linkControllerMode(), state.tempRead, state.pressureRead, state.isSolenoidOn,
                 (unsigned long)linkRxLines, (unsigned long)linkRxRejected, (unsigned long)linkRxOverflows,
                 (unsigned long)linkTxLines, storageReady(), isControllerLoggingOn, (unsigned)ESP.getFreeHeap(),
-                (unsigned)ESP.getMinFreeHeap(), (unsigned)lvglPoolUsed());
+                (unsigned)ESP.getMinFreeHeap(), (unsigned)ESP.getFreePsram());
 }
 
 void consolePoll(uint32_t now) {

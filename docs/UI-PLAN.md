@@ -173,6 +173,16 @@ unchanged.
 
 ## Notes log
 
+- 2026-09-02 LVGL memory: adding the graph view's chart series overflowed the 48 KB
+  LVGL pool on the board (the assert handler then spins silently: no console output at
+  all, the symptom to remember). LVGL now allocates from PSRAM (`LV_MEM_CUSTOM 1`,
+  `ps_malloc`; plain `malloc` in the simulator). Static RAM 119 KB -> 33 KB, free heap
+  at boot 111 KB -> 152 KB, PSRAM in use by the UI about 80 KB. The draw buffer stays in
+  internal RAM. The old `-DLV_MEM_SIZE` override for the simulator is gone.
+- 2026-09-02 the controller already reports heater and pump outputs in STAT; the screen
+  now keeps them (`boilerOut`, `pumpOut`, `ctrlMode`, `linkOk` in the state) and the
+  graph view plots them.
+
 - 2026-09-02 U3: main screen built and rendered in the simulator in the idle and
   brewing scenes (`docs/images/ui-main-idle.png`, `ui-main-brewing.png`). Board build
   752,800 bytes (57 %): the chart widget and the flex/grid layouts cost about 100 KB

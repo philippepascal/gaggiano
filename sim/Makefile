@@ -8,7 +8,7 @@ SDL_CFLAGS  := $(shell sdl2-config --cflags)
 SDL_LDFLAGS := $(shell sdl2-config --libs)
 
 INC      := -I. -I$(ROOT)/libraries -I$(LVGL) -I$(UI) -I$(ROOT)/libraries/GaggiaProtocol/src
-DEFS     := -DLV_CONF_INCLUDE_SIMPLE -DLV_LVGL_H_INCLUDE_SIMPLE '-DLV_MEM_SIZE=(512U*1024U)'
+DEFS     := -DLV_CONF_INCLUDE_SIMPLE -DLV_LVGL_H_INCLUDE_SIMPLE
 CFLAGS   := -O1 -g $(INC) $(DEFS) $(SDL_CFLAGS)
 CXXFLAGS := -std=c++17 -Wall -Wextra $(CFLAGS)
 

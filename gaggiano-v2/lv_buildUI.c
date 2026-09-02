@@ -115,7 +115,7 @@ static lv_chart_series_t* g_boiler_ser;
 static lv_chart_series_t* g_pump_ser;
 static lv_obj_t* g_legend[4];
 static lv_obj_t* g_strip;
-static lv_color_t g_strip_buf[LV_CANVAS_BUF_SIZE_TRUE_COLOR(STRIP_W, STRIP_H)];
+static lv_color_t* g_strip_buf;  // allocated through LVGL (PSRAM on the board)
 
 
 static lv_obj_t* fileList;
@@ -989,6 +989,7 @@ static void graph_create(lv_obj_t* parent) {
   g_press_ser = lv_chart_add_series(graph_chart, theme_steam(), LV_CHART_AXIS_SECONDARY_Y);
 
   g_strip = lv_canvas_create(parent);
+  g_strip_buf = (lv_color_t*)lv_mem_alloc(LV_CANVAS_BUF_SIZE_TRUE_COLOR(STRIP_W, STRIP_H));
   lv_canvas_set_buffer(g_strip, g_strip_buf, STRIP_W, STRIP_H, LV_IMG_CF_TRUE_COLOR);
   lv_canvas_fill_bg(g_strip, lv_color_black(), LV_OPA_COVER);
   lv_obj_set_size(g_strip, STRIP_W, STRIP_H);
