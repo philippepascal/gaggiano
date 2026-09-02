@@ -993,7 +993,7 @@ static lv_obj_t* group_create(lv_obj_t* column, const char* title) {
   lv_obj_set_flex_flow(group, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_style_pad_row(group, 4, 0);
   lv_obj_t* label = lv_label_create(group);
-  theme_apply_tile_label(label);
+  theme_apply_group_title(label);
   lv_label_set_text(label, title);
   return group;
 }

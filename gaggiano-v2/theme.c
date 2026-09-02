@@ -21,6 +21,7 @@ static lv_color_t steel_hi(void) { return lv_color_hex(0x6B7480); }
 static lv_style_t st_screen, st_header, st_surface, st_muted, st_title, st_header_notes, st_menu;
 static lv_style_t st_btn, st_btn_on, st_btn_on_steam, st_btn_dis, st_btn_name, st_btn_value;
 static lv_style_t st_tile, st_tile_label, st_tile_value, st_tile_unit, st_chart;
+static lv_style_t st_group_title;
 static lv_style_t st_btn_sub, st_list, st_list_row, st_list_row_sel, st_field_label, st_field, st_view;
 
 void theme_init(void) {
@@ -121,6 +122,11 @@ void theme_init(void) {
   lv_style_set_bg_opa(&st_list_row_sel, LV_OPA_COVER);
   lv_style_set_text_color(&st_list_row_sel, theme_amber());
 
+  lv_style_init(&st_group_title);
+  lv_style_set_text_font(&st_group_title, theme_font_small);
+  lv_style_set_text_color(&st_group_title, theme_amber());
+  lv_style_set_text_letter_space(&st_group_title, 2);
+
   lv_style_init(&st_field_label);
   lv_style_set_text_font(&st_field_label, theme_font_name);
   lv_style_set_text_color(&st_field_label, theme_muted());
@@ -207,6 +213,7 @@ void theme_set_selected(lv_obj_t *label, bool selected) {
   if (selected) lv_obj_add_state(label, LV_STATE_CHECKED);
   else lv_obj_clear_state(label, LV_STATE_CHECKED);
 }
+void theme_apply_group_title(lv_obj_t *label) { lv_obj_add_style(label, &st_group_title, 0); }
 void theme_apply_field_label(lv_obj_t *label) { lv_obj_add_style(label, &st_field_label, 0); }
 void theme_apply_field(lv_obj_t *ta) {
   lv_obj_add_style(ta, &st_field, 0);
