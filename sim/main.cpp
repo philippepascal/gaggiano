@@ -196,6 +196,12 @@ int main(int argc, char **argv) {
     state.lastBrewTime = 31;
     lv_obj_add_state(brew_btn_for_scene(), LV_STATE_CHECKED);
   }
+  if (strcmp(scene, "prime") == 0) {
+    state.isBoilerOn = true;
+    temp = 92.0f;
+    state.isBlooming = true;
+    lv_obj_add_state(heat_btn_for_scene(), LV_STATE_CHECKED);
+  }
   if (strcmp(scene, "steaming") == 0) {
     state.isSteaming = true;
     temp = 128.0f;
@@ -205,7 +211,7 @@ int main(int argc, char **argv) {
   if (strcmp(scene, "profiles") == 0) show_view_for_scene(1);
   if (strcmp(scene, "settings") == 0) show_view_for_scene(2);
   if (strcmp(scene, "advanced") == 0) show_view_for_scene(3);
-  if (strcmp(scene, "heating") == 0 || strcmp(scene, "brewing") == 0 || strcmp(scene, "steaming") == 0) state.hasCommandChanged = true;
+  if (strcmp(scene, "heating") == 0 || strcmp(scene, "brewing") == 0 || strcmp(scene, "steaming") == 0 || strcmp(scene, "prime") == 0) state.hasCommandChanged = true;
 
   uint32_t lastUi = 0, lastTick = nowMs(), start = nowMs();
   bool running = true;

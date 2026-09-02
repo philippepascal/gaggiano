@@ -10,6 +10,7 @@
 #include "my_logging.h"
 #include "theme.h"
 #include "history.h"
+#include "sequencer.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -294,7 +295,7 @@ static void profile_selected(lv_event_t* e) {
       lv_label_set_text(selectedProfileLabel, clickedProfileName);
       writeCurrentProfile(clickedProfileName);
       setupAndReadConfigFile();
-      //TODO shouldn't we update the settings/advanced tab?
+      updateProfileTab();
     }
   }
 }
@@ -634,8 +635,19 @@ void updateUI() {
   } else {
     lv_label_set_text(time_label, "0");
   }
-  if (state->lastBrewTime > 0 && !running) {
+  const char* phase = NULL;
+  int ph = sequencerPhase();
+  if (ph == PHASE_BLOOM_FILL) phase = "PRIME";
+  else if (ph == PHASE_BLOOM_WAIT) phase = "WAIT";
+  else if (ph == PHASE_BREW || state->isBrewing) phase = "BREW";
+  else if (state->isCleaning) phase = "CLEAN";
+  else if (state->isSteaming) phase = "STEAM";
+  if (phase != NULL) {
+    lv_label_set_text(time_sub_label, phase);
+    lv_obj_set_style_text_color(time_sub_label, theme_amber(), 0);
+  } else if (state->lastBrewTime > 0) {
     lv_label_set_text_fmt(time_sub_label, "LAST SHOT %.0f S", state->lastBrewTime);
+    lv_obj_set_style_text_color(time_sub_label, theme_muted(), 0);
   } else {
     lv_label_set_text(time_sub_label, "");
   }
@@ -972,20 +984,51 @@ static void profile_create(lv_obj_t* parent) {
   }
 }
 
-// One "label: [value]" pair of a settings grid at (col, row); col is 0 or 2.
-static lv_obj_t* field_create(lv_obj_t* parent, const char* text, lv_obj_t* kb, int col, int row) {
-  lv_obj_t* label = lv_label_create(parent);
+// A titled group of fields (flex column) inside a settings column.
+static lv_obj_t* group_create(lv_obj_t* column, const char* title) {
+  lv_obj_t* group = lv_obj_create(column);
+  lv_obj_remove_style_all(group);
+  lv_obj_set_width(group, LV_PCT(100));
+  lv_obj_set_height(group, LV_SIZE_CONTENT);
+  lv_obj_set_flex_flow(group, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_style_pad_row(group, 4, 0);
+  lv_obj_t* label = lv_label_create(group);
+  theme_apply_tile_label(label);
+  lv_label_set_text(label, title);
+  return group;
+}
+
+// One "label ........ [value]" row in a group.
+static lv_obj_t* field_create(lv_obj_t* group, const char* text, lv_obj_t* kb) {
+  lv_obj_t* row = lv_obj_create(group);
+  lv_obj_remove_style_all(row);
+  lv_obj_set_width(row, LV_PCT(100));
+  lv_obj_set_height(row, 40);
+  lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+  lv_obj_t* label = lv_label_create(row);
   theme_apply_field_label(label);
   lv_label_set_text(label, text);
-  lv_obj_set_grid_cell(label, LV_GRID_ALIGN_START, col, 1, LV_GRID_ALIGN_CENTER, row, 1);
+  lv_obj_set_flex_grow(label, 1);
 
-  lv_obj_t* tf = lv_textarea_create(parent);
+  lv_obj_t* tf = lv_textarea_create(row);
   theme_apply_field(tf);
   lv_textarea_set_one_line(tf, true);
-  lv_obj_set_height(tf, 40);
+  lv_obj_set_size(tf, 150, 40);
   lv_obj_add_event_cb(tf, setting_field_changed, LV_EVENT_ALL, kb);
-  lv_obj_set_grid_cell(tf, LV_GRID_ALIGN_STRETCH, col + 1, 1, LV_GRID_ALIGN_CENTER, row, 1);
   return tf;
+}
+
+// A settings column: groups stacked top to bottom.
+static lv_obj_t* column_create(lv_obj_t* parent, int col, int row) {
+  lv_obj_t* column = lv_obj_create(parent);
+  lv_obj_remove_style_all(column);
+  lv_obj_set_height(column, LV_SIZE_CONTENT);
+  lv_obj_set_flex_flow(column, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_style_pad_row(column, 12, 0);
+  lv_obj_set_grid_cell(column, LV_GRID_ALIGN_STRETCH, col, 1, LV_GRID_ALIGN_START, row, 1);
+  return column;
 }
 
 static lv_obj_t* view_btn_create(lv_obj_t* parent, const char* text, lv_event_cb_t cb) {
@@ -1012,9 +1055,10 @@ static lv_obj_t* numeric_keyboard_create(void) {
 static void settings_create(lv_obj_t* parent) {
   theme_apply_view(parent);
   lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
-  static lv_coord_t col_dsc[] = { LV_GRID_FR(1), 150, LV_GRID_FR(1), 150, LV_GRID_TEMPLATE_LAST };
-  static lv_coord_t row_dsc[] = { 40, 44, 44, 44, 44, 44, 52, LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t col_dsc[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t row_dsc[] = { 40, LV_GRID_FR(1), 52, LV_GRID_TEMPLATE_LAST };
   lv_obj_set_grid_dsc_array(parent, col_dsc, row_dsc);
+  lv_obj_set_style_pad_column(parent, 24, 0);
 
   lv_obj_t* kb = numeric_keyboard_create();
   lv_obj_t* kb2 = lv_keyboard_create(lv_scr_act());
@@ -1027,23 +1071,30 @@ static void settings_create(lv_obj_t* parent) {
   lv_textarea_set_placeholder_text(edit_notes_tf, "Notes");
   lv_obj_set_height(edit_notes_tf, 40);
   lv_obj_add_event_cb(edit_notes_tf, setting_field_changed, LV_EVENT_ALL, kb2);
-  lv_obj_set_grid_cell(edit_notes_tf, LV_GRID_ALIGN_STRETCH, 0, 4, LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_grid_cell(edit_notes_tf, LV_GRID_ALIGN_STRETCH, 0, 2, LV_GRID_ALIGN_CENTER, 0, 1);
 
-  brew_temp_tf = field_create(parent, "Brew temp °C", kb, 0, 1);
-  brew_pressure_tf = field_create(parent, "Brew bar", kb, 2, 1);
-  steam_temp_tf = field_create(parent, "Steam temp °C", kb, 0, 2);
-  steam_max_pressure_tf = field_create(parent, "Steam max bar", kb, 2, 2);
-  steam_pump_output_perc_tf = field_create(parent, "Steam pump %", kb, 0, 3);
-  brew_timer_tf = field_create(parent, "Auto brew s", kb, 2, 3);
-  blooming_pressure_tf = field_create(parent, "Bloom bar", kb, 0, 4);
-  blooming_fill_time_tf = field_create(parent, "Bloom fill s", kb, 2, 4);
-  blooming_wait_time_tf = field_create(parent, "Bloom wait s", kb, 0, 5);
+  lv_obj_t* left = column_create(parent, 0, 1);
+  lv_obj_t* g = group_create(left, "BREW");
+  brew_temp_tf = field_create(g, "Temperature °C", kb);
+  brew_pressure_tf = field_create(g, "Pressure bar", kb);
+  g = group_create(left, "STEAM");
+  steam_temp_tf = field_create(g, "Temperature °C", kb);
+  steam_max_pressure_tf = field_create(g, "Max pressure bar", kb);
+  steam_pump_output_perc_tf = field_create(g, "Pump %", kb);
+
+  lv_obj_t* right = column_create(parent, 1, 1);
+  g = group_create(right, "PRIME");
+  blooming_pressure_tf = field_create(g, "Pressure bar", kb);
+  blooming_fill_time_tf = field_create(g, "Fill s", kb);
+  blooming_wait_time_tf = field_create(g, "Wait s", kb);
+  g = group_create(right, "AUTO");
+  brew_timer_tf = field_create(g, "Brew s", kb);
 
   lv_obj_t* row = lv_obj_create(parent);
   lv_obj_remove_style_all(row);
   lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
   lv_obj_set_style_pad_column(row, GAP, 0);
-  lv_obj_set_grid_cell(row, LV_GRID_ALIGN_STRETCH, 0, 4, LV_GRID_ALIGN_STRETCH, 6, 1);
+  lv_obj_set_grid_cell(row, LV_GRID_ALIGN_STRETCH, 0, 2, LV_GRID_ALIGN_STRETCH, 2, 1);
   setBtn = view_btn_create(row, "Save", setButtonClicked);
   view_btn_create(row, "Cancel", cancelButtonClicked);
   clearLogsBtn = view_btn_create(row, "Clear logs", clearLogsBtnClicked);
@@ -1052,28 +1103,34 @@ static void settings_create(lv_obj_t* parent) {
 static void advancedSettings_create(lv_obj_t* parent) {
   theme_apply_view(parent);
   lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
-  static lv_coord_t col_dsc[] = { LV_GRID_FR(1), 150, LV_GRID_FR(1), 150, LV_GRID_TEMPLATE_LAST };
-  static lv_coord_t row_dsc[] = { 44, 44, 44, 44, 44, 52, LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t col_dsc[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
+  static lv_coord_t row_dsc[] = { LV_GRID_FR(1), 52, LV_GRID_TEMPLATE_LAST };
   lv_obj_set_grid_dsc_array(parent, col_dsc, row_dsc);
+  lv_obj_set_style_pad_column(parent, 24, 0);
 
   lv_obj_t* kb = numeric_keyboard_create();
 
-  boiler_bb_range_tf = field_create(parent, "Boiler band °C", kb, 0, 0);
-  boiler_PID_cycle_tf = field_create(parent, "PID cycle ms", kb, 2, 0);
-  boiler_PID_KP_tf = field_create(parent, "Boiler Kp", kb, 0, 1);
-  boiler_PID_KI_tf = field_create(parent, "Boiler Ki", kb, 2, 1);
-  boiler_PID_KD_tf = field_create(parent, "Boiler Kd", kb, 0, 2);
-  pump_max_step_up_tf = field_create(parent, "Pump step", kb, 2, 2);
-  pump_KP_tf = field_create(parent, "Pump Kp", kb, 0, 3);
-  pump_KI_tf = field_create(parent, "Pump Ki", kb, 2, 3);
-  pump_KD_tf = field_create(parent, "Pump Kd", kb, 0, 4);
-  unused1_tf = field_create(parent, "Unused", kb, 2, 4);
+  lv_obj_t* left = column_create(parent, 0, 0);
+  lv_obj_t* g = group_create(left, "BOILER");
+  boiler_bb_range_tf = field_create(g, "Bang-bang band °C", kb);
+  boiler_PID_cycle_tf = field_create(g, "PID cycle ms", kb);
+  boiler_PID_KP_tf = field_create(g, "Kp", kb);
+  boiler_PID_KI_tf = field_create(g, "Ki", kb);
+  boiler_PID_KD_tf = field_create(g, "Kd", kb);
+
+  lv_obj_t* right = column_create(parent, 1, 0);
+  g = group_create(right, "PUMP");
+  pump_max_step_up_tf = field_create(g, "Max step up", kb);
+  pump_KP_tf = field_create(g, "Kp", kb);
+  pump_KI_tf = field_create(g, "Ki", kb);
+  pump_KD_tf = field_create(g, "Kd", kb);
+  unused1_tf = field_create(g, "Unused", kb);
 
   lv_obj_t* row = lv_obj_create(parent);
   lv_obj_remove_style_all(row);
   lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
   lv_obj_set_style_pad_column(row, GAP, 0);
-  lv_obj_set_grid_cell(row, LV_GRID_ALIGN_STRETCH, 0, 4, LV_GRID_ALIGN_STRETCH, 5, 1);
+  lv_obj_set_grid_cell(row, LV_GRID_ALIGN_STRETCH, 0, 2, LV_GRID_ALIGN_STRETCH, 1, 1);
   advancedSetBtn = view_btn_create(row, "Save", advancedSetButtonClicked);
   view_btn_create(row, "Cancel", advancedCancelButtonClicked);
 }
