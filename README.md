@@ -9,9 +9,12 @@ boards:
 | STM32F411CEU6 "Black Pill" | `gaggiano-controller-v1/` | reads boiler temperature (MAX6675) and pressure (ADS1115), drives the boiler SSR, the pump (pulse-skip modulation) and the 3-way solenoid |
 | Sunton ESP32-8048S043 (ESP32-S3, 4.3" 800x480 touch) | `gaggiano-v2/` | LVGL touch UI, brew profiles and logs on SD card, sends setpoints to the controller over UART |
 
-The two talk over a 115200 baud serial link with a small ASCII protocol
-(`type;field;field;...|`). Wiring follows the Gaggiuino "Lego build" schematic in
-`docs/images/gaggiuino-lego-schematic-v3.9.png` with pin assignments as in the sketches.
+The two talk over a 115200 baud serial link with a small text protocol with checksums,
+a 1 s heartbeat from the screen and a 3 s safety timeout on the controller; see
+`docs/PROTOCOL.md`. The protocol code is shared by both firmwares and tested on the
+host (`libraries/GaggiaProtocol/`, `tests/`). Wiring follows the Gaggiuino "Lego build"
+schematic in `docs/images/gaggiuino-lego-schematic-v3.9.png` with pin assignments as in
+the sketches (`gaggiano-controller-v1/config.h`, `gaggiano-v2/config.h`).
 
 ## Building and flashing
 
@@ -23,7 +26,12 @@ Everything goes through the `./gg` script (arduino-cli underneath, no Arduino ID
 ./gg flash screen          # esptool over the display's USB port
 ./gg flash controller      # DFU over USB, no buttons needed after the first flash
 ./gg monitor controller
+./gg test                  # host-side tests of the protocol, profile format, sequencer
 ```
+
+Both boards answer commands on their USB console (`tools/serial-cmd.py controller STATUS`,
+`tools/serial-cmd.py screen STATUS`; `--help` lists them). `docs/BENCH-CHECKLIST.md` is
+the manual verification run after a change.
 
 - `docs/BUILD.md`: setup, commands, layout, troubleshooting.
 - `docs/FLASH-STM32.md`: how the STM32 gets into DFU, the serial-triggered reboot,
@@ -31,6 +39,8 @@ Everything goes through the `./gg` script (arduino-cli underneath, no Arduino ID
 - `sdcard/`: what goes on the display's SD card.
 - `docs/2026-09-01-findings.md` and `docs/MIGRATION-PLAN.md`: state of the project and
   the record of the move away from the Arduino IDE.
+- `docs/REFACTOR-PLAN.md`: the bug inventory and the refactoring record (protocol v2,
+  memory fixes, watchdog, tests).
 
 ## Layout
 
@@ -47,13 +57,14 @@ docs/                 documentation and images
 
 ## Known issues and ideas
 
-From `notes.txt`, the working list:
+From `notes.txt`, the working list, updated after the 2026-09 refactor:
 
-- Communication between screen and controller sometimes stops; cause unknown.
-- Pressure readout on the screen is noisy: the controller sends more updates than the
-  screen consumes. Kalman filtering is in place, message rate tuning still to do.
-- Boiler PID does not settle cleanly; it often drops into the bang-bang band before
-  overshooting.
+- Communication stopping: the screen leaked heap on every status line and ran out
+  within minutes; fixed (see `docs/REFACTOR-PLAN.md`, B1). To be confirmed in the machine.
+- Pressure readout noisy on the screen: the reader now drains every pending line and
+  shows the newest at 5 Hz; smoothing strategy still open.
+- Boiler PID does not settle cleanly: zero readings from the MAX6675 used to pass the
+  range check and reach the PID; fixed (B2). Re-check in the machine before retuning.
 - Steam pressure declines over a long steam; needs a strategy to hold some pressure.
 - Full controller logs on the SD card would help tuning; log format needs a header and
   a way to tie settings to a log (hash of the settings).

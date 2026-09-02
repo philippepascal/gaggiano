@@ -43,20 +43,20 @@ numbered step, message prefixed `refactor:`.
 
 ## Bugs found by reading the code (fixed in the phases below)
 
-| # | Where | What | Effect |
-|---|---|---|---|
-| B1 | both sides, `mySubString` (three copies) | `malloc` per field, never freed | screen leaks ~4 blocks per status line (5/s); controller leaks per command. Likely the "comms sometimes stop" symptom |
-| B2 | controller `readTemperature` | `newReading > 1 \|\| newReading < 200` always true | MAX6675 fault/zero readings pass into the PID |
-| B3 | controller `loop` | `LOOP_PERIOD - (millis() - loopStart)` is unsigned; a loop over 10 ms yields a ~49-day `delay()` | firmware freezes with outputs held at their last value |
-| B4 | controller `parseMessage` | unknown or truncated message falls through to `operating_mode = BREW` | mode switch on line noise, e.g. during steam |
-| B5 | both sides | no checksum, no field-count check | a flipped digit changes a setpoint silently |
-| B6 | controller | UART RX buffer 64 bytes, read every 200 ms; longest command 58 bytes | two commands within 200 ms truncate the second |
-| B7 | screen | commands sent once, never refreshed; controller never times out | a lost "stop" keeps the pump running; a dead link freezes the machine state |
-| B8 | screen `readMessage` | `readStringUntil` blocks up to 50 ms in the UI loop; one line per pass | UI stutter, stale or skipped status lines |
-| B9 | screen `gaggia_config.cpp` | `malloc(30)` + `strcat` of profile names; `sprintf` of notes into 500 bytes; `new char[500]` never freed | stack/heap overflow with long names or notes; leak per profile load |
-| B10 | screen `setupAndReadConfigFile` | reads `values[0..18]` without checking how many rows the CSV had | garbage settings from an old or truncated profile file |
-| B11 | screen `state.notes`, `state.profile_name` | `char*` pointing at leaked heap or string literals | undefined lifetime, leak per load |
-| B12 | controller `parseMessage` | 500-byte line buffer on the stack plus `String` from `readStringUntil` | heap churn, stack pressure; no bound on line length |
+| # | Where | What | Effect | Fixed in |
+|---|---|---|---|---|
+| B1 | both sides, `mySubString` (three copies) | `malloc` per field, never freed | screen leaks ~4 blocks per status line (5/s); controller leaks per command. Likely the "comms sometimes stop" symptom | R1.3 (controller), R2.4 (screen) |
+| B2 | controller `readTemperature` | `newReading > 1 \|\| newReading < 200` always true | MAX6675 fault/zero readings pass into the PID | R1.2 |
+| B3 | controller `loop` | `LOOP_PERIOD - (millis() - loopStart)` is unsigned; a loop over 10 ms yields a ~49-day `delay()` | firmware freezes with outputs held at their last value | R1.1 |
+| B4 | controller `parseMessage` | unknown or truncated message falls through to `operating_mode = BREW` | mode switch on line noise, e.g. during steam | R1.3 |
+| B5 | both sides | no checksum, no field-count check | a flipped digit changes a setpoint silently | R2 (checksum, field count) |
+| B6 | controller | UART RX buffer 64 bytes, read every 200 ms; longest command 58 bytes | two commands within 200 ms truncate the second | R1.4, R2.4 (512 B on the screen) |
+| B7 | screen | commands sent once, never refreshed; controller never times out | a lost "stop" keeps the pump running; a dead link freezes the machine state | R2 (heartbeat, timeout, echo check) |
+| B8 | screen `readMessage` | `readStringUntil` blocks up to 50 ms in the UI loop; one line per pass | UI stutter, stale or skipped status lines | R2.4, R3.2 |
+| B9 | screen `gaggia_config.cpp` | `malloc(30)` + `strcat` of profile names; `sprintf` of notes into 500 bytes; `new char[500]` never freed | stack/heap overflow with long names or notes; leak per profile load | R3.1 |
+| B10 | screen `setupAndReadConfigFile` | reads `values[0..18]` without checking how many rows the CSV had | garbage settings from an old or truncated profile file | R3.1 (profile_format.cpp, tested) |
+| B11 | screen `state.notes`, `state.profile_name` | `char*` pointing at leaked heap or string literals | undefined lifetime, leak per load | R3.1 |
+| B12 | controller `parseMessage` | 500-byte line buffer on the stack plus `String` from `readStringUntil` | heap churn, stack pressure; no bound on line length | R1.3 |
 
 ## Target layout (end state)
 
@@ -248,7 +248,7 @@ continuity (SDLOG left off) and the UART wire pull (needs the controller on USB)
 
 ## Phase R4: wrap-up
 
-- [ ] R4.1 README: protocol summary and link to `docs/PROTOCOL.md`; findings doc gets a
+- [x] R4.1 README: protocol summary and link to `docs/PROTOCOL.md`; findings doc gets a
       "resolved" column for B1-B12; this plan's boxes ticked.
 - [ ] R4.2 One test in the machine: heat, one shot, one steam. Compare against how it
       felt before the refactor; no tuning changes are expected.

@@ -4,9 +4,11 @@ Run items 1 and 2 after every flash. Run the whole list at each checkpoint of
 `docs/REFACTOR-PLAN.md`. "Bench" means both boards on USB and wired to each other over
 UART; nothing needs to be in the machine.
 
-Console commands on the controller's USB port (`./gg monitor controller`, or
-`tools/serial-cmd.py controller <command>`; `tools/serial-cmd.py --list` shows ports):
-`VERSION`, `STATUS`, `LOG ON`, `LOG OFF`, `RX <line>`, `HANG`, `DFU`.
+Console commands (`tools/serial-cmd.py controller <command>` or `... screen <command>`;
+`tools/serial-cmd.py --list` shows ports). Controller: `VERSION`, `STATUS`, `LOG ON|OFF`,
+`RX <protocol line>`, `HANG`, `DFU`. Screen: `VERSION`, `STATUS`, `LOG ON|OFF`, `SDLOG ON|OFF`.
+With one data cable, put one board on USB at a time; either board powers the other
+through the link connector.
 
 | # | Step | Expect |
 |---|---|---|
@@ -20,7 +22,7 @@ Console commands on the controller's USB port (`./gg monitor controller`, or
 | 8 | Settings tab: change a value, Set, reboot the screen | value persists |
 | 9 | Profile tab: duplicate, rename, select, delete | names correct after a screen reboot |
 | 10 | Both boards running 10 minutes | screen prints `HEAP` lines every 10 s with a flat free value; controller loop counter still increasing; `STATUS` max loop time unchanged |
-| 11 | Reboot the controller with NRST while the screen is heating | (from R2 on) screen re-sends settings and command without user action |
-| 12 | Unplug the UART wire during a brew, wait 5 s, replug | (from R2 on) pump stops within 3 s; brew resumes only if still selected |
+| 11 | Reboot the controller with NRST while the screen is heating | screen console shows `controller hello`, then `TUNE` and the heat `CMD` re-sent |
+| 12 | Unplug the UART wire during a brew, wait 5 s, replug | controller console (`LOG ON`): `link timeout: mode off` within 3 s; on replug the next heartbeat restores brew within 1 s |
 
 Record anything unexpected in the plan's notes log.
