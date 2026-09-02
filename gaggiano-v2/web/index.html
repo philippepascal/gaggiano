@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gaggiano</title>
+<style>
+  :root { --bg:#000; --surface:#171a1d; --steel:#3c434a; --text:#e9ecef; --muted:#8b949e;
+          --amber:#d9a441; --water:#7fb3d5; --heater:#d9603b; --pump:#6bbf8a; --steam:#d64545; --clean:#4fa3a0; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.4 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  header { display:flex; align-items:baseline; gap:14px; padding:12px 16px; border-bottom:1px solid var(--steel); background:#0f1113; }
+  header h1 { font-size:22px; margin:0; font-weight:600; }
+  header .notes { color:var(--muted); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  header .state { font-size:13px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+  header .state.on { color:var(--amber); }
+  main { padding:12px 16px; max-width:1000px; margin:0 auto; }
+  .tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .tile { background:var(--surface); border-radius:6px; padding:10px 14px; }
+  .tile .lab { font-size:12px; letter-spacing:.1em; text-transform:uppercase; font-weight:600; }
+  .tile .val { font-size:40px; line-height:1.1; font-weight:500; font-variant-numeric:tabular-nums; }
+  .tile .val small { font-size:16px; color:var(--muted); margin-left:4px; }
+  .tile .set { font-size:13px; color:var(--muted); }
+  .t-boiler .lab { color:var(--amber); } .t-press .lab { color:var(--water); } .t-timer .lab { color:var(--pump); }
+  .legend { display:flex; flex-wrap:wrap; gap:6px 18px; margin:16px 0 6px; font-size:14px; }
+  .legend span::before { content:""; display:inline-block; width:12px; height:3px; margin-right:6px; vertical-align:middle; background:currentColor; }
+  canvas { width:100%; height:300px; display:block; background:#000; border-radius:6px; }
+  .actions { display:flex; gap:12px; margin-top:16px; flex-wrap:wrap; }
+  a.btn { color:var(--text); text-decoration:none; background:var(--surface); border:1px solid var(--steel); border-radius:8px; padding:10px 18px; }
+  .foot { color:var(--muted); font-size:13px; margin-top:16px; }
+  @media (max-width:600px) { .tiles { grid-template-columns:1fr 1fr 1fr; gap:8px; } .tile .val { font-size:28px; } canvas { height:220px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="profile">Gaggiano</h1>
+  <div class="notes" id="notes"></div>
+  <div class="state" id="state">offline</div>
+</header>
+<main>
+  <div class="tiles">
+    <div class="tile t-boiler"><div class="lab">Boiler</div><div class="val"><span id="temp">--</span><small>°C</small></div><div class="set">set <span id="tempSet">--</span></div></div>
+    <div class="tile t-press"><div class="lab">Pressure</div><div class="val"><span id="press">--</span><small>bar</small></div><div class="set">set <span id="pressSet">--</span></div></div>
+    <div class="tile t-timer"><div class="lab">Timer</div><div class="val"><span id="timer">0</span><small>s</small></div><div class="set" id="phase">&nbsp;</div></div>
+  </div>
+  <div class="legend">
+    <span style="color:var(--amber)">boiler °C</span><span style="color:var(--water)">pressure bar (×10)</span>
+    <span style="color:var(--heater)">heater %</span><span style="color:var(--pump)">pump %</span>
+  </div>
+  <canvas id="chart" width="1000" height="300"></canvas>
+  <div class="actions">
+    <a class="btn" href="/logs.csv" download="gaggiano-log.csv">Download this session (CSV)</a>
+    <a class="btn" href="#" id="live" hidden>Back to live</a>
+  </div>
+  <div class="foot" style="margin-top:14px">Sessions on the card (tap a name to view it, the arrow to download):</div>
+  <div id="sessions" class="actions" style="margin-top:6px"></div>
+  <div class="foot" id="foot">Last 150 s. Updated every second while this page is open.</div>
+  <details class="foot"><summary>Update firmware</summary>
+    <form method="post" action="/update" enctype="multipart/form-data" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center" onsubmit="this.size.value=this.firmware.files[0]?this.firmware.files[0].size:0">
+      <input type="hidden" name="size" value="0">
+      <input type="file" name="firmware" accept=".bin" required>
+      <input type="password" name="password" placeholder="password" required>
+      <button type="submit" class="btn" style="font:inherit;cursor:pointer">Upload</button>
+    </form>
+  </details>
+</main>
+<script>
+(function () {
+  var N = 300, PERIOD = 0.5;   // samples in the firmware's history rings
+  var hist = { temp: [], press: [], boiler: [], pump: [], mode: [] };
+  var last = 0;
+  var live = true;  // false while a past session is shown
+  var $ = function (id) { return document.getElementById(id); };
+  var MODE = ['', 'brew', 'steam', 'clean'];
+  var MODE_COLOR = ['', '#7fb3d5', '#d64545', '#4fa3a0'];
+
+  function draw() {
+    var c = $('chart'), ctx = c.getContext('2d');
+    var W = c.width, H = c.height, top = 8, bottom = H - 20, plotH = bottom - top;
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = '#3c434a'; ctx.lineWidth = 1;
+    for (var g = 1; g < 4; g++) { var y = top + plotH * g / 4; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+    // mode strip
+    var n = hist.mode.length;
+    for (var i = 0; i < n; i++) {
+      var m = hist.mode[i]; if (!m) continue;
+      ctx.fillStyle = MODE_COLOR[m] || '#888';
+      var x0 = W * (N - n + i) / N, x1 = W * (N - n + i + 1) / N;
+      ctx.fillRect(x0, bottom + 6, Math.max(1, x1 - x0), 10);
+    }
+    function line(arr, color, scale) {
+      ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+      var k = arr.length, started = false;
+      for (var i = 0; i < k; i++) {
+        var v = arr[i]; if (v === null) { started = false; continue; }
+        var x = W * (N - k + i) / N, y = bottom - Math.max(0, Math.min(1, v / scale)) * plotH;
+        if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    line(hist.boiler, '#d9603b', 100);
+    line(hist.pump, '#6bbf8a', 100);
+    line(hist.temp, '#d9a441', 160);
+    line(hist.press, '#7fb3d5', 14);
+  }
+
+  function push(s) {
+    var keys = ['temp', 'press', 'boiler', 'pump', 'mode'];
+    var vals = [s.temp, s.pressure, s.heater, s.pump, s.ctrlMode];
+    for (var i = 0; i < keys.length; i++) { hist[keys[i]].push(vals[i]); if (hist[keys[i]].length > N) hist[keys[i]].shift(); }
+  }
+
+  function show(s) {
+    $('profile').textContent = s.profile || 'Gaggiano';
+    $('notes').textContent = s.notes || '';
+    var running = s.heat || s.brew || s.steam || s.clean || s.prime || s.auto;
+    var st = $('state'); st.textContent = running ? (s.phase || 'running') : (s.link ? 'idle' : 'controller offline');
+    st.className = 'state' + (running ? ' on' : '');
+    $('temp').textContent = s.temp.toFixed(0); $('tempSet').textContent = s.tempSet.toFixed(0) + ' °C';
+    $('press').textContent = s.pressure.toFixed(1); $('pressSet').textContent = s.pressSet.toFixed(1) + ' bar';
+    $('timer').textContent = s.timer.toFixed(0); $('phase').textContent = s.phase || (s.lastShot ? 'last shot ' + s.lastShot.toFixed(0) + ' s' : ' ');
+    $('foot').textContent = 'Last 150 s · ' + (s.time || '') + ' · heater ' + s.heater.toFixed(0) + '% · pump ' + s.pump.toFixed(0) + '%';
+  }
+
+  function tick() {
+    if (!live) return;
+    fetch('/api/status').then(function (r) { return r.json(); }).then(function (s) {
+      show(s);
+      var now = Date.now() / 1000;
+      if (now - last >= PERIOD) { push(s); last = now; draw(); }
+    }).catch(function () { $('state').textContent = 'no connection'; $('state').className = 'state'; });
+  }
+
+  fetch('/api/history').then(function (r) { return r.json(); }).then(function (h) {
+    hist.temp = h.temp; hist.press = h.pressure; hist.boiler = h.heater; hist.pump = h.pump; hist.mode = h.mode;
+    draw();
+  }).catch(function () {});
+
+  // past sessions: list, view in the chart (downsampled to N points), download
+  function showSession(name) {
+    fetch('/logs/' + name).then(function (r) { return r.text(); }).then(function (csv) {
+      var rows = csv.trim().split('\n').slice(1).map(function (l) { return l.split(','); });
+      var stride = Math.max(1, Math.ceil(rows.length / N));
+      var h = { temp: [], press: [], boiler: [], pump: [], mode: [] };
+      for (var i = 0; i < rows.length; i += stride) {
+        var r = rows[i]; if (r.length < 8) continue;
+        h.mode.push(+r[1]); h.temp.push(+r[2]); h.press.push(+r[3]); h.boiler.push(+r[5]); h.pump.push(+r[6]);
+      }
+      hist = h; live = false; draw();
+      $('foot').textContent = 'Session ' + name.replace('.csv', '') + ' · ' + rows.length + ' rows' + (rows.length ? ' · ' + rows[0][0] + ' to ' + rows[rows.length - 1][0] : '');
+      $('live').hidden = false;
+    });
+  }
+  $('live').addEventListener('click', function (e) {
+    e.preventDefault(); live = true; $('live').hidden = true;
+    fetch('/api/history').then(function (r) { return r.json(); }).then(function (h) {
+      hist = { temp: h.temp, press: h.pressure, boiler: h.heater, pump: h.pump, mode: h.mode }; draw();
+    });
+  });
+  fetch('/logs').then(function (r) { return r.json(); }).then(function (list) {
+    var box = $('sessions'); box.innerHTML = '';
+    list.forEach(function (s) {
+      var a = document.createElement('a'); a.className = 'btn'; a.href = '#';
+      a.textContent = s.name.replace('.csv', '').replace(/^(\d{4})(\d\d)(\d\d)-(\d\d)(\d\d)\d\d$/, '$1-$2-$3 $4:$5') + ' (' + Math.round(s.size / 1024) + ' KB)';
+      a.addEventListener('click', function (e) { e.preventDefault(); showSession(s.name); });
+      var d = document.createElement('a'); d.className = 'btn'; d.textContent = '\u2193'; d.href = '/logs/' + s.name + '?download=1';
+      box.appendChild(a); box.appendChild(d);
+    });
+  }).catch(function () {});
+  tick();
+  setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>

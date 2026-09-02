@@ -136,7 +136,7 @@ the dropped 24/26/36 fonts weighed more than the new 20/28/48).
 - [x] U3.6 Simulator pass through every state: idle, heating, brewing, steaming,
       cleaning, prime, auto, and the notes present/absent. Screenshot to
       `docs/images/ui-main.png`.
-- [ ] U3.7 **(bench)** Flash; bench checklist items 4 to 7; check the curve moves with
+- [x] U3.7 **(bench)** Flash; bench checklist items 4 to 7; check the curve moves with
       the real pressure reading and that touch targets feel right. Note the `STATUS`
       heap value: the charts and buffers must not move it.
 
@@ -146,13 +146,13 @@ the dropped 24/26/36 fonts weighed more than the new 20/28/48).
 
 ## Phase U4: other views, palette only (no bench until the end)
 
-- [ ] U4.1 Profiles, Settings, Advanced: apply the theme roles to their existing
+- [x] U4.1 Profiles, Settings, Advanced: apply the theme roles to their existing
       widgets (lists, text areas, keyboard, buttons); fix the one layout that breaks
       with the new fonts if any. The settings tabs keep their layouts.
-- [ ] U4.2 The delete-selects-first-profile quirk from the refactor notes: after a
+- [ ] U4.2 (still open, carried to the next branch) The delete-selects-first-profile quirk from the refactor notes: after a
       delete, select the profile that was selected before the deleted one was created
       if it still exists, else the first.
-- [ ] U4.3 **(bench)** Flash; checklist items 8 and 9.
+- [x] U4.3 **(bench)** Flash; checklist items 8 and 9.
 
 **Checkpoint U4:** all views in the new palette; settings save and profile operations
 unchanged.
@@ -161,9 +161,9 @@ unchanged.
 
 ## Phase U5: wrap-up
 
-- [ ] U5.1 `docs/UI.md`: the palette, the roles, how to run the simulator, how to add a
+- [x] U5.1 `docs/UI.md`: the palette, the roles, how to run the simulator, how to add a
       widget with the theme. README gets the screenshot and a link.
-- [ ] U5.2 PR `UIv2` to `main`.
+- [x] U5.2 PR `UIv2` to `main`.
 
 ## Deferred
 
@@ -172,6 +172,10 @@ unchanged.
 - Custom font sizes beyond 48 (needs the LVGL font converter; not required now).
 
 ## Notes log
+
+- 2026-09-02 merged to main as PR #3 after several simulator/bench rounds: menu instead of
+  tabs, tiles with curves, grouped settings, editor overlay, graph view, colors by
+  meaning. U5.1 (`docs/UI.md`) folded into the README and the plan; U4.2 stays open.
 
 - 2026-09-02 LVGL memory: adding the graph view's chart series overflowed the 48 KB
   LVGL pool on the board (the assert handler then spins silently: no console output at

@@ -16,8 +16,8 @@ LVGL_SRC := $(shell find $(LVGL)/src -name '*.c')
 LVGL_OBJ := $(patsubst $(LVGL)/src/%.c,$(BUILD)/lvgl/%.o,$(LVGL_SRC))
 
 UI_C     := $(UI)/lv_buildUI.c $(wildcard $(UI)/theme.c) $(UI)/logoMainScreen.c
-UI_CPP   := $(UI)/sequencer.cpp $(wildcard $(UI)/history.cpp)
-SIM_CPP  := main.cpp my_logging.cpp
+UI_CPP   := $(UI)/sequencer.cpp $(wildcard $(UI)/history.cpp) $(wildcard $(UI)/timezones.cpp)
+SIM_CPP  := main.cpp my_logging.cpp net_stub.cpp
 OBJ      := $(patsubst $(UI)/%.c,$(BUILD)/ui/%.o,$(UI_C)) $(patsubst $(UI)/%.cpp,$(BUILD)/ui/%.o,$(UI_CPP)) \
             $(patsubst %.cpp,$(BUILD)/sim/%.o,$(SIM_CPP))
 

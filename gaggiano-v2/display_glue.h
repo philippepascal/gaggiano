@@ -3,3 +3,4 @@
 
 bool displaySetup();   // false if the LVGL draw buffer could not be allocated
 void displaySplash();  // boot image from the SD card, blocks for SPLASH_MS
+void displayBacklight(bool on);

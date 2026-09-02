@@ -6,18 +6,18 @@
 #include <Arduino_GFX_Library.h>
 
 // Sunton ESP32-8048S043: ST7262 IPS 800x480 over the S3's RGB peripheral.
-static Arduino_ESP32RGBPanel *bus = new Arduino_ESP32RGBPanel(
-    GFX_NOT_DEFINED /* CS */, GFX_NOT_DEFINED /* SCK */, GFX_NOT_DEFINED /* SDA */,
+// Pins and timings as in Arduino_GFX's own declaration of this board.
+static Arduino_ESP32RGBPanel *rgbpanel = new Arduino_ESP32RGBPanel(
     40 /* DE */, 41 /* VSYNC */, 39 /* HSYNC */, 42 /* PCLK */,
     45 /* R0 */, 48 /* R1 */, 47 /* R2 */, 21 /* R3 */, 14 /* R4 */,
     5 /* G0 */, 6 /* G1 */, 7 /* G2 */, 15 /* G3 */, 16 /* G4 */, 4 /* G5 */,
-    8 /* B0 */, 3 /* B1 */, 46 /* B2 */, 9 /* B3 */, 1 /* B4 */);
+    8 /* B0 */, 3 /* B1 */, 46 /* B2 */, 9 /* B3 */, 1 /* B4 */,
+    0 /* hsync_polarity */, 8 /* hsync_front_porch */, 4 /* hsync_pulse_width */, 8 /* hsync_back_porch */,
+    0 /* vsync_polarity */, 8 /* vsync_front_porch */, 4 /* vsync_pulse_width */, 8 /* vsync_back_porch */,
+    1 /* pclk_active_neg */, 14000000 /* prefer_speed, as before the core upgrade */, false /* useBigEndian */,
+    0 /* de_idle_high */, 0 /* pclk_idle_high */, 800 * PANEL_BOUNCE_LINES /* bounce_buffer_size_px */);
 
-static Arduino_RPi_DPI_RGBPanel *gfx = new Arduino_RPi_DPI_RGBPanel(
-    bus,
-    800 /* width */, 0 /* hsync_polarity */, 8 /* hsync_front_porch */, 4 /* hsync_pulse_width */, 8 /* hsync_back_porch */,
-    480 /* height */, 0 /* vsync_polarity */, 8 /* vsync_front_porch */, 4 /* vsync_pulse_width */, 8 /* vsync_back_porch */,
-    1 /* pclk_active_neg */, 14000000 /* prefer_speed */, true /* auto_flush */);
+static Arduino_RGB_Display *gfx = new Arduino_RGB_Display(800 /* width */, 480 /* height */, rgbpanel, 0 /* rotation */, true /* auto_flush */);
 
 // GT911 capacitive touch; pins and mapping are configured in touch.h.
 #include "touch.h"
@@ -66,14 +66,15 @@ bool displaySetup() {
 
   screenWidth = gfx->width();
   screenHeight = gfx->height();
-  // A quarter-screen draw buffer in internal RAM (fast; PSRAM would be too slow for the flush).
-  disp_draw_buf = (lv_color_t *)heap_caps_malloc(sizeof(lv_color_t) * screenWidth * screenHeight / 4,
-                                                 MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  // The draw buffer lives in internal RAM (PSRAM would be too slow for the flush).
+  // DRAW_BUFFER_LINES rows: small enough to leave room for WiFi and the panel's bounce buffers.
+  size_t px = (size_t)screenWidth * DRAW_BUFFER_LINES;
+  disp_draw_buf = (lv_color_t *)heap_caps_malloc(sizeof(lv_color_t) * px, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
   if (!disp_draw_buf) {
     Serial.println("LVGL draw buffer allocation failed");
     return false;
   }
-  lv_disp_draw_buf_init(&draw_buf, disp_draw_buf, NULL, screenWidth * screenHeight / 4);
+  lv_disp_draw_buf_init(&draw_buf, disp_draw_buf, NULL, px);
 
   lv_disp_drv_init(&disp_drv);
   disp_drv.hor_res = screenWidth;
@@ -92,6 +93,8 @@ bool displaySetup() {
 static void bmpDrawCallback(int16_t x, int16_t y, uint16_t *bitmap, int16_t w, int16_t h) {
   gfx->draw16bitRGBBitmap(x, y, bitmap, w, h);
 }
+
+void displayBacklight(bool on) { digitalWrite(TFT_BL, on ? HIGH : LOW); }
 
 void displaySplash() {
   displayFrankBmp(bmpDrawCallback, 800, 480);

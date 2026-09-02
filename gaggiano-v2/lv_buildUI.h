@@ -41,6 +41,9 @@ extern "C" {
                      bool (*deleteProfile)(const char* profileToDelete),
                      int (*duplicateProfile)());
   void updateUI();
+  void ui_show_notice(const char* text);
+  void ui_show_progress(const char* text);
+  void ui_hide_notice(void);
   /**********************
  *      MACROS
  **********************/

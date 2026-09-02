@@ -24,7 +24,7 @@ Everything goes through the `./gg` script (arduino-cli underneath, no Arduino ID
 ./gg setup                 # once: pin the cores, write the local config
 ./gg build all
 ./gg flash screen          # esptool over the display's USB port
-./gg flash controller      # DFU over USB, no buttons needed after the first flash
+./gg flash controller      # DFU over USB with dfu-util, no buttons needed after the first flash
 ./gg monitor controller
 ./gg test                  # host-side tests of the protocol, profile format, sequencer
 ```

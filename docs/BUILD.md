@@ -19,15 +19,15 @@ a few GB, one-time download):
 | Target | Core | Version |
 |---|---|---|
 | controller | STMicroelectronics:stm32 | 2.9.0 |
-| screen | esp32:esp32 | 2.0.17 |
+| screen | esp32:esp32 | 3.3.11 |
 
 Nothing outside the repo is read at build time except the compilers' own caches in
 `~/Library/Caches/arduino`. The Arduino IDE and its `~/Library/Arduino15` directory are
 not used at all; they can be removed. `./gg clean --all` deletes `.arduino-data/` and
 the next `./gg setup` downloads it again.
 
-For flashing the controller you also need STM32CubeProgrammer (free, from ST). `setup`
-checks for it at the standard install path.
+Flashing the controller uses `dfu-util` from Homebrew; `setup` installs it. ST's
+STM32CubeProgrammer is optional (`--via cubeprog`).
 
 ## Commands
 
@@ -43,6 +43,35 @@ checks for it at the standard install path.
 
 `flash` accepts `--no-build`, `--port /dev/cu.xxx`, `--timeout 120` and
 `--via stlink` (controller only, needs an ST-Link on the SWD header).
+
+## Updating the screen over WiFi
+
+Once the screen is on the network (`docs/WEB.md`):
+
+```
+./gg flash screen --ota            # host gaggiano.local
+./gg flash screen --ota 192.168.1.42
+```
+
+The build is sent as an HTTP upload to the screen's own web server (`POST /update`), so
+it works whenever the Mac can reach the screen, including across an IoT network. The
+panel goes dark while the flash is written (redraws would come out garbled) and comes
+back with the restart; the progress is printed on the USB console. The web page has the same upload under
+"Update firmware", usable from a phone. The password is `gaggiano` unless
+`tools/ota-password` (git-ignored) says otherwise; the screen's own password is set on
+its WiFi view ("Firmware update" password) and defaults to `gaggiano`. The USB path keeps working as before.
+
+## Partition scheme of the screen
+
+The screen uses the core's `app3M_fat9M_16MB` scheme: two 3 MB app slots (needed for
+over-the-air updates) and a 9.9 MB FAT partition. The first flash after changing the
+scheme (2026-09-02, core 3.3.11) must erase the whole chip once:
+
+```
+./gg flash screen --erase
+```
+
+Profiles and logs live on the SD card and are not affected.
 
 ## Troubleshooting the screen upload
 
@@ -73,7 +102,7 @@ checks for it at the standard install path.
 
 Edit the `T_FQBN` line for the target in `tools/targets.sh`. Valid option names and
 values are in the core's `boards.txt`, for example
-`.arduino-data/packages/esp32/hardware/esp32/2.0.17/boards.txt`. The full menu is
+`.arduino-data/packages/esp32/hardware/esp32/3.3.11/boards.txt`. The full menu is
 also printed by `arduino-cli --config-file tools/arduino-cli.yaml board details --fqbn <fqbn>`.
 
 ## Adding a library

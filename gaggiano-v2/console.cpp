@@ -4,6 +4,7 @@
 #include "link.h"
 #include "sequencer.h"
 #include "storage.h"
+#include "net.h"
 #include <gaggia_protocol.h>
 #include <lvgl.h>
 
@@ -21,15 +22,19 @@ void consoleSetup() {
 }
 
 static void printStatus(uint32_t now) {
+  struct NetStatus ns;
+  netGetStatus(&ns);
+  char clock[24];
+  netLocalTime(clock, sizeof(clock), "%Y-%m-%dT%H:%M:%S");
   Serial.printf("STATUS profile=%s heat=%d brew=%d steam=%d clean=%d bloom=%d auto=%d phase=%d "
                 "controller=%s ctrlMode=%d temp=%.2f press=%.2f valve=%d rx=%lu rxRejected=%lu rxOverflows=%lu tx=%lu "
-                "sd=%d sdlog=%d heap=%u minheap=%u psramfree=%u\n",
+                "sd=%d sdlog=%d heap=%u minheap=%u psramfree=%u wifi=%d ssid=%s ip=%s rssi=%d time=%s\n",
                 state.profile_name, state.isBoilerOn, state.isBrewing, state.isSteaming, state.isCleaning,
                 state.isBlooming, state.isAuto, sequencerPhase(), linkControllerAlive(now) ? "alive" : "silent",
                 linkControllerMode(), state.tempRead, state.pressureRead, state.isSolenoidOn,
                 (unsigned long)linkRxLines, (unsigned long)linkRxRejected, (unsigned long)linkRxOverflows,
                 (unsigned long)linkTxLines, storageReady(), isControllerLoggingOn, (unsigned)ESP.getFreeHeap(),
-                (unsigned)ESP.getMinFreeHeap(), (unsigned)ESP.getFreePsram());
+                (unsigned)ESP.getMinFreeHeap(), (unsigned)ESP.getFreePsram(), ns.state, ns.ssid, ns.ip, ns.rssi, clock);
 }
 
 void consolePoll(uint32_t now) {

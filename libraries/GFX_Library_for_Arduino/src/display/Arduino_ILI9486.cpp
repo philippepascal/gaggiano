@@ -1,7 +1,3 @@
-/*
- * start rewrite from:
- * https://github.com/nopnop2002/esp-idf-parallel-tft
- */
 #include "Arduino_ILI9486.h"
 
 Arduino_ILI9486::Arduino_ILI9486(Arduino_DataBus *bus, int8_t rst, uint8_t r, bool ips)
@@ -9,9 +5,9 @@ Arduino_ILI9486::Arduino_ILI9486(Arduino_DataBus *bus, int8_t rst, uint8_t r, bo
 {
 }
 
-void Arduino_ILI9486::begin(int32_t speed)
+bool Arduino_ILI9486::begin(int32_t speed)
 {
-  Arduino_TFT::begin(speed);
+  return Arduino_TFT::begin(speed);
 }
 
 /**************************************************************************/
@@ -26,16 +22,28 @@ void Arduino_ILI9486::setRotation(uint8_t r)
   switch (_rotation)
   {
   case 1:
-    r = (ILI9486_MADCTL_MY | ILI9486_MADCTL_MV | ILI9486_MADCTL_BGR);
+    r = (ILI9486_MADCTL_MV | ILI9486_MADCTL_BGR);
     break;
   case 2:
-    r = (ILI9486_MADCTL_BGR);
+    r = (ILI9486_MADCTL_MY | ILI9486_MADCTL_BGR);
     break;
   case 3:
+    r = (ILI9486_MADCTL_MY | ILI9486_MADCTL_MX | ILI9486_MADCTL_MV | ILI9486_MADCTL_BGR);
+    break;
+  case 4:
+    r = (ILI9486_MADCTL_BGR);
+    break;
+  case 5:
+    r = (ILI9486_MADCTL_MY | ILI9486_MADCTL_MV | ILI9486_MADCTL_BGR);
+    break;
+  case 6:
+    r = (ILI9486_MADCTL_MY | ILI9486_MADCTL_MX | ILI9486_MADCTL_BGR);
+    break;
+  case 7:
     r = (ILI9486_MADCTL_MX | ILI9486_MADCTL_MV | ILI9486_MADCTL_BGR);
     break;
   default: // case 0:
-    r = (ILI9486_MADCTL_MX | ILI9486_MADCTL_MY | ILI9486_MADCTL_BGR);
+    r = (ILI9486_MADCTL_MX | ILI9486_MADCTL_BGR);
     break;
   }
   _bus->beginWrite();
@@ -50,14 +58,15 @@ void Arduino_ILI9486::writeAddrWindow(int16_t x, int16_t y, uint16_t w, uint16_t
     _currentX = x;
     _currentW = w;
     x += _xStart;
-    _bus->writeC8D16D16(ILI9486_CASET, x, x + w - 1);
+    _bus->writeC8D16D16Split(ILI9486_CASET, x, x + w - 1);
   }
+
   if ((y != _currentY) || (h != _currentH))
   {
     _currentY = y;
     _currentH = h;
     y += _yStart;
-    _bus->writeC8D16D16(ILI9486_PASET, y, y + h - 1);
+    _bus->writeC8D16D16Split(ILI9486_PASET, y, y + h - 1);
   }
 
   _bus->writeCommand(ILI9486_RAMWR); // write to RAM
@@ -94,48 +103,14 @@ void Arduino_ILI9486::tftInit()
     digitalWrite(_rst, HIGH);
     delay(ILI9486_RST_DELAY);
   }
-
-  uint8_t ili9486_init_operations[] = {
-      BEGIN_WRITE,
-      WRITE_COMMAND_8, ILI9486_SWRESET,
-      END_WRITE,
-
-      DELAY, ILI9486_RST_DELAY,
-
-      BEGIN_WRITE,
-      WRITE_COMMAND_8, ILI9486_SLPOUT,
-      END_WRITE,
-
-      DELAY, ILI9486_SLPOUT_DELAY,
-
-      BEGIN_WRITE,
-      WRITE_C8_D8, ILI9486_PIXFMT, 0x55, // 16 bit colour interface
-      WRITE_C8_D8, 0xC2, 0x44,
-      WRITE_COMMAND_8, 0xC5,
-      WRITE_BYTES, 4, 0x00, 0x00, 0x00, 0x00,
-      WRITE_COMMAND_8, 0xE0,
-      WRITE_BYTES, 15,
-      0x0F, 0x1F, 0x1C, 0x0C, 0x0F,
-      0x08, 0x48, 0x98, 0x37, 0x0A,
-      0x13, 0x04, 0x11, 0x0D, 0x00,
-      WRITE_COMMAND_8, 0xE1,
-      WRITE_BYTES, 15,
-      0x0F, 0x32, 0x2E, 0x0B, 0x0D,
-      0x05, 0x47, 0x75, 0x37, 0x06,
-      0x10, 0x03, 0x24, 0x20, 0x00,
-      WRITE_C8_D8, 0x36, 0x48,
-      WRITE_COMMAND_8, 0x29, // display on
-      END_WRITE,
-      DELAY, ILI9486_SLPOUT_DELAY};
+  else
+  {
+    // Software Rest
+    _bus->sendCommand(ILI9486_SWRESET);
+    delay(ILI9486_RST_DELAY);
+  }
 
   _bus->batchOperation(ili9486_init_operations, sizeof(ili9486_init_operations));
 
-  if (_ips)
-  {
-    _bus->sendCommand(ILI9486_INVON);
-  }
-  else
-  {
-    _bus->sendCommand(ILI9486_INVOFF);
-  }
+  invertDisplay(false);
 }
