@@ -233,6 +233,16 @@ observed from the controller console at Checkpoint R3 instead.
 **Checkpoint R3:** full bench checklist, then a 1-hour soak with both boards on USB:
 free heap flat on the screen, loop max time stable on the controller, no missed
 `STAT` lines in the SD log (counter field contiguous).
+PASSED 2026-09-01 (screen on USB, controller powered through the link connector).
+Checklist: heat, brew, steam, clean, prime to completion, auto to completion, settings
+save, profile duplicate/select/delete: one command change per press, zero rejects, zero
+re-sends. Two pre-existing UI bugs found and fixed on the way: the tab bar stayed
+disabled after prime/auto ended on their own; the action timer restarted at each phase
+(now continuous, and the prime button shows fill+wait). Display precision reduced to the
+degree / 0.1 bar / second. Soak 17:16 to 18:16: 360 HEAP lines all at 112,592 bytes;
+21,505 status lines received in 4,521 s (4.76/s, matching the 200 ms send period with
+loop jitter) with the reject counter unchanged; no port drops. Not done: SD log
+continuity (SDLOG left off) and the UART wire pull (needs the controller on USB).
 
 ---
 
