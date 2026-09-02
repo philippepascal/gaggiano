@@ -19,6 +19,7 @@
 extern "C" lv_obj_t *heat_btn_for_scene(void);   // simulator hooks exported by lv_buildUI.c
 extern "C" lv_obj_t *brew_btn_for_scene(void);
 extern "C" lv_obj_t *steam_btn_for_scene(void);
+extern "C" lv_obj_t *menu_for_scene(void);
 #include "sequencer.h"
 #include <gaggia_protocol.h>
 
@@ -148,7 +149,7 @@ static int duplicateProfile() { profiles.push_back(current + "-c"); return 1; }
 
 int main(int argc, char **argv) {
   const char *shot = NULL;
-  const char *scene = "idle";  // idle | heating | brewing | steaming
+  const char *scene = "idle";  // idle | heating | brewing | steaming | menu
   uint32_t shotAfter = 1000;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--shot") == 0 && i + 1 < argc) shot = argv[++i];
@@ -199,7 +200,8 @@ int main(int argc, char **argv) {
     temp = 128.0f;
     lv_obj_add_state(steam_btn_for_scene(), LV_STATE_CHECKED);
   }
-  if (strcmp(scene, "idle") != 0) state.hasCommandChanged = true;
+  if (strcmp(scene, "menu") == 0) lv_dropdown_open(menu_for_scene());
+  if (strcmp(scene, "idle") != 0 && strcmp(scene, "menu") != 0) state.hasCommandChanged = true;
 
   uint32_t lastUi = 0, lastTick = nowMs(), start = nowMs();
   bool running = true;

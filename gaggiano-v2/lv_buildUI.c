@@ -377,8 +377,16 @@ void enableTabs() {
 }
 
 static void menu_changed(lv_event_t* e) {
-  if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+  lv_event_code_t code = lv_event_get_code(e);
+  if (code == LV_EVENT_VALUE_CHANGED) {
     lv_tabview_set_act(tv, lv_dropdown_get_selected(menuDd), LV_ANIM_OFF);
+  } else if (code == LV_EVENT_READY) {
+    // the list opens aligned to the button's left edge and would run off the screen:
+    // hang it from the button's right edge instead
+    lv_obj_t* list = lv_dropdown_get_list(menuDd);
+    lv_obj_set_width(list, 200);
+    lv_obj_update_layout(list);
+    lv_obj_align_to(list, menuDd, LV_ALIGN_OUT_BOTTOM_RIGHT, 0, 6);
   }
 }
 
@@ -525,6 +533,7 @@ void my_log_cb(const char* buf) {
 lv_obj_t* heat_btn_for_scene(void) { return heat_btn; }
 lv_obj_t* brew_btn_for_scene(void) { return brew_btn; }
 lv_obj_t* steam_btn_for_scene(void) { return boil_btn; }
+lv_obj_t* menu_for_scene(void) { return menuDd; }
 
 // Profile names are file names on the card; show them without the extension.
 static void set_profile_title(const char* name) {
@@ -538,7 +547,7 @@ static void set_profile_title(const char* name) {
   lv_obj_update_layout(selectedProfileLabel);
   lv_coord_t titleEnd = lv_obj_get_x2(selectedProfileLabel) + 20;
   lv_obj_set_width(main_notes_label, LV_HOR_RES - titleEnd - 80);
-  lv_obj_align_to(main_notes_label, selectedProfileLabel, LV_ALIGN_OUT_RIGHT_MID, 20, 1);
+  lv_obj_align_to(main_notes_label, selectedProfileLabel, LV_ALIGN_OUT_RIGHT_MID, 20, 2);
 }
 
 void updateUI() {
@@ -820,7 +829,7 @@ static lv_obj_t* action_btn_create(lv_obj_t* parent, const char* name, bool stea
   lv_obj_add_event_cb(btn, main_btn_clicked, LV_EVENT_ALL, NULL);
   lv_obj_set_flex_flow(btn, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(btn, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_set_style_pad_row(btn, 2, 0);
+  lv_obj_set_style_pad_row(btn, 8, 0);
 
   lv_obj_t* nameLabel = lv_label_create(btn);
   theme_apply_btn_name(nameLabel);

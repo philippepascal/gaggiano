@@ -54,7 +54,7 @@ void theme_init(void) {
 
   lv_style_init(&st_title);
   lv_style_set_text_color(&st_title, theme_text());
-  lv_style_set_text_font(&st_title, theme_font_name);
+  lv_style_set_text_font(&st_title, theme_font_value);
 
   lv_style_init(&st_btn);
   lv_style_set_bg_color(&st_btn, theme_surface());
@@ -78,7 +78,7 @@ void theme_init(void) {
 
   lv_style_init(&st_header_notes);
   lv_style_set_text_color(&st_header_notes, theme_muted());
-  lv_style_set_text_font(&st_header_notes, theme_font_small);
+  lv_style_set_text_font(&st_header_notes, theme_font_name);
 
   lv_style_init(&st_menu);
   lv_style_set_bg_color(&st_menu, theme_surface());
@@ -92,13 +92,13 @@ void theme_init(void) {
   lv_style_set_pad_all(&st_menu, 4);
 
   lv_style_init(&st_btn_name);
-  lv_style_set_text_font(&st_btn_name, theme_font_name);
+  lv_style_set_text_font(&st_btn_name, theme_font_value);
 
   lv_style_init(&st_btn_value);
-  lv_style_set_text_font(&st_btn_value, theme_font_value);
+  lv_style_set_text_font(&st_btn_value, theme_font_big);
 
   lv_style_init(&st_tile);
-  lv_style_set_bg_color(&st_tile, theme_surface());
+  lv_style_set_bg_color(&st_tile, lv_color_black());  // readouts on pure black
   lv_style_set_bg_opa(&st_tile, LV_OPA_COVER);
   lv_style_set_border_width(&st_tile, 0);
   lv_style_set_radius(&st_tile, 6);
