@@ -41,6 +41,12 @@ void updateBoiler() {
   setBoilerOutput(boiler_relay_output);
 }
 
+// The pump never runs on a pressure the controller does not have: with the sensor
+// dead the pump stays off in every mode (the valve still follows the mode).
+static void setPumpGuarded(double value) {
+  setPump(pressureStale ? 0 : value);
+}
+
 void updatePump2() {
   double pumpValue;
   if (operating_mode == OPERATING_MODE_OFF) {
@@ -58,7 +64,7 @@ void updatePump2() {
           pumpValue = pump_dimmer_output2 + pump_max_step_up;
         }
       }
-      setPump(pumpValue);
+      setPumpGuarded(pumpValue);
     } else {
       setPump(0);
       setValve(false);
@@ -66,7 +72,7 @@ void updatePump2() {
   } else if (operating_mode == OPERATING_MODE_CLEAN) {
     if (pressureSetPoint > 0) {
       setValve(true);
-      setPump(pressure_smoothed > pressureSetPoint ? 0 : PUMP_MAX);
+      setPumpGuarded(pressure_smoothed > pressureSetPoint ? 0 : PUMP_MAX);
     } else {
       setPump(0);
       setValve(false);
@@ -79,7 +85,7 @@ void updatePump2() {
       if (p > STEAM_PUMP_MAX_PERCENT) p = STEAM_PUMP_MAX_PERCENT;  // solenoid is closed: keep a guard
       pumpValue = (p * PUMP_RANGE) / 100;
     }
-    setPump(pumpValue);
+    setPumpGuarded(pumpValue);
   } else {
     // safety. should not happen
     setPump(0);

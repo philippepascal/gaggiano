@@ -102,7 +102,7 @@ int logController(const char *message) {
   return n;
 }
 
-static const char *kLogHeader = "time,mode,temp,pressure,valve,heater,pump,tempSet,pressSet,pumpPct,linkOk,faults,counter";
+static const char *kLogHeader = "time,mode,temp,pressure,valve,heater,pump,tempSet,pressSet,pumpPct,linkOk,faults,counter,pressStale,i2cRecoveries,maxLoopMs";
 
 // Keeps the newest LOG_SESSIONS_KEPT - 1 files so the new session makes LOG_SESSIONS_KEPT.
 static void pruneSessions() {

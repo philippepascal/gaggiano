@@ -1,4 +1,4 @@
-// Serial link to the controller (UART2), protocol v2: see docs/PROTOCOL.md and
+// Serial link to the controller (UART2), protocol v3: see docs/PROTOCOL.md and
 // libraries/GaggiaProtocol. Non-blocking: call linkPoll() every loop pass.
 // Sends CMD when it changes and every LINK_HEARTBEAT_MS; re-sends it when two
 // consecutive STAT lines disagree with it; sends TUNE on request and after a

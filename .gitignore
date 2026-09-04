@@ -11,3 +11,5 @@ sim/build/
 sim/*.bmp
 # OTA password for ./gg flash screen --ota (default: gaggiano)
 tools/ota-password
+# tmp
+tmp/

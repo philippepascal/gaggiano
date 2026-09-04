@@ -1,12 +1,15 @@
 // Pins, periods and limits for the STM32F411 controller. Single place to edit.
 #pragma once
 
-#define FIRMWARE_VERSION "controller-2026-09-02-r3"  // sent in HELLO: no commas, max 31 chars
+#define FIRMWARE_VERSION "controller-2026-09-04-r2"  // sent in HELLO: no commas, max 31 chars
 
 #define LOOP_PERIOD_MS 10
 
 // --- sensors
 #define PRESSURE_READ_PERIOD_MS 10
+#define PRESSURE_RETRY_PERIOD_MS 250   // while I2C reads fail: each attempt costs an I2C timeout (build_opt.h)
+#define PRESSURE_STALE_MS 500          // no good reading for this long: the pump stays off
+#define I2C_RECOVER_AFTER_FAULTS 8     // consecutive failed reads before the bus is clocked free and the ADC re-initialised
 #define TEMP_READ_PERIOD_MS 250
 #define I2C_SDA_PIN PB7
 #define I2C_SCL_PIN PB6

@@ -138,6 +138,7 @@ static lv_obj_t* wifi_ota_tf;
 static bool wifiScanShown = true;  // false while a scan runs and its result is not yet listed
 static lv_obj_t* header_clock;
 static lv_obj_t* header_wifi;
+static lv_obj_t* header_link;  // warning when the controller is silent or ignores commands
 
 // Graph view: 150 s of readings and controller outputs, plus a mode strip.
 #define GRAPH_PERIOD_MS 500
@@ -854,8 +855,23 @@ void updateUI() {
     }
   }
 
-  if (state->notes[0] == '\0') lv_obj_add_flag(main_notes_label, LV_OBJ_FLAG_HIDDEN);
-  else lv_obj_clear_flag(main_notes_label, LV_OBJ_FLAG_HIDDEN);
+  // Link warning in the header: the controller is silent, or it answers but reports
+  // the link down (it is not acting on the buttons). The notes make room for it.
+  {
+    const char* warning = NULL;
+    if (!state->ctrlAlive) warning = "CONTROLLER SILENT";
+    else if (!state->linkOk) warning = "CONTROLLER IGNORES COMMANDS";
+    else if (state->pressStale) warning = "NO PRESSURE READING";
+    if (warning != NULL) {
+      lv_label_set_text(header_link, warning);
+      lv_obj_clear_flag(header_link, LV_OBJ_FLAG_HIDDEN);
+      lv_obj_add_flag(main_notes_label, LV_OBJ_FLAG_HIDDEN);
+    } else {
+      lv_obj_add_flag(header_link, LV_OBJ_FLAG_HIDDEN);
+      if (state->notes[0] == '\0') lv_obj_add_flag(main_notes_label, LV_OBJ_FLAG_HIDDEN);
+      else lv_obj_clear_flag(main_notes_label, LV_OBJ_FLAG_HIDDEN);
+    }
+  }
 
   updateSettings();
 }
@@ -995,6 +1011,13 @@ void instantiateUI(GaggiaStateT* s,
   theme_apply_header_notes(header_clock);
   lv_label_set_text(header_clock, "");
   lv_obj_align(header_clock, LV_ALIGN_RIGHT_MID, -108, 1);
+
+  header_link = lv_label_create(header);
+  theme_apply_header_notes(header_link);
+  lv_obj_set_style_text_color(header_link, theme_steam(), 0);
+  lv_label_set_text(header_link, "");
+  lv_obj_align(header_link, LV_ALIGN_RIGHT_MID, -170, 1);
+  lv_obj_add_flag(header_link, LV_OBJ_FLAG_HIDDEN);
 
   menuDd = lv_dropdown_create(header);
   lv_dropdown_set_options_static(menuDd, "Main\nProfiles\nSettings\nAdvanced\nGraph");

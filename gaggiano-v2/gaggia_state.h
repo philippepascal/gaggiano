@@ -41,6 +41,8 @@ struct GaggiaState {
   float pumpOut;     // pump level, 0..127
   int ctrlMode;      // GP_MODE_*
   bool linkOk;       // the controller considers the link alive
+  bool ctrlAlive;    // STAT lines are arriving (set by the link every pass)
+  bool pressStale;   // the controller has no pressure reading (pump held off)
 };
 typedef struct GaggiaState GaggiaStateT;
 

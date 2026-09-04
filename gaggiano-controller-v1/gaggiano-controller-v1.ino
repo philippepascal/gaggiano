@@ -14,7 +14,8 @@
 #include <IWatchdog.h>
 
 uint32_t loopCounter = 0;
-uint32_t maxLoopMs = 0;
+uint32_t maxLoopMs = 0;             // since boot, for the console
+static uint32_t statMaxLoopMs = 0;  // since the last STAT, goes on the wire
 
 bool resetByWatchdog = false;
 
@@ -43,11 +44,12 @@ void loop() {
   if (tempUpdated) updateBoiler();
   if (pressureUpdated) updatePump2();  // pump and solenoid (coupled)
 
-  sendStatus(loopStart, loopCounter);
+  if (sendStatus(loopStart, loopCounter, statMaxLoopMs)) statMaxLoopMs = 0;
 
   loopCounter++;
   uint32_t elapsed = millis() - loopStart;
   if (elapsed > maxLoopMs) maxLoopMs = elapsed;
+  if (elapsed > statMaxLoopMs) statMaxLoopMs = elapsed;
   // Only sleep for the remainder of the period (an unsigned subtraction here
   // used to turn any slow iteration into a ~49 day delay).
   if (elapsed < LOOP_PERIOD_MS) delay(LOOP_PERIOD_MS - elapsed);

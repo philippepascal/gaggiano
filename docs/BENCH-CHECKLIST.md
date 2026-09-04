@@ -24,5 +24,9 @@ through the link connector.
 | 10 | Both boards running 10 minutes | screen prints `HEAP` lines every 10 s with a flat free value; controller loop counter still increasing; `STATUS` max loop time unchanged |
 | 11 | Reboot the controller with NRST while the screen is heating | screen console shows `controller hello`, then `TUNE` and the heat `CMD` re-sent |
 | 12 | Unplug the UART wire during a brew, wait 5 s, replug | controller console (`LOG ON`): `link timeout: mode off` within 3 s; on replug the next heartbeat restores brew within 1 s |
+| 13 | Pull the pressure sensor's I2C wire (SDA or SCL) while heating | `STATUS`: `pressStale=1`, `pressFaults` counting, `i2cRecoveries` counting about every 2 s, `press` frozen at its last value, `linkOk=1`, loop counter still about 100 per second; screen keeps its buttons lit and shows no warning |
+| 14 | Replug the I2C wire | within about 2 s `pressStale=0`, `press` live again, counters stop |
+| 15 | Clean on with the I2C wire pulled | `STATUS`: mode 3, valve 1, `pumpOut=0.0` (the pump never runs on a stale pressure) |
+| 16 | Unplug the UART wire while the screen heats | screen header shows `CONTROLLER SILENT` within 2 s; replug clears it |
 
 Record anything unexpected in the plan's notes log.

@@ -308,3 +308,23 @@ via heartbeat and HELLO is demonstrated by the reboot.
   `PSM.cpp` and the UI event handlers. The three `mySubString` copies (controller,
   `gaggia_utils.cpp`, `lv_buildUI.c`) all leak. B3 (unsigned delay underflow) was
   found while planning and is possibly the more direct cause of "comms stop".
+
+- 2026-09-04: field failure, boiler warm, a clean cycle done. 11 s after the clean
+  stopped the ADS1115 stopped answering on I2C. Each pressure read then blocked for the
+  core's 100 ms I2C timeout (loop counter 10 per second instead of 100) and the library
+  returned raw 0, shown as -1.50 bar. The slow loop exposed an unsigned underflow in
+  `checkLinkTimeout`: `now` is the loop start while `last_cmd_time` is stamped after the
+  read, so every heartbeat was applied then timed out in the same pass (mode off,
+  `linkOk=0`, boiler setpoint kept). The screen showed nothing. Fixed: signed difference
+  in `checkLinkTimeout`; failed pressure reads keep the last value, count as faults, are
+  retried every 250 ms with an I2C bus recovery every 8 failures, and `pressureStale`
+  keeps the pump off; `I2C_TIMEOUT_TICK` lowered to 20 ms in `build_opt.h`; the screen
+  header warns `CONTROLLER SILENT` / `CONTROLLER IGNORES COMMANDS`. Why the bus hung is
+  not known from the log (EMI from the SSR or pump relay on the I2C wires is the
+  suspect; check the pull-ups and the routing).
+- 2026-09-04 protocol v3: `STAT` carries `pressStale`, `i2cRecoveries` and
+  `maxLoopMs`, logged as three more CSV columns, and the screen writes its own event
+  rows (`<time>,#,<text>`) into the same session log: commands sent and why, tuning
+  sent, controller hello, rejected lines, silent/answering, link warnings, pressure
+  sensor stale/live, screen boot. The two firmwares must be flashed together (a v2
+  `STAT` is rejected on field count by a v3 screen and the other way round).

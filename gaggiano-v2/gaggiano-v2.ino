@@ -43,6 +43,7 @@ void setup() {
                 writeCurrentProfile, setupAndReadConfigFile, renameProfile, deleteProfile, duplicateProfile);
   setupAndReadConfigFile();
   storageStartSession();
+  logController("#,screen boot " SCREEN_FIRMWARE_VERSION);
   Serial.println("Setup done");
 }
 
@@ -57,6 +58,7 @@ void loop() {
   if (state.cleanLogs) {
     state.cleanLogs = false;
     storageStartSession();
+    logController("#,logs cleared from the screen");
   }
   consolePoll(now);
   if (now - lastUiRefresh >= UI_REFRESH_MS) {

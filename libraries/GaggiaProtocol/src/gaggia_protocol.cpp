@@ -3,10 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define GP_MAX_FIELDS 12
+#define GP_MAX_FIELDS 15
 
 static const char *const kTypeNames[] = {"?", "HELLO", "STAT", "CMD", "TUNE"};
-static const int kFieldCounts[] = {0, 2, 12, 4, 9};
+static const int kFieldCounts[] = {0, 2, 15, 4, 9};
 
 const char *gp_type_name(GpType t) {
   return (t >= GP_HELLO && t <= GP_TUNE) ? kTypeNames[t] : "?";
@@ -45,11 +45,12 @@ int gp_encode(const GpMessage *m, char *buf, size_t bufSize) {
       n = snprintf(payload, sizeof(payload), "HELLO,%d,%s", m->hello.version, m->hello.firmware);
       break;
     case GP_STAT:
-      n = snprintf(payload, sizeof(payload), "STAT,%d,%.2f,%.2f,%d,%.1f,%.2f,%.2f,%.2f,%.2f,%d,%lu,%lu",
+      n = snprintf(payload, sizeof(payload), "STAT,%d,%.2f,%.2f,%d,%.1f,%.2f,%.2f,%.2f,%.2f,%d,%lu,%lu,%d,%lu,%lu",
                    m->stat.mode, (double)m->stat.temp, (double)m->stat.pressure, m->stat.valve ? 1 : 0,
                    (double)m->stat.boilerOut, (double)m->stat.pumpOut, (double)m->stat.tempSet,
                    (double)m->stat.pressSet, (double)m->stat.pumpPct, m->stat.linkOk ? 1 : 0,
-                   (unsigned long)m->stat.faults, (unsigned long)m->stat.counter);
+                   (unsigned long)m->stat.faults, (unsigned long)m->stat.counter, m->stat.pressStale ? 1 : 0,
+                   (unsigned long)m->stat.i2cRecoveries, (unsigned long)m->stat.maxLoopMs);
       break;
     case GP_CMD:
       n = snprintf(payload, sizeof(payload), "CMD,%d,%.2f,%.2f,%.2f", m->cmd.mode, (double)m->cmd.tempSet,
@@ -153,6 +154,9 @@ GpResult gp_decode(const char *line, size_t len, GpMessage *out) {
       out->stat.linkOk = toInt(f[9]);
       out->stat.faults = toU32(f[10]);
       out->stat.counter = toU32(f[11]);
+      out->stat.pressStale = toInt(f[12]);
+      out->stat.i2cRecoveries = toU32(f[13]);
+      out->stat.maxLoopMs = toU32(f[14]);
       break;
     case GP_CMD:
       out->cmd.mode = toInt(f[0]);

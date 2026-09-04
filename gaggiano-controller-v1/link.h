@@ -1,4 +1,4 @@
-// Serial link to the screen (USART2), protocol v2: see docs/PROTOCOL.md and
+// Serial link to the screen (USART2), protocol v3: see docs/PROTOCOL.md and
 // libraries/GaggiaProtocol. STAT out every 200 ms, HELLO at boot; CMD, TUNE and
 // HELLO in. Lines are assembled byte by byte every loop pass (no blocking, no
 // heap). A rejected line is counted and changes nothing.
@@ -14,4 +14,4 @@ void linkSetup();
 void pollScreenSerial();
 void handleLine(const char *line, size_t len);  // parses and applies one line
 void checkLinkTimeout(uint32_t now);
-bool sendStatus(uint32_t now, uint32_t loopCounter);
+bool sendStatus(uint32_t now, uint32_t loopCounter, uint32_t maxLoopMsSinceLast);  // true when a STAT went out

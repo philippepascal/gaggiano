@@ -96,7 +96,11 @@ void handleLine(const char *line, size_t len) {
 }
 
 void checkLinkTimeout(uint32_t now) {
-  if (linkOk && (now - last_cmd_time) > LINK_TIMEOUT_MS) {
+  // `now` is the loop start; a CMD applied later in the same pass stamps
+  // last_cmd_time after it. Signed difference, so that case reads as "just now"
+  // instead of wrapping to 49 days (2026-09-04: a 100 ms I2C timeout in the
+  // pressure read made every heartbeat time out on arrival, mode forced off).
+  if (linkOk && (int32_t)(now - last_cmd_time) > (int32_t)LINK_TIMEOUT_MS) {
     linkOk = false;
     operating_mode = OPERATING_MODE_OFF;  // pump off and valve closed on the next update
     pressureSetPoint = 0;
@@ -106,7 +110,7 @@ void checkLinkTimeout(uint32_t now) {
   }
 }
 
-bool sendStatus(uint32_t now, uint32_t loopCounter) {
+bool sendStatus(uint32_t now, uint32_t loopCounter, uint32_t maxLoopMsSinceLast) {
   if ((now - last_sent_message_time) > STATUS_SEND_PERIOD_MS) {
     GpMessage m;
     m.type = GP_STAT;
@@ -120,8 +124,11 @@ bool sendStatus(uint32_t now, uint32_t loopCounter) {
     m.stat.pressSet = pressureSetPoint;
     m.stat.pumpPct = pressureOutputPercent;
     m.stat.linkOk = linkOk ? 1 : 0;
-    m.stat.faults = temperatureFaults;
+    m.stat.faults = temperatureFaults + pressureFaults;
     m.stat.counter = loopCounter;
+    m.stat.pressStale = pressureStale ? 1 : 0;
+    m.stat.i2cRecoveries = i2cRecoveries;
+    m.stat.maxLoopMs = maxLoopMsSinceLast;
     sendMessage(m);
     last_sent_message_time = now;
     return true;

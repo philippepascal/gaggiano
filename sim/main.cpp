@@ -113,6 +113,9 @@ static void fakeController(float dt) {
   if (lastCmd.mode == GP_MODE_STEAM) pTarget = lastCmd.pressSet * 0.6f;
   pressure += (pTarget - pressure) * dt * 1.5f;
   state.tempRead = temp;
+  state.linkOk = true;
+  state.ctrlAlive = true;
+  state.pressStale = false;
   state.pressureRead = pressure;
   state.boilerOut = lastCmd.tempSet > temp + 2 ? 100.0f : (lastCmd.tempSet > 0 ? 30.0f : 0.0f);
   state.pumpOut = pTarget > 0 ? (pressure < pTarget - 0.3f ? 127.0f : 60.0f) : 0.0f;

@@ -28,7 +28,7 @@ int main() {
   GpMessage ho = roundtrip(h, &r);
   CHECK(r == GP_OK);
   CHECK(ho.type == GP_HELLO);
-  CHECK(ho.hello.version == 2);
+  CHECK(ho.hello.version == 3);
   CHECK_EQ_STR(ho.hello.firmware, "controller-2026-09-01");
 
   // --- STAT
@@ -37,6 +37,7 @@ int main() {
   s.stat.mode = GP_MODE_BREW; s.stat.temp = 92.85f; s.stat.pressure = 8.97f; s.stat.valve = 1;
   s.stat.boilerOut = 34.0f; s.stat.pumpOut = 88.4f; s.stat.tempSet = 93.0f; s.stat.pressSet = 9.0f;
   s.stat.pumpPct = 0; s.stat.linkOk = 1; s.stat.faults = 3; s.stat.counter = 4000000000u;
+  s.stat.pressStale = 1; s.stat.i2cRecoveries = 7; s.stat.maxLoopMs = 12;
   char sline[GP_LINE_MAX];
   GpMessage so = roundtrip(s, &r, sline);
   CHECK(r == GP_OK);
@@ -52,7 +53,12 @@ int main() {
   CHECK(so.stat.linkOk == 1);
   CHECK(so.stat.faults == 3);
   CHECK(so.stat.counter == 4000000000u);
-  CHECK(std::strncmp(sline, "$STAT,1,92.85,8.97,1,34.0,88.40,93.00,9.00,0.00,1,3,4000000000*", 62) == 0);
+  CHECK(so.stat.pressStale == 1);
+  CHECK(so.stat.i2cRecoveries == 7);
+  CHECK(so.stat.maxLoopMs == 12);
+  CHECK(std::strncmp(sline, "$STAT,1,92.85,8.97,1,34.0,88.40,93.00,9.00,0.00,1,3,4000000000,1,7,12*", 69) == 0);
+  // a v2 STAT (12 fields) is rejected on field count, never half-applied
+  CHECK(gp_decode("$STAT,1,92.85,8.97,1,34.0,88.40,93.00,9.00,0.00,1,3,4000000000*3A", 66, &so) != GP_OK);
 
   // --- CMD
   GpMessage c;

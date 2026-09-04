@@ -1,10 +1,10 @@
-// Gaggiano screen/controller protocol v2. See docs/PROTOCOL.md.
+// Gaggiano screen/controller protocol v3. See docs/PROTOCOL.md.
 // Plain C++ (no Arduino, no heap) so both firmwares and the host tests share it.
 #pragma once
 #include <stddef.h>
 #include <stdint.h>
 
-#define GP_PROTOCOL_VERSION 2
+#define GP_PROTOCOL_VERSION 3
 #define GP_LINE_MAX 120       // bytes per line including the trailing newline
 #define GP_FIRMWARE_MAX 32    // firmware string in HELLO, including the terminator
 
@@ -30,6 +30,9 @@ struct GpStat {
   int linkOk;
   uint32_t faults;
   uint32_t counter;
+  int pressStale;           // v3: 1 while the pump is held off for lack of a pressure reading
+  uint32_t i2cRecoveries;   // v3: I2C bus recoveries since boot
+  uint32_t maxLoopMs;       // v3: longest loop pass since the previous STAT
 };
 
 struct GpCmd {
