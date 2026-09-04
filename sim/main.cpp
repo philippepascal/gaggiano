@@ -19,6 +19,9 @@
 extern "C" lv_obj_t *heat_btn_for_scene(void);   // simulator hooks exported by lv_buildUI.c
 extern "C" lv_obj_t *brew_btn_for_scene(void);
 extern "C" lv_obj_t *steam_btn_for_scene(void);
+extern "C" lv_obj_t *prime_btn_for_scene(void);
+extern "C" lv_obj_t *clean_btn_for_scene(void);
+extern "C" lv_obj_t *auto_btn_for_scene(void);
 extern "C" lv_obj_t *menu_for_scene(void);
 extern "C" void show_view_for_scene(int index);
 extern "C" void edit_for_scene(void);
@@ -161,7 +164,7 @@ static int duplicateProfile() { profiles.push_back(current + "-c"); return 1; }
 
 int main(int argc, char **argv) {
   const char *shot = NULL;
-  const char *scene = "idle";  // idle | heating | brewing | steaming | menu | profiles | settings | advanced | graph
+  const char *scene = "idle";  // idle | heating | brewing | prime | auto | clean | steaming | menu | profiles | settings | advanced | graph
   uint32_t shotAfter = 1000;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--shot") == 0 && i + 1 < argc) shot = argv[++i];
@@ -212,6 +215,21 @@ int main(int argc, char **argv) {
     temp = 92.0f;
     state.isBlooming = true;
     lv_obj_add_state(heat_btn_for_scene(), LV_STATE_CHECKED);
+    lv_obj_add_state(prime_btn_for_scene(), LV_STATE_CHECKED);
+  }
+  if (strcmp(scene, "auto") == 0) {
+    state.isBoilerOn = true;
+    temp = 92.0f;
+    state.isAuto = true;
+    lv_obj_add_state(heat_btn_for_scene(), LV_STATE_CHECKED);
+    lv_obj_add_state(auto_btn_for_scene(), LV_STATE_CHECKED);
+  }
+  if (strcmp(scene, "clean") == 0) {
+    state.isBoilerOn = true;
+    temp = 92.0f;
+    state.isCleaning = true;
+    lv_obj_add_state(heat_btn_for_scene(), LV_STATE_CHECKED);
+    lv_obj_add_state(clean_btn_for_scene(), LV_STATE_CHECKED);
   }
   if (strcmp(scene, "steaming") == 0) {
     state.isSteaming = true;
@@ -236,7 +254,7 @@ int main(int argc, char **argv) {
     lv_obj_add_state(brew_btn_for_scene(), LV_STATE_CHECKED);
     show_view_for_scene(4);
   }
-  if (strcmp(scene, "heating") == 0 || strcmp(scene, "brewing") == 0 || strcmp(scene, "steaming") == 0 || strcmp(scene, "prime") == 0 || strcmp(scene, "graph") == 0) state.hasCommandChanged = true;
+  if (strcmp(scene, "heating") == 0 || strcmp(scene, "brewing") == 0 || strcmp(scene, "steaming") == 0 || strcmp(scene, "prime") == 0 || strcmp(scene, "auto") == 0 || strcmp(scene, "clean") == 0 || strcmp(scene, "graph") == 0) state.hasCommandChanged = true;
 
   uint32_t lastUi = 0, lastTick = nowMs(), start = nowMs();
   bool running = true;

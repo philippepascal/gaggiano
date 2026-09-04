@@ -84,7 +84,33 @@ int main() {
   CHECK(!S.isAuto); CHECK(sequencerPhase() == PHASE_OFF);
   CHECK(S.actionStartTime == 1000);                 // continuous through fill, wait, brew
   CHECK(S.actionStopTime == 16200 + 33100);
-  CHECK_NEAR(S.lastBrewTime, (16200 + 33100 - 1000) / 1000.0, 0.01);
+  CHECK_NEAR(S.lastBrewTime, 33.1, 0.01);           // the brew phase only, not fill and wait
+
+  // Auto interrupted during its brew: phase off, last shot is the brew part only.
+  reset();
+  press(&GaggiaState::isBoilerOn, true, 0);
+  press(&GaggiaState::isAuto, true, 1000);
+  sequencerStep(&S, 8100, &C);
+  sequencerStep(&S, 16200, &C);
+  CHECK(sequencerPhase() == PHASE_BREW);
+  CHECK(press(&GaggiaState::isAuto, false, 26200));
+  CHECK(C.mode == GP_MODE_OFF); CHECK_NEAR(C.tempSet, 93, 0.01);
+  CHECK(sequencerPhase() == PHASE_OFF);
+  CHECK(S.actionStopTime == 26200);
+  CHECK_NEAR(S.lastBrewTime, 10.0, 0.01);
+  CHECK(!sequencerStep(&S, 26200 + 40000, &C));     // the phase machine is really stopped
+
+  // Auto interrupted during the wait: no shot happened, the previous value stays.
+  reset();
+  press(&GaggiaState::isBoilerOn, true, 0);
+  S.lastBrewTime = 27;
+  press(&GaggiaState::isAuto, true, 1000);
+  sequencerStep(&S, 8100, &C);
+  CHECK(sequencerPhase() == PHASE_BLOOM_WAIT);
+  CHECK(press(&GaggiaState::isAuto, false, 12000));
+  CHECK(sequencerPhase() == PHASE_OFF);
+  CHECK_NEAR(S.lastBrewTime, 27, 0.01);
+  CHECK(!sequencerStep(&S, 12000 + 40000, &C));
 
   // Auto without bloom configured: straight to brew.
   reset();

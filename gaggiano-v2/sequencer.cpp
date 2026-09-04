@@ -2,14 +2,15 @@
 #include <gaggia_protocol.h>
 
 static int currentPhase = PHASE_OFF;
-static bool wasBrewing = false;  // a manual brew is running; its duration becomes lastBrewTime
-static uint32_t phaseStart = 0;  // phase durations are measured from here; the
-                                 // on-screen timer (actionStartTime) runs across phases
+static bool brewRunning = false;  // pump at brew pressure, manual or the auto brew phase
+static uint32_t brewStart = 0;    // when it started; the duration becomes lastBrewTime
+static uint32_t phaseStart = 0;   // phase durations are measured from here; the
+                                  // on-screen timer (actionStartTime) runs across phases
 
 int sequencerPhase() { return currentPhase; }
 void sequencerReset() {
   currentPhase = PHASE_OFF;
-  wasBrewing = false;
+  brewRunning = false;
 }
 
 // "Brew" as the old firmware called it: pump to a pressure when pressure > 0,
@@ -41,13 +42,23 @@ static bool steam(SeqCommand *out, float temp, float maxPressure, float pumpPct)
 static bool bloomConfigured(const GaggiaStateT *s) {
   return s->blooming_fill_time > 0 && s->blooming_wait_time > 0 && s->blooming_pressure > 0;
 }
+bool sequencerBloomConfigured(const GaggiaStateT *s) { return bloomConfigured(s); }
 
 static void markStopped(GaggiaStateT *s, uint32_t now) {
   if (s->actionStartTime > 0 && s->actionStopTime == 0) s->actionStopTime = (int)now;
 }
 
+// The last shot is the brew phase alone: bloom fill and wait do not count, and an
+// auto run stopped before its brew leaves the previous value.
+static void startBrew(uint32_t now) {
+  brewStart = now;
+  brewRunning = true;
+}
+
 static void rememberShot(GaggiaStateT *s, uint32_t now) {
-  if (s->actionStartTime > 0) s->lastBrewTime = (now - (uint32_t)s->actionStartTime) / 1000.0f;
+  if (!brewRunning) return;
+  brewRunning = false;
+  s->lastBrewTime = (now - brewStart) / 1000.0f;
 }
 
 static void markStarted(GaggiaStateT *s, uint32_t now) {
@@ -68,7 +79,7 @@ bool sequencerStep(GaggiaStateT *s, uint32_t now, SeqCommand *out) {
     s->hasCommandChanged = false;
     if (s->isBrewing) {
       markStarted(s, now);
-      wasBrewing = true;
+      startBrew(now);
       return brew(out, temp, s->pressureSetPoint);
     }
     if (s->isCleaning) {
@@ -95,6 +106,7 @@ bool sequencerStep(GaggiaStateT *s, uint32_t now, SeqCommand *out) {
             return brew(out, temp, s->blooming_pressure);
           }
           currentPhase = PHASE_BREW;
+          startBrew(now);
           return brew(out, temp, s->pressureSetPoint);
         }
         s->isAuto = false;
@@ -105,17 +117,11 @@ bool sequencerStep(GaggiaStateT *s, uint32_t now, SeqCommand *out) {
       markStopped(s, now);
       return steam(out, s->steamSetPoint, s->steam_max_pressure, s->steam_pump_output_percent);
     }
-    if (wasBrewing) {
-      rememberShot(s, now);
-      wasBrewing = false;
-    }
-    if (s->isBoilerOn) {
-      markStopped(s, now);
-      return brew(out, s->boilerSetPoint, 0);
-    }
+    // Nothing runs any more: a manual brew ended, or a prime/auto was interrupted.
+    rememberShot(s, now);
     markStopped(s, now);
     currentPhase = PHASE_OFF;
-    return brew(out, 0, 0);
+    return brew(out, s->isBoilerOn ? s->boilerSetPoint : 0, 0);
   }
 
   // No button change: advance the timed phases. The action timer keeps running
@@ -136,6 +142,7 @@ bool sequencerStep(GaggiaStateT *s, uint32_t now, SeqCommand *out) {
       } else if (s->isAuto) {
         currentPhase = PHASE_BREW;
         phaseStart = now;
+        startBrew(now);
         return brew(out, temp, s->pressureSetPoint);
       }
     }

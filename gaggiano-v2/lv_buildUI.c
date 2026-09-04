@@ -108,7 +108,8 @@ static lv_obj_t* temp_label;
 static lv_obj_t* press_label;
 static lv_obj_t* main_notes_label;
 static lv_obj_t* time_label;
-static lv_obj_t* time_sub_label;   // "last 27 s" under the timer
+static lv_obj_t* time_phase_box;   // top-right of the timer tile: the phases of the running action
+static lv_obj_t* time_phase[3];    // BLOOM / WAIT / BREW as a column, or one line (BREW, CLEAN, STEAM, LAST SHOT)
 static lv_obj_t* temp_chart;
 static lv_obj_t* press_chart;
 static lv_chart_series_t* temp_ser;
@@ -701,6 +702,9 @@ void ui_show_progress(const char* text) {
 lv_obj_t* heat_btn_for_scene(void) { return heat_btn; }
 lv_obj_t* brew_btn_for_scene(void) { return brew_btn; }
 lv_obj_t* steam_btn_for_scene(void) { return boil_btn; }
+lv_obj_t* prime_btn_for_scene(void) { return prime_btn; }
+lv_obj_t* clean_btn_for_scene(void) { return clean_btn; }
+lv_obj_t* auto_btn_for_scene(void) { return auto_btn; }
 lv_obj_t* menu_for_scene(void) { return menuDd; }
 void show_view_for_scene(int index);
 // simulator: edit an advanced field through the editor and report what the field shows
@@ -753,6 +757,14 @@ static void set_profile_title(const char* name) {
   lv_coord_t titleEnd = lv_obj_get_x2(selectedProfileLabel) + 20;
   lv_obj_set_width(main_notes_label, LV_HOR_RES - titleEnd - 190);
   lv_obj_align_to(main_notes_label, selectedProfileLabel, LV_ALIGN_OUT_RIGHT_MID, 20, 2);
+}
+
+// One line of the timer tile's phase column: `color` at full strength when active, dim otherwise.
+static void phase_line(int i, const char* text, lv_color_t color, bool active) {
+  lv_label_set_text(time_phase[i], text);
+  lv_obj_set_style_text_color(time_phase[i], color, 0);
+  lv_obj_set_style_text_opa(time_phase[i], active ? LV_OPA_COVER : LV_OPA_70, 0);
+  lv_obj_clear_flag(time_phase[i], LV_OBJ_FLAG_HIDDEN);
 }
 
 void updateUI() {
@@ -816,21 +828,30 @@ void updateUI() {
   } else {
     lv_label_set_text(time_label, "0");
   }
-  const char* phase = NULL;
-  int ph = sequencerPhase();
-  if (ph == PHASE_BLOOM_FILL) phase = "PRIME";
-  else if (ph == PHASE_BLOOM_WAIT) phase = "WAIT";
-  else if (ph == PHASE_BREW || state->isBrewing) phase = "BREW";
-  else if (state->isCleaning) phase = "CLEAN";
-  else if (state->isSteaming) phase = "STEAM";
-  if (phase != NULL) {
-    lv_label_set_text(time_sub_label, phase);
-    lv_obj_set_style_text_color(time_sub_label, theme_pump(), 0);
-  } else if (state->lastBrewTime > 0) {
-    lv_label_set_text_fmt(time_sub_label, "LAST SHOT %.0f S", state->lastBrewTime);
-    lv_obj_set_style_text_color(time_sub_label, theme_muted(), 0);
-  } else {
-    lv_label_set_text(time_sub_label, "");
+  // Phases of the running action. Prime and auto list every phase they will go
+  // through, the current one lit and the others dim; a single-phase action shows its
+  // name; idle shows the last shot.
+  {
+    int ph = sequencerPhase();
+    int n = 0;
+    if (state->isBlooming || state->isAuto) {
+      if (sequencerBloomConfigured(state)) {
+        phase_line(n++, "BLOOM", theme_pressure(), ph == PHASE_BLOOM_FILL);
+        phase_line(n++, "WAIT", theme_amber(), ph == PHASE_BLOOM_WAIT);
+      }
+      if (state->isAuto) phase_line(n++, "BREW", theme_pump(), ph == PHASE_BREW);
+    } else if (state->isBrewing) {
+      phase_line(n++, "BREW", theme_pump(), true);
+    } else if (state->isCleaning) {
+      phase_line(n++, "CLEAN", theme_clean(), true);
+    } else if (state->isSteaming) {
+      phase_line(n++, "STEAM", theme_steam(), true);
+    } else if (state->lastBrewTime > 0) {
+      char t[24];
+      snprintf(t, sizeof(t), "LAST SHOT %.0f S", state->lastBrewTime);
+      phase_line(n++, t, theme_muted(), true);
+    }
+    for (int i = n; i < 3; i++) lv_obj_add_flag(time_phase[i], LV_OBJ_FLAG_HIDDEN);
   }
 
   graph_update(millis());
@@ -1153,11 +1174,19 @@ static void main_create(lv_obj_t* parent) {
   lv_obj_t* temp_tile = tile_create(parent, "BOILER", "°C", theme_amber(), &temp_label, &temp_chart, &temp_ser, 20 * 10, 160 * 10);
   lv_obj_t* press_tile = tile_create(parent, "PRESSURE", "bar", theme_pressure(), &press_label, &press_chart, &press_ser, 0, 14 * 10);
   lv_obj_t* time_tile = tile_create(parent, "TIMER", "s", theme_pump(), &time_label, NULL, NULL, 0, 0);
-  time_sub_label = lv_label_create(time_tile);
-  theme_apply_tile_label(time_sub_label);
-  lv_obj_set_style_text_color(time_sub_label, theme_pump(), 0);
-  lv_label_set_text(time_sub_label, "");
-  lv_obj_align(time_sub_label, LV_ALIGN_TOP_RIGHT, -14, 10);
+  time_phase_box = lv_obj_create(time_tile);  // phase names, left-aligned in a column at the top right
+  lv_obj_remove_style_all(time_phase_box);
+  lv_obj_set_size(time_phase_box, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+  lv_obj_set_flex_flow(time_phase_box, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(time_phase_box, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+  lv_obj_set_style_pad_row(time_phase_box, 6, 0);
+  lv_obj_align(time_phase_box, LV_ALIGN_TOP_RIGHT, -14, 10);
+  for (int i = 0; i < 3; i++) {
+    time_phase[i] = lv_label_create(time_phase_box);
+    theme_apply_tile_label(time_phase[i]);
+    lv_label_set_text(time_phase[i], "");
+    lv_obj_add_flag(time_phase[i], LV_OBJ_FLAG_HIDDEN);
+  }
 
   lv_obj_set_grid_cell(temp_tile, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
   lv_obj_set_grid_cell(press_tile, LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, 0, 1);

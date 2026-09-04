@@ -26,6 +26,7 @@ struct SeqCommand {
 // Returns true when *out holds a command that must be sent to the controller.
 bool sequencerStep(GaggiaStateT *state, uint32_t now, struct SeqCommand *out);
 int sequencerPhase(void);
+bool sequencerBloomConfigured(const GaggiaStateT *state);  // a prime/auto run will have a bloom fill and wait
 void sequencerReset(void);
 
 #ifdef __cplusplus
