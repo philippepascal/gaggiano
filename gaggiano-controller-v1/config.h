@@ -1,7 +1,7 @@
 // Pins, periods and limits for the STM32F411 controller. Single place to edit.
 #pragma once
 
-#define FIRMWARE_VERSION "controller-2026-09-04-r2"  // sent in HELLO: no commas, max 31 chars
+#define FIRMWARE_VERSION "controller-2026-09-05-r3"  // sent in HELLO: no commas, max 31 chars
 
 #define LOOP_PERIOD_MS 10
 

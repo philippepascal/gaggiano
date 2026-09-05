@@ -328,3 +328,13 @@ via heartbeat and HELLO is demonstrated by the reboot.
   sent, controller hello, rejected lines, silent/answering, link warnings, pressure
   sensor stale/live, screen boot. The two firmwares must be flashed together (a v2
   `STAT` is rejected on field count by a v3 screen and the other way round).
+- 2026-09-05: pump dead on some boots, fine on others, nothing touched on the
+  machine. The `PSM` object (pulse-skip pump driver) is created with `new` and none
+  of its counters had an initialiser; the heap is not zeroed at boot, so
+  `_stopAfter`/`_counter` came up with whatever the SRAM held. With the wrong
+  values the zero-cross ISR takes the "stopAfter reached" branch on the first
+  half-cycle and `_skip` stays true for good. The 2026-09-04 build moved the heap
+  (new globals) onto cells that happen to power up that way, which is why it
+  appeared right after a firmware change. All members now have initialisers;
+  `STATUS` prints `zc=` (zero crossings seen) so a missing dimmer signal is
+  visible on the bench (checklist row 17).

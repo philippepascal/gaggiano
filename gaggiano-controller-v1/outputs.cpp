@@ -4,6 +4,12 @@
 
 double boiler_relay_output = 0;
 double pump_dimmer_output2 = 0;
+volatile uint32_t zeroCrossings = 0;
+
+// PSM calls this from the zero-cross interrupt (weak hook in PSM.cpp).
+void onPSMInterrupt() {
+  zeroCrossings++;
+}
 
 static PSM *pump;
 static uint32_t boiler_relay_pin_channel;  // timer channel for the boiler pin

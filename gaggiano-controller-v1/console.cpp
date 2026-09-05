@@ -57,10 +57,10 @@ void readUsbCommand() {
 void printStatus() {
   char line[320];
   snprintf(line, sizeof(line),
-           "STATUS mode=%d tempSet=%.2f pressSet=%.2f pumpPct=%.2f temp=%.2f press=%.2f pressStale=%d valve=%d boilerOut=%.1f pumpOut=%.1f linkOk=%d tempFaults=%lu pressFaults=%lu i2cRecoveries=%lu rx=%lu rxRejected=%lu rxOverflows=%lu loops=%lu maxLoopMs=%lu wdReset=%d",
+           "STATUS mode=%d tempSet=%.2f pressSet=%.2f pumpPct=%.2f temp=%.2f press=%.2f pressStale=%d valve=%d boilerOut=%.1f pumpOut=%.1f zc=%lu linkOk=%d tempFaults=%lu pressFaults=%lu i2cRecoveries=%lu rx=%lu rxRejected=%lu rxOverflows=%lu loops=%lu maxLoopMs=%lu wdReset=%d",
            (int)operating_mode, temperatureSetPoint, pressureSetPoint, pressureOutputPercent,
            temperature_smoothed, pressure_smoothed, pressureStale ? 1 : 0, valveIsOpen() ? 1 : 0, boiler_relay_output,
-           pump_dimmer_output2, linkOk ? 1 : 0, (unsigned long)temperatureFaults, (unsigned long)pressureFaults,
+           pump_dimmer_output2, (unsigned long)zeroCrossings, linkOk ? 1 : 0, (unsigned long)temperatureFaults, (unsigned long)pressureFaults,
            (unsigned long)i2cRecoveries, (unsigned long)rxLines, (unsigned long)rxRejected,
            (unsigned long)rxOverflows, (unsigned long)loopCounter, (unsigned long)maxLoopMs, resetByWatchdog ? 1 : 0);
   Serial.println(line);
