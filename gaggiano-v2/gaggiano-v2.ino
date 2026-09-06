@@ -19,7 +19,7 @@
 #include "net.h"
 #include "webui.h"
 
-GaggiaStateT state = { false, 98, 8.0, 134, 0, 0, 0.15, 2, 0, 0, 0, 0, false, "", "", 0, 0, false, 0, false, false, false, false, false, false, false, false, 0, 0 };
+GaggiaStateT state = { false, 98, 8.0, 134, 0, 0, 0.15, 2, 130, 0, 0, 0, 0, false, "", "", 0, 0, false, 0, false, false, false, false, false, false, false, false, 0, 0 };
 AdvancedSettingsT advancedSettings = { false, false, 3, 1000, 10, 0.2, 0.1, 1, 100, 1, 0.1, 0.05 };
 bool isControllerLoggingOn = true;  // CSV rows to the SD card (console: SDLOG OFF to stop)
 

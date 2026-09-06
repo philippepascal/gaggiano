@@ -14,6 +14,7 @@ struct GaggiaState {
   float steam_pump_output_percent;
   float steam_shot_s;  // steam assist: seconds of pump per shot
   float steam_gap_s;   // steam assist: seconds between shots
+  float steam_min_temp;  // steam assist: no shot below this boiler temperature
   float blooming_pressure;
   float blooming_fill_time;
   float blooming_wait_time;

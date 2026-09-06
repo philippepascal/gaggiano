@@ -22,6 +22,7 @@ double pump_KD = 0.9;
 double unused1 = 0;
 double steam_shot_s = 0.15;
 double steam_gap_s = 2;
+double steam_min_temp = 130;
 
 static SteamAssist steamAssist;
 
@@ -41,7 +42,14 @@ void updateAdvancedSettings() {
   boilerPID.setGains(boiler_PID_KP, boiler_PID_KI, boiler_PID_KD);
 }
 
+// Steaming with the wand open (pressure under the max) is a large heat sink: the
+// proportional band alone lets the boiler slide 8 degrees before the heater goes
+// flat out (2026-09-05 log). Narrow the "flat out below" side of the bang-bang
+// then; the "off above" side and the PID inside the band are unchanged, and the
+// wand closed brings the normal band back.
 void updateBoiler() {
+  bool wandOpen = operating_mode == OPERATING_MODE_STEAM && pressure_smoothed < pressureSetPoint;
+  boilerPID.setBangBang(wandOpen ? STEAM_OPEN_BB_RANGE : boiler_bb_range, boiler_bb_range);
   boilerPID.run();
   setBoilerOutput(boiler_relay_output);
 }
@@ -90,10 +98,9 @@ void updatePump2() {
     p.maxPressure = pressureSetPoint;
     p.shotS = steam_shot_s;
     p.gapS = steam_gap_s;
-    p.tempMargin = STEAM_ASSIST_TEMP_MARGIN;
+    p.minTemp = steam_min_temp;
     p.blankS = STEAM_ASSIST_BLANK_S;
-    pumpValue = steamAssistStep(&steamAssist, &p, millis(), temperature_smoothed, temperatureSetPoint,
-                                pressure_smoothed, PUMP_RANGE);
+    pumpValue = steamAssistStep(&steamAssist, &p, millis(), temperature_smoothed, pressure_smoothed, PUMP_RANGE);
     setPumpGuarded(pumpValue);
   } else {
     // safety. should not happen

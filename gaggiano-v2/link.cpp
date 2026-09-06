@@ -103,11 +103,12 @@ void linkSendTune() {
   m.tune.pumpKd = adv->pump_KD;
   m.tune.steamShotS = state->steam_shot_s;
   m.tune.steamGapS = state->steam_gap_s;
+  m.tune.steamMinTemp = state->steam_min_temp;
   sendMessage(m);
-  logEvent("tune bb=%.2f cycle=%.0f kp=%.3f ki=%.3f kd=%.3f step=%.3f pkp=%.3f pki=%.3f pkd=%.3f shot=%.2f gap=%.2f",
+  logEvent("tune bb=%.2f cycle=%.0f kp=%.3f ki=%.3f kd=%.3f step=%.3f pkp=%.3f pki=%.3f pkd=%.3f shot=%.2f gap=%.2f min=%.1f",
            adv->boiler_bb_range, adv->boiler_PID_cycle, adv->boiler_PID_KP, adv->boiler_PID_KI, adv->boiler_PID_KD,
            adv->pump_max_step_up, adv->pump_KP, adv->pump_KI, adv->pump_KD, (double)state->steam_shot_s,
-           (double)state->steam_gap_s);
+           (double)state->steam_gap_s, (double)state->steam_min_temp);
 }
 
 static bool nearlyEqual(float a, float b) { return fabsf(a - b) < 0.006f; }  // two decimals on the wire

@@ -1,10 +1,10 @@
-// Gaggiano screen/controller protocol v4. See docs/PROTOCOL.md.
+// Gaggiano screen/controller protocol v5. See docs/PROTOCOL.md.
 // Plain C++ (no Arduino, no heap) so both firmwares and the host tests share it.
 #pragma once
 #include <stddef.h>
 #include <stdint.h>
 
-#define GP_PROTOCOL_VERSION 4
+#define GP_PROTOCOL_VERSION 5
 #define GP_LINE_MAX 120       // bytes per line including the trailing newline
 #define GP_FIRMWARE_MAX 32    // firmware string in HELLO, including the terminator
 
@@ -54,6 +54,7 @@ struct GpTune {
   float pumpKd;
   float steamShotS;   // v4: steam assist, one pump shot lasts this long (s)
   float steamGapS;    // v4: steam assist, minimum pause between shots (s)
+  float steamMinTemp; // v5: steam assist, no shot below this boiler temperature (C)
 };
 
 struct GpMessage {

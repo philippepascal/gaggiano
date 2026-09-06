@@ -9,11 +9,11 @@ static SteamAssistParams P;
 static void reset() {
   steamAssistReset(&A);
   P.pumpPct = 20; P.maxPct = 50; P.maxPressure = 1.0f;
-  P.shotS = 0.15f; P.gapS = 2; P.tempMargin = 2; P.blankS = 0.3f;
+  P.shotS = 0.15f; P.gapS = 2; P.minTemp = 133; P.blankS = 0.3f;
 }
 // 127 is the pump range; 20% of it is 25.4
 static float step(uint32_t now, float temp, float pressure) {
-  return steamAssistStep(&A, &P, now, temp, 135, pressure, 127);
+  return steamAssistStep(&A, &P, now, temp, pressure, 127);
 }
 
 int main() {
@@ -36,7 +36,7 @@ int main() {
   CHECK(!A.shotOn);
   CHECK_NEAR(step(1020, 135, 0.9f), 25.4, 0.01);
 
-  // Boiler sagging below the margin: no shot; back within the margin: shot.
+  // Boiler under the minimum: no shot; at it: shot.
   reset();
   CHECK_NEAR(step(1000, 132.9f, 0.4f), 0, 0.01);
   CHECK_NEAR(step(1010, 133.0f, 0.4f), 25.4, 0.01);

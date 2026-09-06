@@ -1,4 +1,4 @@
-# Screen / controller protocol, version 4
+# Screen / controller protocol, version 5
 
 UART, 115200 8N1, 3.3 V. Controller USART2 (PA2 TX, PA3 RX); screen UART2 (GPIO17 TX,
 GPIO18 RX). Text lines, one message per line, implemented once in
@@ -26,7 +26,7 @@ $TYPE,field,field,...*HH\n
 | `HELLO` | both | `version` (int), `firmware` (string, no commas, max 31 chars) | at boot. The controller also answers a `HELLO` with its own. |
 | `STAT` | controller to screen | `mode` `temp` `pressure` `valve` `boilerOut` `pumpOut` `tempSet` `pressSet` `pumpPct` `linkOk` `faults` `counter` `pressStale` `i2cRecoveries` `maxLoopMs` | every 200 ms |
 | `CMD` | screen to controller | `mode` `tempSet` `pressSet` `pumpPct` | on change, and every 1000 ms as a heartbeat |
-| `TUNE` | screen to controller | `bbRange` `pidCycle` `kp` `ki` `kd` `pumpStepUp` `pumpKp` `pumpKi` `pumpKd` `steamShotS` `steamGapS` | on change, and after every controller `HELLO` |
+| `TUNE` | screen to controller | `bbRange` `pidCycle` `kp` `ki` `kd` `pumpStepUp` `pumpKp` `pumpKi` `pumpKd` `steamShotS` `steamGapS` `steamMinTemp` | on change, and after every controller `HELLO` |
 
 Field meanings:
 
@@ -34,13 +34,15 @@ Field meanings:
   control to `pressSet`, valve open while `pressSet` > 0), 2 steam (valve closed, steam
   assist: shots of pump at `pumpPct` for `steamShotS`, at least `steamGapS` apart, only
   while the pressure is below `pressSet`, which means the wand is open, and the boiler is
-  within 2 degrees of `tempSet`; `pumpPct` 0 or `steamShotS` 0 disables), 3 clean (pump
-  full on below `pressSet`, valve open).
+  at `steamMinTemp` or more; `pumpPct` 0 or `steamShotS` 0 disables. With the wand open
+  the heater is also flat out below `tempSet` minus 3 degrees instead of the normal
+  bang-bang band), 3 clean (pump full on below `pressSet`, valve open).
 - `temp` in degrees C, `pressure` in bar, `valve` 0/1, `boilerOut` 0..100 percent,
   `pumpOut` 0..127 (pulse-skip units), `tempSet` degrees C, `pressSet` bar, `pumpPct`
   percent.
-- `steamShotS`, `steamGapS` (v4, `TUNE`): steam assist timings in seconds, from the
-  profile's steam settings; the other `TUNE` fields come from the advanced settings.
+- `steamShotS`, `steamGapS` (v4), `steamMinTemp` (v5) in `TUNE`: steam assist timings in
+  seconds and minimum boiler temperature in degrees C, from the profile's steam settings;
+  the other `TUNE` fields come from the advanced settings.
 - `linkOk`: 1 while the controller has received a valid `CMD` within the last 3 s.
 - `faults`: count of rejected sensor readings since boot (temperature readings out of
   range plus pressure reads that failed on I2C; the controller console `STATUS` splits

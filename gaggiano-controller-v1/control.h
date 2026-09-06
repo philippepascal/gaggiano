@@ -19,6 +19,7 @@ extern double pump_KD;
 extern double unused1;
 extern double steam_shot_s;  // steam assist: seconds of pump per shot (0 disables)
 extern double steam_gap_s;   // steam assist: seconds between shots
+extern double steam_min_temp;  // steam assist: no shot below this boiler temperature
 
 void controlSetup();
 void updateBoiler();             // call after each temperature reading

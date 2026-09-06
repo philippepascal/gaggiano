@@ -1,7 +1,7 @@
 // Pins, periods and versions for the ESP32-S3 display (Sunton ESP32-8048S043).
 #pragma once
 
-#define SCREEN_FIRMWARE_VERSION "screen-2026-09-05-r1"  // sent in HELLO: no commas, max 31 chars
+#define SCREEN_FIRMWARE_VERSION "screen-2026-09-05-r2"  // sent in HELLO: no commas, max 31 chars
 
 // --- controller link (UART2)
 #define CONTROLLER_RX_PIN 18

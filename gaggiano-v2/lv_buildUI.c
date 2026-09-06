@@ -170,6 +170,7 @@ static lv_obj_t* steam_temp_tf;
 static lv_obj_t* steam_max_pressure_tf;
 static lv_obj_t* steam_shot_tf;
 static lv_obj_t* steam_gap_tf;
+static lv_obj_t* steam_min_temp_tf;
 static lv_obj_t* steam_pump_output_perc_tf;
 static lv_obj_t* blooming_pressure_tf;
 static lv_obj_t* blooming_fill_time_tf;
@@ -305,6 +306,7 @@ static void setButtonClicked(lv_event_t* e) {
     double newSteamPumpOutput = strtod(lv_textarea_get_text(steam_pump_output_perc_tf), NULL);
     double newSteamShot = strtod(lv_textarea_get_text(steam_shot_tf), NULL);
     double newSteamGap = strtod(lv_textarea_get_text(steam_gap_tf), NULL);
+    double newSteamMinTemp = strtod(lv_textarea_get_text(steam_min_temp_tf), NULL);
     double newblooming_pressure = strtod(lv_textarea_get_text(blooming_pressure_tf), NULL);
     double newblooming_fill_time = strtod(lv_textarea_get_text(blooming_fill_time_tf), NULL);
     double newblooming_wait_time = strtod(lv_textarea_get_text(blooming_wait_time_tf), NULL);
@@ -316,9 +318,10 @@ static void setButtonClicked(lv_event_t* e) {
     state->steamSetPoint = newSteamSetPoint;
     state->steam_max_pressure = newSteamMaxPress;
     state->steam_pump_output_percent = newSteamPumpOutput;
-    if (newSteamShot != state->steam_shot_s || newSteamGap != state->steam_gap_s) {
+    if (newSteamShot != state->steam_shot_s || newSteamGap != state->steam_gap_s || newSteamMinTemp != state->steam_min_temp) {
       state->steam_shot_s = newSteamShot;
       state->steam_gap_s = newSteamGap;
+      state->steam_min_temp = newSteamMinTemp;
       advancedSettings->sendToController = true;  // the timings travel in TUNE
     }
     state->blooming_pressure = newblooming_pressure;
@@ -938,6 +941,9 @@ void updateSettings() {
 
     sprintf(t, "%g", state->steam_gap_s);
     lv_textarea_set_text(steam_gap_tf, t);
+
+    sprintf(t, "%g", state->steam_min_temp);
+    lv_textarea_set_text(steam_min_temp_tf, t);
 
     sprintf(t, "%g", state->blooming_pressure);
     lv_textarea_set_text(blooming_pressure_tf, t);
@@ -1639,11 +1645,12 @@ static void settings_create(lv_obj_t* parent) {
   lv_obj_add_event_cb(edit_notes_tf, setting_field_changed, LV_EVENT_ALL, kb2);
   lv_obj_set_grid_cell(edit_notes_tf, LV_GRID_ALIGN_STRETCH, 0, 2, LV_GRID_ALIGN_CENTER, 0, 1);
 
-  // Six fields fit a column; BREW + PRIME on the left, STEAM + AUTO on the right.
+  // Six fields fit a column: BREW (with the auto timer) + PRIME left, STEAM right.
   lv_obj_t* left = column_create(parent, 0, 1);
   lv_obj_t* g = group_create(left, "BREW");
   brew_temp_tf = field_create(g, "Temperature °C", kb);
   brew_pressure_tf = field_create(g, "Pressure bar", kb);
+  brew_timer_tf = field_create(g, "Auto brew s", kb);
   g = group_create(left, "PRIME");
   blooming_pressure_tf = field_create(g, "Pressure bar", kb);
   blooming_fill_time_tf = field_create(g, "Fill s", kb);
@@ -1656,8 +1663,7 @@ static void settings_create(lv_obj_t* parent) {
   steam_pump_output_perc_tf = field_create(g, "Assist pump %", kb);
   steam_shot_tf = field_create(g, "Assist shot s", kb);
   steam_gap_tf = field_create(g, "Assist gap s", kb);
-  g = group_create(right, "AUTO");
-  brew_timer_tf = field_create(g, "Brew s", kb);
+  steam_min_temp_tf = field_create(g, "Assist min °C", kb);
 
   lv_obj_t* row = lv_obj_create(parent);
   lv_obj_remove_style_all(row);

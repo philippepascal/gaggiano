@@ -100,5 +100,7 @@ void printAdvancedSettings() {
   Serial.print(" steam_shot_s:");
   Serial.print(steam_shot_s);
   Serial.print(" steam_gap_s:");
-  Serial.println(steam_gap_s);
+  Serial.print(steam_gap_s);
+  Serial.print(" steam_min_temp:");
+  Serial.println(steam_min_temp);
 }

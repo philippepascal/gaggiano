@@ -14,8 +14,8 @@ static float shotLevel(const SteamAssistParams *p, float range) {
   return pct * range / 100.0f;
 }
 
-float steamAssistStep(SteamAssist *a, const SteamAssistParams *p, uint32_t now, float temp, float tempSet,
-                      float pressure, float range) {
+float steamAssistStep(SteamAssist *a, const SteamAssistParams *p, uint32_t now, float temp, float pressure,
+                      float range) {
   if (a->shotOn) {
     if ((now - a->shotStart) >= (uint32_t)(p->shotS * 1000.0f)) {
       a->shotOn = false;
@@ -31,7 +31,7 @@ float steamAssistStep(SteamAssist *a, const SteamAssistParams *p, uint32_t now, 
     if ((now - a->lastShotEnd) < (uint32_t)(pause * 1000.0f)) return 0;
   }
   if (pressure >= p->maxPressure) return 0;        // wand closed
-  if (temp < tempSet - p->tempMargin) return 0;    // element already flat out
+  if (temp < p->minTemp) return 0;                 // boiler too cold, element already flat out
   a->shotOn = true;
   a->shotStart = now;
   return shotLevel(p, range);

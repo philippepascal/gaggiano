@@ -30,6 +30,6 @@ through the link connector.
 | 16 | Unplug the UART wire while the screen heats | screen header shows `CONTROLLER SILENT` within 2 s; replug clears it |
 | 17 | Power-cycle the machine 5 times (mains off, not just reset) and start a clean on each boot | pressure rises on every boot; `STATUS`: `zc=` climbing by about 100 per second whenever the mains is on |
 | 18 | Steam with the wand closed, boiler at its setpoint | `STATUS`: `pumpOut=0.0` throughout (pressure above the max, no shot) |
-| 19 | Open the wand while steaming at the setpoint | log: `pump` shows short bursts about `steam_gap_s` apart, none while `temp` is more than 2 degrees under the setpoint; no water from the wand |
+| 19 | Open the wand while steaming at the setpoint | log: `pump` shows short bursts about `steam_gap_s` apart, none while `temp` is under `steam_min_temp`; `heater` 100 as soon as `temp` is 3 degrees under the setpoint; no water from the wand |
 
 Record anything unexpected in the plan's notes log.

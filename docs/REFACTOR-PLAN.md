@@ -348,3 +348,11 @@ via heartbeat and HELLO is demonstrated by the reboot.
   boiler is within 2 degrees of its setpoint (the element has spare heat to flash the
   water). Both timings are per profile, edited in the STEAM group of the settings, and
   travel to the controller in `TUNE` (11 fields). Host test: `tests/test_steam_assist.cpp`.
+- 2026-09-05 evening, protocol v5, from the first steam assist log: with the wand open
+  the boiler slid from 135 to 127 in 15 s while the heater sat at 20 to 60 percent, the
+  10 degree bang-bang band and Kp 5 being too soft for the steam draw; the assist then
+  waited at its 2 degree gate. Now steaming with the wand open narrows only the "flat
+  out below" side of the bang-bang to `STEAM_OPEN_BB_RANGE` (3 degrees), the PID and the
+  off side are unchanged and the wand closed restores the normal band. The gate is an
+  absolute `steam_min_temp` per profile ("Assist min °C", 12th `TUNE` field), and the
+  AUTO settings group folded into BREW as "Auto brew s" to make room for it.

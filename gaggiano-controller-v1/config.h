@@ -1,7 +1,7 @@
 // Pins, periods and limits for the STM32F411 controller. Single place to edit.
 #pragma once
 
-#define FIRMWARE_VERSION "controller-2026-09-05-r4"  // sent in HELLO: no commas, max 31 chars
+#define FIRMWARE_VERSION "controller-2026-09-05-r5"  // sent in HELLO: no commas, max 31 chars
 
 #define LOOP_PERIOD_MS 10
 
@@ -26,7 +26,7 @@
 #define PUMP_RANGE 127
 #define PUMP_MAX 255
 #define STEAM_PUMP_MAX_PERCENT 50    // cap on the pump while steaming (solenoid closed)
-#define STEAM_ASSIST_TEMP_MARGIN 2.0 // steam assist shots only within this many degrees of the steam setpoint (see steam_assist.h)
+#define STEAM_OPEN_BB_RANGE 3.0      // steaming with the wand open: heater flat out below setpoint minus this (the normal band is boiler_bb_range)
 #define STEAM_ASSIST_BLANK_S 0.3     // pressure ignored for this long after a shot: the pump's own pulses raise it
 #define BOILER_RELAY_PIN PB5
 #define BOILER_RELAY_FREQ_HZ 30

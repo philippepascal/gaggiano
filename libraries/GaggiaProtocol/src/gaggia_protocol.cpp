@@ -6,7 +6,7 @@
 #define GP_MAX_FIELDS 15
 
 static const char *const kTypeNames[] = {"?", "HELLO", "STAT", "CMD", "TUNE"};
-static const int kFieldCounts[] = {0, 2, 15, 4, 11};
+static const int kFieldCounts[] = {0, 2, 15, 4, 12};
 
 const char *gp_type_name(GpType t) {
   return (t >= GP_HELLO && t <= GP_TUNE) ? kTypeNames[t] : "?";
@@ -57,11 +57,11 @@ int gp_encode(const GpMessage *m, char *buf, size_t bufSize) {
                    (double)m->cmd.pressSet, (double)m->cmd.pumpPct);
       break;
     case GP_TUNE:
-      n = snprintf(payload, sizeof(payload), "TUNE,%.2f,%.2f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.2f,%.2f",
+      n = snprintf(payload, sizeof(payload), "TUNE,%.2f,%.2f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.2f,%.2f,%.1f",
                    (double)m->tune.bbRange, (double)m->tune.pidCycle, (double)m->tune.kp, (double)m->tune.ki,
                    (double)m->tune.kd, (double)m->tune.pumpStepUp, (double)m->tune.pumpKp,
                    (double)m->tune.pumpKi, (double)m->tune.pumpKd, (double)m->tune.steamShotS,
-                   (double)m->tune.steamGapS);
+                   (double)m->tune.steamGapS, (double)m->tune.steamMinTemp);
       break;
     default:
       buf[0] = '\0';
@@ -177,6 +177,7 @@ GpResult gp_decode(const char *line, size_t len, GpMessage *out) {
       out->tune.pumpKd = toFloat(f[8]);
       out->tune.steamShotS = toFloat(f[9]);
       out->tune.steamGapS = toFloat(f[10]);
+      out->tune.steamMinTemp = toFloat(f[11]);
       break;
     default:
       return GP_ERR_TYPE;
