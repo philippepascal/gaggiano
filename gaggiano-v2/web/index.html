@@ -27,6 +27,9 @@
   canvas { width:100%; height:300px; display:block; background:#000; border-radius:6px; }
   .actions { display:flex; gap:12px; margin-top:16px; flex-wrap:wrap; }
   a.btn { color:var(--text); text-decoration:none; background:var(--surface); border:1px solid var(--steel); border-radius:8px; padding:10px 18px; }
+  a.btn.small { padding:2px 10px; margin-left:auto; font-size:13px; }
+  a.btn.small + a.btn.small { margin-left:0; }
+  canvas { touch-action:none; cursor:crosshair; }
   .foot { color:var(--muted); font-size:13px; margin-top:16px; }
   @media (max-width:600px) { .tiles { grid-template-columns:1fr 1fr 1fr; gap:8px; } .tile .val { font-size:28px; } canvas { height:220px; } }
 </style>
@@ -46,15 +49,18 @@
   <div class="legend">
     <span style="color:var(--amber)">boiler °C</span><span style="color:var(--water)">pressure bar (×10)</span>
     <span style="color:var(--heater)">heater %</span><span style="color:var(--pump)">pump %</span>
+    <a class="btn small" href="#" id="fit" title="show everything (double-click the chart does the same)">fit</a>
+    <a class="btn small" href="#" id="follow" hidden title="jump back to the latest samples">follow</a>
   </div>
   <canvas id="chart" width="1000" height="300"></canvas>
+  <div class="foot" id="hint" style="margin-top:6px">Wheel or pinch to zoom, drag to scroll, double-click to fit.</div>
   <div class="actions">
     <a class="btn" href="/logs.csv" download="gaggiano-log.csv">Download this session (CSV)</a>
     <a class="btn" href="#" id="live" hidden>Back to live</a>
   </div>
   <div class="foot" style="margin-top:14px">Sessions on the card (tap a name to view it, the arrow to download):</div>
   <div id="sessions" class="actions" style="margin-top:6px"></div>
-  <div class="foot" id="foot">Last 150 s. Updated every second while this page is open.</div>
+  <div class="foot" id="foot">Live. Updated every second while this page is open.</div>
   <details class="foot"><summary>Update firmware</summary>
     <form method="post" action="/update" enctype="multipart/form-data" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center" onsubmit="this.size.value=this.firmware.files[0]?this.firmware.files[0].size:0">
       <input type="hidden" name="size" value="0">
@@ -66,50 +72,119 @@
 </main>
 <script>
 (function () {
-  var N = 300, PERIOD = 0.5;   // samples in the firmware's history rings
-  var hist = { temp: [], press: [], boiler: [], pump: [], mode: [] };
-  var last = 0;
-  var live = true;  // false while a past session is shown
+  var PERIOD = 0.5;            // seconds between live samples (the firmware's history rings)
+  var LIVE_SPAN = 150;         // seconds shown by default in the live view
+  var MAX_LIVE = 8 * 3600 * 2; // live samples kept in the browser (8 h)
   var $ = function (id) { return document.getElementById(id); };
-  var MODE = ['', 'brew', 'steam', 'clean'];
   var MODE_COLOR = ['', '#7fb3d5', '#d64545', '#4fa3a0'];
+  var C = ['temp', 'press', 'boiler', 'pump', 'mode'];
+
+  // The data is plain arrays in the browser: t (seconds, epoch) and one array per curve.
+  // Zoom and scroll only change the window [v0, v1] and redraw from these arrays; the
+  // machine is never asked for anything more than the 1 s status poll it already answers.
+  var D = empty();
+  var live = true;      // live samples, or a past session
+  var follow = true;    // live: the window sticks to the newest sample
+  var v0 = 0, v1 = 1;   // window, seconds
+  var last = 0;
+
+  function empty() { return { t: [], temp: [], press: [], boiler: [], pump: [], mode: [] }; }
+  function n() { return D.t.length; }
+  function tEnd() { return n() ? D.t[n() - 1] : Date.now() / 1000; }
+  function tStart() { return n() ? D.t[0] : tEnd() - LIVE_SPAN; }
+  function lower(t) {  // first index with D.t[i] >= t
+    var lo = 0, hi = n();
+    while (lo < hi) { var m = (lo + hi) >> 1; if (D.t[m] < t) lo = m + 1; else hi = m; }
+    return lo;
+  }
+  function clampView() {
+    // live: the window may start before the first sample (a fresh boot has seconds of data)
+    var span = v1 - v0, lo = live ? Math.min(tStart(), tEnd() - LIVE_SPAN) : tStart(), hi = Math.max(tEnd(), lo + 1);
+    if (span > hi - lo) span = hi - lo;
+    if (span < 5) span = 5;
+    if (v0 < lo) v0 = lo;
+    if (v0 + span > hi) v0 = hi - span;
+    v1 = v0 + span;
+  }
+  function fit() {
+    if (live) { v1 = tEnd(); v0 = v1 - LIVE_SPAN; follow = true; }
+    else { v0 = tStart(); v1 = tEnd(); }
+    clampView(); draw();
+  }
+  function setFollow(f) { follow = f; $('follow').hidden = !(live && !follow); }
+
+  function fmtTime(t) {
+    var d = new Date(t * 1000);
+    var p = function (x) { return (x < 10 ? '0' : '') + x; };
+    return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+  }
+  function tickStep(span) {
+    var steps = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200];
+    for (var i = 0; i < steps.length; i++) if (span / steps[i] <= 8) return steps[i];
+    return 14400;
+  }
 
   function draw() {
     var c = $('chart'), ctx = c.getContext('2d');
-    var W = c.width, H = c.height, top = 8, bottom = H - 20, plotH = bottom - top;
+    var W = c.width, H = c.height, top = 8, bottom = H - 34, plotH = bottom - top;
+    var span = v1 - v0;
+    var X = function (t) { return W * (t - v0) / span; };
     ctx.clearRect(0, 0, W, H);
     ctx.strokeStyle = '#3c434a'; ctx.lineWidth = 1;
     for (var g = 1; g < 4; g++) { var y = top + plotH * g / 4; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-    // mode strip
-    var n = hist.mode.length;
-    for (var i = 0; i < n; i++) {
-      var m = hist.mode[i]; if (!m) continue;
-      ctx.fillStyle = MODE_COLOR[m] || '#888';
-      var x0 = W * (N - n + i) / N, x1 = W * (N - n + i + 1) / N;
-      ctx.fillRect(x0, bottom + 6, Math.max(1, x1 - x0), 10);
+    // time axis
+    var step = tickStep(span);
+    ctx.fillStyle = '#8b949e'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+    var tz = new Date(v0 * 1000).getTimezoneOffset() * 60;
+    for (var tt = Math.ceil((v0 - tz) / step) * step + tz; tt <= v1; tt += step) {
+      var x = Math.round(X(tt)) + 0.5;
+      ctx.strokeStyle = '#23272b'; ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
+      ctx.fillText(fmtTime(tt), Math.min(W - 28, Math.max(28, x)), H - 4);
+    }
+    if (!n()) return;
+    var i0 = Math.max(0, lower(v0) - 1), i1 = Math.min(n() - 1, lower(v1) + 1);
+    var stride = Math.max(1, Math.floor((i1 - i0) / (W * 2)));
+    // mode strip: one rectangle per run of the same mode
+    var runStart = -1, runMode = 0;
+    for (var i = i0; i <= i1 + 1; i++) {
+      var m = i <= i1 ? D.mode[i] : 0;
+      if (m !== runMode) {
+        if (runMode) { ctx.fillStyle = MODE_COLOR[runMode] || '#888'; var x0 = X(D.t[runStart]), x1 = X(D.t[Math.min(i, i1)]); ctx.fillRect(x0, bottom + 6, Math.max(1, x1 - x0), 8); }
+        runStart = i; runMode = m;
+      }
     }
     function line(arr, color, scale) {
       ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
-      var k = arr.length, started = false;
-      for (var i = 0; i < k; i++) {
-        var v = arr[i]; if (v === null) { started = false; continue; }
-        var x = W * (N - k + i) / N, y = bottom - Math.max(0, Math.min(1, v / scale)) * plotH;
+      var started = false;
+      for (var i = i0; i <= i1; i += stride) {
+        var v = arr[i]; if (v === null || v === undefined) { started = false; continue; }
+        var x = X(D.t[i]), y = bottom - Math.max(0, Math.min(1, v / scale)) * plotH;
         if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
       }
       ctx.stroke();
     }
-    line(hist.boiler, '#d9603b', 100);
-    line(hist.pump, '#6bbf8a', 100);
-    line(hist.temp, '#d9a441', 160);
-    line(hist.press, '#7fb3d5', 14);
+    line(D.boiler, '#d9603b', 100);
+    line(D.pump, '#6bbf8a', 100);
+    line(D.temp, '#d9a441', 160);
+    line(D.press, '#7fb3d5', 14);
   }
 
+  // ---- live data
   function push(s) {
-    var keys = ['temp', 'press', 'boiler', 'pump', 'mode'];
     var vals = [s.temp, s.pressure, s.heater, s.pump, s.ctrlMode];
-    for (var i = 0; i < keys.length; i++) { hist[keys[i]].push(vals[i]); if (hist[keys[i]].length > N) hist[keys[i]].shift(); }
+    D.t.push(Date.now() / 1000);
+    for (var i = 0; i < C.length; i++) D[C[i]].push(vals[i]);
+    if (n() > MAX_LIVE) { D.t.shift(); for (i = 0; i < C.length; i++) D[C[i]].shift(); }
   }
-
+  function loadHistory(h) {
+    D = empty();
+    var end = h.end ? new Date(h.end).getTime() / 1000 : Date.now() / 1000, k = h.temp.length, per = h.period || PERIOD;
+    for (var i = 0; i < k; i++) {
+      D.t.push(end - (k - 1 - i) * per);
+      D.temp.push(h.temp[i]); D.press.push(h.pressure[i]); D.boiler.push(h.heater[i]); D.pump.push(h.pump[i]); D.mode.push(h.mode[i]);
+    }
+    live = true; setFollow(true); fit();
+  }
   function show(s) {
     $('profile').textContent = s.profile || 'Gaggiano';
     $('notes').textContent = s.notes || '';
@@ -118,52 +193,112 @@
     st.className = 'state' + (running ? ' on' : '');
     $('temp').textContent = s.temp.toFixed(0); $('tempSet').textContent = s.tempSet.toFixed(0) + ' °C';
     $('press').textContent = s.pressure.toFixed(1); $('pressSet').textContent = s.pressSet.toFixed(1) + ' bar';
-    $('timer').textContent = s.timer.toFixed(0); $('phase').textContent = s.phase || (s.lastShot ? 'last shot ' + s.lastShot.toFixed(0) + ' s' : ' ');
-    $('foot').textContent = 'Last 150 s · ' + (s.time || '') + ' · heater ' + s.heater.toFixed(0) + '% · pump ' + s.pump.toFixed(0) + '%';
+    $('timer').textContent = s.timer.toFixed(0); $('phase').textContent = s.phase || (s.lastShot ? 'last shot ' + s.lastShot.toFixed(0) + ' s' : ' ');
+    if (!hover) $('foot').textContent = 'Live, window ' + Math.round(v1 - v0) + ' s · ' + (s.time || '') + ' · heater ' + s.heater.toFixed(0) + '% · pump ' + s.pump.toFixed(0) + '%';
   }
-
   function tick() {
     if (!live) return;
     fetch('/api/status').then(function (r) { return r.json(); }).then(function (s) {
+      if (!live) return;  // a session was opened while this poll was in flight
       show(s);
       var now = Date.now() / 1000;
-      if (now - last >= PERIOD) { push(s); last = now; draw(); }
+      if (now - last >= PERIOD) {
+        push(s); last = now;
+        if (follow) { var span = v1 - v0; v1 = tEnd(); v0 = v1 - span; }
+        draw();
+      }
     }).catch(function () { $('state').textContent = 'no connection'; $('state').className = 'state'; });
   }
 
-  fetch('/api/history').then(function (r) { return r.json(); }).then(function (h) {
-    hist.temp = h.temp; hist.press = h.pressure; hist.boiler = h.heater; hist.pump = h.pump; hist.mode = h.mode;
-    draw();
-  }).catch(function () {});
-
-  // past sessions: list, view in the chart (downsampled to N points), download
+  // ---- past sessions: the whole file is parsed once and kept at full resolution
   function showSession(name) {
     fetch('/logs/' + name).then(function (r) { return r.text(); }).then(function (csv) {
-      var rows = csv.trim().split('\n').slice(1).map(function (l) { return l.split(','); });
-      var stride = Math.max(1, Math.ceil(rows.length / N));
-      var h = { temp: [], press: [], boiler: [], pump: [], mode: [] };
-      for (var i = 0; i < rows.length; i += stride) {
-        var r = rows[i]; if (r.length < 8) continue;
-        h.mode.push(+r[1]); h.temp.push(+r[2]); h.press.push(+r[3]); h.boiler.push(+r[5]); h.pump.push(+r[6]);
+      var rows = csv.trim().split('\n'), h = empty(), kept = 0;
+      for (var i = 1; i < rows.length; i++) {
+        var r = rows[i].split(','); if (r.length < 8 || r[1] === '#' || r[0].length < 19) continue;
+        var t = new Date(r[0]).getTime() / 1000; if (!(t > 0)) continue;
+        h.t.push(t); h.mode.push(+r[1]); h.temp.push(+r[2]); h.press.push(+r[3]); h.boiler.push(+r[5]); h.pump.push(+r[6]); kept++;
       }
-      hist = h; live = false; draw();
-      $('foot').textContent = 'Session ' + name.replace('.csv', '') + ' · ' + rows.length + ' rows' + (rows.length ? ' · ' + rows[0][0] + ' to ' + rows[rows.length - 1][0] : '');
+      D = h; live = false; setFollow(false); fit();
+      $('foot').textContent = 'Session ' + name.replace('.csv', '') + ' · ' + kept + ' samples' + (kept ? ' · ' + fmtTime(D.t[0]) + ' to ' + fmtTime(D.t[kept - 1]) : '');
       $('live').hidden = false;
     });
   }
   $('live').addEventListener('click', function (e) {
-    e.preventDefault(); live = true; $('live').hidden = true;
-    fetch('/api/history').then(function (r) { return r.json(); }).then(function (h) {
-      hist = { temp: h.temp, press: h.pressure, boiler: h.heater, pump: h.pump, mode: h.mode }; draw();
-    });
+    e.preventDefault(); $('live').hidden = true; location.hash = '';
+    fetch('/api/history').then(function (r) { return r.json(); }).then(loadHistory);
   });
+  $('fit').addEventListener('click', function (e) { e.preventDefault(); fit(); });
+  $('follow').addEventListener('click', function (e) { e.preventDefault(); setFollow(true); fit(); });
+
+  // ---- zoom and scroll: wheel, drag, pinch, double-click; all in the browser
+  var c = $('chart');
+  var hover = false;
+  function evT(clientX) { var b = c.getBoundingClientRect(); return v0 + (v1 - v0) * (clientX - b.left) / b.width; }
+  function zoomAt(t, factor) {
+    var span = Math.max(5, Math.min(tEnd() - (live ? Math.min(tStart(), tEnd() - LIVE_SPAN) : tStart()), (v1 - v0) * factor));
+    var frac = (t - v0) / (v1 - v0);
+    v0 = t - span * frac; v1 = v0 + span;
+    if (live && v1 < tEnd() - 0.5) setFollow(false);
+    clampView(); draw();
+  }
+  function panBy(dt) {
+    v0 += dt; v1 += dt;
+    if (live && dt < 0) setFollow(false);
+    clampView(); draw();
+  }
+  c.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    if (e.ctrlKey || Math.abs(e.deltaY) >= Math.abs(e.deltaX)) zoomAt(evT(e.clientX), Math.pow(1.25, e.deltaY / 100));
+    else panBy((v1 - v0) * e.deltaX / c.getBoundingClientRect().width);
+  }, { passive: false });
+  c.addEventListener('dblclick', function (e) { e.preventDefault(); fit(); });
+  var drag = null, pinch = null;
+  c.addEventListener('pointerdown', function (e) {
+    c.setPointerCapture(e.pointerId);
+    if (drag && drag.id !== e.pointerId) { pinch = { a: drag, b: { id: e.pointerId, x: e.clientX }, span: v1 - v0 }; return; }
+    drag = { id: e.pointerId, x: e.clientX, t0: v0, moved: false };
+  });
+  c.addEventListener('pointermove', function (e) {
+    var b = c.getBoundingClientRect();
+    if (pinch) {
+      var p = pinch.a.id === e.pointerId ? pinch.a : (pinch.b.id === e.pointerId ? pinch.b : null);
+      if (!p) return;
+      var before = Math.abs(pinch.a.x - pinch.b.x); p.x = e.clientX;
+      var after = Math.abs(pinch.a.x - pinch.b.x);
+      if (before > 10 && after > 10) zoomAt(evT((pinch.a.x + pinch.b.x) / 2), before / after);
+      return;
+    }
+    if (drag && drag.id === e.pointerId) {
+      var dt = -(e.clientX - drag.x) / b.width * (v1 - v0);
+      if (Math.abs(e.clientX - drag.x) > 3) drag.moved = true;
+      drag.x = e.clientX; panBy(dt);
+      return;
+    }
+    // cursor readout
+    hover = true;
+    var i = lower(evT(e.clientX)); if (i >= n()) i = n() - 1; if (i < 0) return;
+    $('foot').textContent = fmtTime(D.t[i]) + ' · boiler ' + D.temp[i].toFixed(1) + ' °C · pressure ' + D.press[i].toFixed(1) + ' bar · heater ' + D.boiler[i].toFixed(0) + '% · pump ' + D.pump[i].toFixed(0) + '%';
+  });
+  function endPointer(e) {
+    if (pinch && (pinch.a.id === e.pointerId || pinch.b.id === e.pointerId)) { pinch = null; drag = null; return; }
+    if (drag && drag.id === e.pointerId) drag = null;
+  }
+  c.addEventListener('pointerup', endPointer);
+  c.addEventListener('pointercancel', endPointer);
+  c.addEventListener('pointerleave', function () { hover = false; });
+
+  var want = /^#session=([\w.-]+)$/.exec(location.hash);  // deep link to a past session
+  if (want) showSession(want[1]);
+  else fetch('/api/history').then(function (r) { return r.json(); }).then(loadHistory).catch(function () { fit(); });
   fetch('/logs').then(function (r) { return r.json(); }).then(function (list) {
     var box = $('sessions'); box.innerHTML = '';
+    list.sort(function (a, b) { return a.name < b.name ? 1 : -1; });
     list.forEach(function (s) {
       var a = document.createElement('a'); a.className = 'btn'; a.href = '#';
       a.textContent = s.name.replace('.csv', '').replace(/^(\d{4})(\d\d)(\d\d)-(\d\d)(\d\d)\d\d$/, '$1-$2-$3 $4:$5') + ' (' + Math.round(s.size / 1024) + ' KB)';
-      a.addEventListener('click', function (e) { e.preventDefault(); showSession(s.name); });
-      var d = document.createElement('a'); d.className = 'btn'; d.textContent = '\u2193'; d.href = '/logs/' + s.name + '?download=1';
+      a.addEventListener('click', function (e) { e.preventDefault(); location.hash = 'session=' + s.name; showSession(s.name); });
+      var d = document.createElement('a'); d.className = 'btn'; d.textContent = '↓'; d.href = '/logs/' + s.name + '?download=1';
       box.appendChild(a); box.appendChild(d);
     });
   }).catch(function () {});
