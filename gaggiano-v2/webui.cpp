@@ -11,6 +11,7 @@
 #include "web_page.h"
 #include <Arduino.h>
 #include <WebServer.h>
+#include <WiFiClient.h>
 #include <ESPmDNS.h>
 #include <SD.h>
 #include <Update.h>
@@ -117,7 +118,22 @@ static void sendCsvFile(const char *path, const char *downloadName) {
     snprintf(cd, sizeof(cd), "attachment; filename=\"%s\"", downloadName);
     server.sendHeader("Content-Disposition", cd);
   }
-  server.streamFile(f, "text/csv");
+  // Chunked by hand rather than streamFile(): that call blocks the loop for the whole
+  // transfer, several seconds for a long session, during which the panel is not
+  // redrawn and the controller gets no heartbeat (its link timeout is 3 s, which
+  // would stop a running brew). Between chunks the link and the GUI get their turn.
+  server.setContentLength(f.size());
+  server.sendHeader("Cache-Control", "no-store");
+  server.send(200, "text/csv", "");
+  WiFiClient client = server.client();
+  static uint8_t buf[2048];
+  while (f.available() && client.connected()) {
+    size_t n = f.read(buf, sizeof(buf));
+    if (n == 0) break;
+    if (client.write(buf, n) != n) break;
+    linkPoll(millis());
+    lv_timer_handler();
+  }
   f.close();
 }
 

@@ -368,3 +368,7 @@ via heartbeat and HELLO is demonstrated by the reboot.
   the pump runs in brew mode (pump fraction x `pump_flow_ml_s` x 4.186 x rise / 1400 W,
   cap 40). `pump_flow_ml_s` replaces the unused advanced setting ("Flow ml/s at 100%",
   default 9, 13th `TUNE` field). The AutoPID directory can go.
+- 2026-09-06 screen: a log download over WiFi used `streamFile`, which blocks the loop
+  for the whole transfer (seconds for a long session): the panel froze and, past 3 s,
+  the controller would have timed the link out and stopped a brew. `sendCsvFile` now
+  sends 2 KB chunks and services the link and LVGL between them.
