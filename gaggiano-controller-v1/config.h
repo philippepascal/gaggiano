@@ -1,7 +1,7 @@
 // Pins, periods and limits for the STM32F411 controller. Single place to edit.
 #pragma once
 
-#define FIRMWARE_VERSION "controller-2026-09-05-r5"  // sent in HELLO: no commas, max 31 chars
+#define FIRMWARE_VERSION "controller-2026-09-06-r1"  // sent in HELLO: no commas, max 31 chars
 
 #define LOOP_PERIOD_MS 10
 
@@ -37,6 +37,9 @@
 #define BOILER_KP 10
 #define BOILER_KI .2
 #define BOILER_KD .1
+#define BOILER_ELEMENT_W 1400      // heating element, for the brew feed-forward
+#define BREW_INLET_C 20            // reservoir water temperature assumed by the feed-forward
+#define BREW_BOOST_MAX_PCT 40      // cap on the feed-forward; the PID does the rest
 
 // --- screen link (USART2)
 #define SCREEN_RX_PIN PA3

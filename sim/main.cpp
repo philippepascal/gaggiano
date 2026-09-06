@@ -102,7 +102,7 @@ static void saveShot(const char *path) {
 
 GaggiaStateT state = {false, 93, 9.0, 135, 4, 4, 0.15, 2, 130, 1.5, 7, 8, 33, false, "", "", 0, 0, false, 0,
                       false, false, false, false, false, false, false, false, 0, 0};
-AdvancedSettingsT advancedSettings = {false, false, 10, 200, 5, 0.1, 0.04, 0.4, 1, 1.7, 0.9, 0};
+AdvancedSettingsT advancedSettings = {false, false, 10, 200, 5, 0.1, 0.04, 0.4, 1, 1.7, 0.9, 9};
 
 // The controller as the screen sees it: readings drift toward the last command.
 static SeqCommand lastCmd = {GP_MODE_OFF, 0, 0, 0};

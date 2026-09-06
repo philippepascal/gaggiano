@@ -61,7 +61,7 @@ struct AdvancedSettings {
   double pump_KP;
   double pump_KI;
   double pump_KD;
-  double unused1;
+  double pump_flow_ml_s;  // pump flow at full range at brew pressure, brew heater feed-forward
 };
 typedef struct AdvancedSettings AdvancedSettingsT;
 

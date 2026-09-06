@@ -68,7 +68,7 @@ static void applyTune(const GpTune &t) {
   steam_shot_s = t.steamShotS;
   steam_gap_s = t.steamGapS;
   steam_min_temp = t.steamMinTemp;
-  updateAdvancedSettings();
+  pump_flow_ml_s = t.pumpFlow;
   if (debugLog) printAdvancedSettings();
 }
 

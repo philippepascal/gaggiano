@@ -16,7 +16,7 @@ extern double pump_max_step_up;
 extern double pump_KP;
 extern double pump_KI;
 extern double pump_KD;
-extern double unused1;
+extern double pump_flow_ml_s;  // pump flow at full range at brew pressure, for the brew feed-forward (0 disables)
 extern double steam_shot_s;  // steam assist: seconds of pump per shot (0 disables)
 extern double steam_gap_s;   // steam assist: seconds between shots
 extern double steam_min_temp;  // steam assist: no shot below this boiler temperature
@@ -24,5 +24,4 @@ extern double steam_min_temp;  // steam assist: no shot below this boiler temper
 void controlSetup();
 void updateBoiler();             // call after each temperature reading
 void updatePump2();              // call after each pressure reading
-void updateAdvancedSettings();   // apply the tuning parameters to the PID
 void allOutputsOff();            // pump 0, valve closed, boiler 0, setpoints 0, mode off

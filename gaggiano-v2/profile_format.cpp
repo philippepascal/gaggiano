@@ -35,7 +35,7 @@ static const Key kKeys[] = {
     AK("pump_KP", pump_KP),
     AK("pump_KI", pump_KI),
     AK("pump_KD", pump_KD),
-    AK("unused1", unused1),
+    AK("pump_flow_ml_s", pump_flow_ml_s),
 };
 static const size_t kKeyCount = sizeof(kKeys) / sizeof(kKeys[0]);
 
@@ -121,7 +121,7 @@ int profileFormat(char *out, size_t size, const GaggiaStateT *state, const Advan
                      "pump_KP,%.3f\n"
                      "pump_KI,%.3f\n"
                      "pump_KD,%.3f\n"
-                     "unused1,%.3f\n",
+                     "pump_flow_ml_s,%.1f\n",
                      notes, (double)state->boilerSetPoint, (double)state->pressureSetPoint,
                      (double)state->steamSetPoint, (double)state->steam_max_pressure,
                      (double)state->steam_pump_output_percent, (double)state->steam_shot_s,
@@ -129,7 +129,7 @@ int profileFormat(char *out, size_t size, const GaggiaStateT *state, const Advan
                      (double)state->blooming_fill_time, (double)state->blooming_wait_time,
                      (double)state->brew_timer, adv->boiler_bb_range, adv->boiler_PID_cycle,
                      adv->boiler_PID_KP, adv->boiler_PID_KI, adv->boiler_PID_KD, adv->pump_max_step_up,
-                     adv->pump_KP, adv->pump_KI, adv->pump_KD, adv->unused1);
+                     adv->pump_KP, adv->pump_KI, adv->pump_KD, adv->pump_flow_ml_s);
   if (len < 0 || (size_t)len >= size) {
     if (size) out[0] = '\0';
     return -1;

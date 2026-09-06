@@ -188,7 +188,7 @@ static lv_obj_t* pump_max_step_up_tf;
 static lv_obj_t* pump_KP_tf;
 static lv_obj_t* pump_KI_tf;
 static lv_obj_t* pump_KD_tf;
-static lv_obj_t* unused1_tf;
+static lv_obj_t* pump_flow_tf;
 static lv_obj_t* advancedSetBtn;
 
 static const lv_font_t* font_large;
@@ -359,7 +359,7 @@ static void advancedSetButtonClicked(lv_event_t* e) {
     advancedSettings->pump_KP = strtod(lv_textarea_get_text(pump_KP_tf), NULL);
     advancedSettings->pump_KI = strtod(lv_textarea_get_text(pump_KI_tf), NULL);
     advancedSettings->pump_KD = strtod(lv_textarea_get_text(pump_KD_tf), NULL);
-    advancedSettings->unused1 = strtod(lv_textarea_get_text(unused1_tf), NULL);
+    advancedSettings->pump_flow_ml_s = strtod(lv_textarea_get_text(pump_flow_tf), NULL);
 
     advancedSettings->userChanged = true;
     advancedSettings->sendToController = true;
@@ -982,8 +982,8 @@ void updateSettings() {
     lv_textarea_set_text(pump_KI_tf, t);
     sprintf(t, "%g", advancedSettings->pump_KD);
     lv_textarea_set_text(pump_KD_tf, t);
-    sprintf(t, "%g", advancedSettings->unused1);
-    lv_textarea_set_text(unused1_tf, t);
+    sprintf(t, "%g", advancedSettings->pump_flow_ml_s);
+    lv_textarea_set_text(pump_flow_tf, t);
 
     advancedSettings->userChanged = false;
     advancedRefreshed = true;
@@ -1699,7 +1699,7 @@ static void advancedSettings_create(lv_obj_t* parent) {
   pump_KP_tf = field_create(g, "Kp", kb);
   pump_KI_tf = field_create(g, "Ki", kb);
   pump_KD_tf = field_create(g, "Kd", kb);
-  unused1_tf = field_create(g, "Unused", kb);
+  pump_flow_tf = field_create(g, "Flow ml/s at 100%", kb);
 
   lv_obj_t* row = lv_obj_create(parent);
   lv_obj_remove_style_all(row);

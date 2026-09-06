@@ -3,7 +3,7 @@
 #include "sensors.h"
 #include "outputs.h"
 #include "steam_assist.h"
-#include <AutoPID.h>
+#include "boiler_pid.h"
 
 double operating_mode = OPERATING_MODE_OFF;
 double temperatureSetPoint = 0;
@@ -19,27 +19,16 @@ double pump_max_step_up = 0.2;
 double pump_KP = 1;
 double pump_KI = 1.7;
 double pump_KD = 0.9;
-double unused1 = 0;
+double pump_flow_ml_s = 9;
 double steam_shot_s = 0.15;
 double steam_gap_s = 2;
 double steam_min_temp = 130;
 
 static SteamAssist steamAssist;
-
-// input/output variables passed by reference, so they are updated automatically
-static AutoPID boilerPID(&temperature_smoothed, &temperatureSetPoint, &boiler_relay_output,
-                         BOILER_OUTPUT_MIN, BOILER_OUTPUT_MAX, BOILER_KP, BOILER_KI, BOILER_KD);
+static BoilerPid boilerPid;
 
 void controlSetup() {
-  // if temperature is more than bb_range below or above setpoint, output is min or max
-  boilerPID.setBangBang(boiler_bb_range);
-  boilerPID.setTimeStep(boiler_PID_cycle);
-}
-
-void updateAdvancedSettings() {
-  boilerPID.setBangBang(boiler_bb_range);
-  boilerPID.setTimeStep(boiler_PID_cycle);
-  boilerPID.setGains(boiler_PID_KP, boiler_PID_KI, boiler_PID_KD);
+  boilerPidReset(&boilerPid, millis());
 }
 
 // Steaming with the wand open (pressure under the max) is a large heat sink: the
@@ -47,10 +36,29 @@ void updateAdvancedSettings() {
 // flat out (2026-09-05 log). Narrow the "flat out below" side of the bang-bang
 // then; the "off above" side and the PID inside the band are unchanged, and the
 // wand closed brings the normal band back.
+//
+// Brewing pushes reservoir water into the boiler; the PID only sees that once the
+// reading has dropped (2026-09-06 log: 3 to 4 degrees under for 25 s of a 33 s
+// shot, heater at 28 percent, which is what that water takes). The feed-forward
+// adds that estimate while the pump runs; the PID trims what it gets wrong.
 void updateBoiler() {
   bool wandOpen = operating_mode == OPERATING_MODE_STEAM && pressure_smoothed < pressureSetPoint;
-  boilerPID.setBangBang(wandOpen ? STEAM_OPEN_BB_RANGE : boiler_bb_range, boiler_bb_range);
-  boilerPID.run();
+  BoilerPidParams p;
+  p.kp = boiler_PID_KP;
+  p.ki = boiler_PID_KI;
+  p.kd = boiler_PID_KD;
+  p.bangOn = wandOpen ? STEAM_OPEN_BB_RANGE : boiler_bb_range;
+  p.bangOff = boiler_bb_range;
+  p.outMin = BOILER_OUTPUT_MIN;
+  p.outMax = BOILER_OUTPUT_MAX;
+  p.stepMs = (uint32_t)boiler_PID_cycle;
+  float out = boilerPidStep(&boilerPid, &p, millis(), temperatureSetPoint, temperature_smoothed);
+  if (operating_mode == OPERATING_MODE_BREW && pump_dimmer_output2 > 0) {
+    out += brewBoostPercent(pump_dimmer_output2 / PUMP_RANGE, pump_flow_ml_s, temperatureSetPoint, BREW_INLET_C,
+                            BOILER_ELEMENT_W, BREW_BOOST_MAX_PCT);
+    if (out > BOILER_OUTPUT_MAX) out = BOILER_OUTPUT_MAX;
+  }
+  boiler_relay_output = out;
   setBoilerOutput(boiler_relay_output);
 }
 

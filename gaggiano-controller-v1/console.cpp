@@ -95,8 +95,8 @@ void printAdvancedSettings() {
   Serial.print(pump_KI);
   Serial.print(" pump_KD:");
   Serial.print(pump_KD);
-  Serial.print(" unused1:");
-  Serial.print(unused1);
+  Serial.print(" pump_flow_ml_s:");
+  Serial.print(pump_flow_ml_s);
   Serial.print(" steam_shot_s:");
   Serial.print(steam_shot_s);
   Serial.print(" steam_gap_s:");

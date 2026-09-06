@@ -9,6 +9,7 @@ static void defaults(GaggiaStateT *s, AdvancedSettingsT *a) {
   s->boilerSetPoint = 98; s->pressureSetPoint = 8; s->steamSetPoint = 134; s->brew_timer = 30;
   s->steam_shot_s = 0.15f; s->steam_gap_s = 2; s->steam_min_temp = 130;
   a->boiler_bb_range = 3; a->boiler_PID_cycle = 1000; a->boiler_PID_KP = 10; a->pump_KP = 1;
+  a->pump_flow_ml_s = 9;
   std::strcpy(s->notes, "unchanged");
 }
 
@@ -39,7 +40,8 @@ int main() {
       "pump_KD,0.900000\n"
       "unused1,0.000000\n";
   defaults(&s, &a);
-  CHECK(profileParse(old, &s, &a) == 19);
+  CHECK(profileParse(old, &s, &a) == 18);          // "unused1" is not a key any more
+  CHECK_NEAR(a.pump_flow_ml_s, 9, 0.001);          // default kept
   CHECK_NEAR(s.steam_shot_s, 0.15, 0.001);         // no assist timings in old files: default kept
   CHECK_EQ_STR(s.notes, "14.5g  gr:1.04");
   CHECK_NEAR(s.boilerSetPoint, 80.01, 0.001);
@@ -88,6 +90,7 @@ int main() {
   CHECK(std::strstr(text, "boiler_PID_KD,0.040\n") != nullptr);
   CHECK(std::strstr(text, "steam_shot_s,0.15\nsteam_gap_s,2.00\nsteam_min_temp,130.0\n") != nullptr);
   CHECK(std::strstr(text, "boiler_PID_cycle,1000.000\n") != nullptr);
+  CHECK(std::strstr(text, "pump_flow_ml_s,9.0\n") != nullptr);
   GaggiaStateT s2; AdvancedSettingsT a2;
   defaults(&s2, &a2);
   CHECK(profileParse(text, &s2, &a2) == 22);

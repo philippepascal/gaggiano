@@ -1,4 +1,4 @@
-# Screen / controller protocol, version 5
+# Screen / controller protocol, version 6
 
 UART, 115200 8N1, 3.3 V. Controller USART2 (PA2 TX, PA3 RX); screen UART2 (GPIO17 TX,
 GPIO18 RX). Text lines, one message per line, implemented once in
@@ -26,7 +26,7 @@ $TYPE,field,field,...*HH\n
 | `HELLO` | both | `version` (int), `firmware` (string, no commas, max 31 chars) | at boot. The controller also answers a `HELLO` with its own. |
 | `STAT` | controller to screen | `mode` `temp` `pressure` `valve` `boilerOut` `pumpOut` `tempSet` `pressSet` `pumpPct` `linkOk` `faults` `counter` `pressStale` `i2cRecoveries` `maxLoopMs` | every 200 ms |
 | `CMD` | screen to controller | `mode` `tempSet` `pressSet` `pumpPct` | on change, and every 1000 ms as a heartbeat |
-| `TUNE` | screen to controller | `bbRange` `pidCycle` `kp` `ki` `kd` `pumpStepUp` `pumpKp` `pumpKi` `pumpKd` `steamShotS` `steamGapS` `steamMinTemp` | on change, and after every controller `HELLO` |
+| `TUNE` | screen to controller | `bbRange` `pidCycle` `kp` `ki` `kd` `pumpStepUp` `pumpKp` `pumpKi` `pumpKd` `steamShotS` `steamGapS` `steamMinTemp` `pumpFlow` | on change, and after every controller `HELLO` |
 
 Field meanings:
 
@@ -43,6 +43,10 @@ Field meanings:
 - `steamShotS`, `steamGapS` (v4), `steamMinTemp` (v5) in `TUNE`: steam assist timings in
   seconds and minimum boiler temperature in degrees C, from the profile's steam settings;
   the other `TUNE` fields come from the advanced settings.
+- `pumpFlow` (v6, `TUNE`): the pump's flow at full range at brew pressure, ml/s, from the
+  advanced settings. While brewing the controller adds a heater feed-forward for the
+  incoming water (pump level times this flow times the rise from 20 C to `tempSet`,
+  capped at 40 percent) on top of the PID; 0 disables it.
 - `linkOk`: 1 while the controller has received a valid `CMD` within the last 3 s.
 - `faults`: count of rejected sensor readings since boot (temperature readings out of
   range plus pressure reads that failed on I2C; the controller console `STATUS` splits

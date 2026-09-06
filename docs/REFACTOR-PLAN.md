@@ -356,3 +356,15 @@ via heartbeat and HELLO is demonstrated by the reboot.
   off side are unchanged and the wand closed restores the normal band. The gate is an
   absolute `steam_min_temp` per profile ("Assist min °C", 12th `TUNE` field), and the
   AUTO settings group folded into BREW as "Auto brew s" to make room for it.
+- 2026-09-06 heater control, protocol v6: the vendored AutoPID library computed its
+  derivative divided by the step twice (a million times too small, Kd never acted),
+  had no anti-windup (the clamp was commented out) and took the derivative on the
+  error. Replaced by `boiler_pid.cpp`, plain C++ with host tests: same bang-bang band
+  and P/I arithmetic at today's gains, derivative on the measurement in degrees per
+  second, integral clamped to the output range, a step after bang-bang starts from the
+  current reading. The morning log also showed a brew pulling the boiler 3 to 4
+  degrees under for 25 s with the heater at 28 percent, which is what 1.2 ml/s of
+  reservoir water takes: `brewBoostPercent` adds that estimate to the PID output while
+  the pump runs in brew mode (pump fraction x `pump_flow_ml_s` x 4.186 x rise / 1400 W,
+  cap 40). `pump_flow_ml_s` replaces the unused advanced setting ("Flow ml/s at 100%",
+  default 9, 13th `TUNE` field). The AutoPID directory can go.
