@@ -18,6 +18,8 @@ static const Key kKeys[] = {
     SK("steamSetPoint", steamSetPoint),
     SK("steam_max_pressure", steam_max_pressure),
     SK("steam_pump_output_percent", steam_pump_output_percent),
+    SK("steam_shot_s", steam_shot_s),
+    SK("steam_gap_s", steam_gap_s),
     SK("blooming_pressure", blooming_pressure),
     SK("blooming_fill_time", blooming_fill_time),
     SK("blooming_wait_time", blooming_wait_time),
@@ -102,6 +104,8 @@ int profileFormat(char *out, size_t size, const GaggiaStateT *state, const Advan
                      "steamSetPoint,%.2f\n"
                      "steam_max_pressure,%.2f\n"
                      "steam_pump_output_percent,%.2f\n"
+                     "steam_shot_s,%.2f\n"
+                     "steam_gap_s,%.2f\n"
                      "blooming_pressure,%.2f\n"
                      "blooming_fill_time,%.2f\n"
                      "blooming_wait_time,%.2f\n"
@@ -118,7 +122,8 @@ int profileFormat(char *out, size_t size, const GaggiaStateT *state, const Advan
                      "unused1,%.3f\n",
                      notes, (double)state->boilerSetPoint, (double)state->pressureSetPoint,
                      (double)state->steamSetPoint, (double)state->steam_max_pressure,
-                     (double)state->steam_pump_output_percent, (double)state->blooming_pressure,
+                     (double)state->steam_pump_output_percent, (double)state->steam_shot_s,
+                     (double)state->steam_gap_s, (double)state->blooming_pressure,
                      (double)state->blooming_fill_time, (double)state->blooming_wait_time,
                      (double)state->brew_timer, adv->boiler_bb_range, adv->boiler_PID_cycle,
                      adv->boiler_PID_KP, adv->boiler_PID_KI, adv->boiler_PID_KD, adv->pump_max_step_up,

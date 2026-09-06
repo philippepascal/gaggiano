@@ -65,6 +65,8 @@ static void applyTune(const GpTune &t) {
   pump_KP = t.pumpKp;
   pump_KI = t.pumpKi;
   pump_KD = t.pumpKd;
+  steam_shot_s = t.steamShotS;
+  steam_gap_s = t.steamGapS;
   updateAdvancedSettings();
   if (debugLog) printAdvancedSettings();
 }

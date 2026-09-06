@@ -12,6 +12,8 @@ struct GaggiaState {
   float steamSetPoint;
   float steam_max_pressure;
   float steam_pump_output_percent;
+  float steam_shot_s;  // steam assist: seconds of pump per shot
+  float steam_gap_s;   // steam assist: seconds between shots
   float blooming_pressure;
   float blooming_fill_time;
   float blooming_wait_time;

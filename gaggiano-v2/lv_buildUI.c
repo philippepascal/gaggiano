@@ -75,6 +75,7 @@ void updateSettings();
 #define HEADER_H 44
 #define TILE_H 140
 #define GAP 12
+#define FIELD_H 34  // settings field row; six rows plus two group titles fit a column
 #define TILE_POINTS 150  // fewer points than tile pixels: LVGL misdraws otherwise
 
 /**********************
@@ -167,6 +168,8 @@ static lv_obj_t* brew_temp_tf;
 static lv_obj_t* brew_pressure_tf;
 static lv_obj_t* steam_temp_tf;
 static lv_obj_t* steam_max_pressure_tf;
+static lv_obj_t* steam_shot_tf;
+static lv_obj_t* steam_gap_tf;
 static lv_obj_t* steam_pump_output_perc_tf;
 static lv_obj_t* blooming_pressure_tf;
 static lv_obj_t* blooming_fill_time_tf;
@@ -300,6 +303,8 @@ static void setButtonClicked(lv_event_t* e) {
     double newSteamSetPoint = strtod(lv_textarea_get_text(steam_temp_tf), NULL);
     double newSteamMaxPress = strtod(lv_textarea_get_text(steam_max_pressure_tf), NULL);
     double newSteamPumpOutput = strtod(lv_textarea_get_text(steam_pump_output_perc_tf), NULL);
+    double newSteamShot = strtod(lv_textarea_get_text(steam_shot_tf), NULL);
+    double newSteamGap = strtod(lv_textarea_get_text(steam_gap_tf), NULL);
     double newblooming_pressure = strtod(lv_textarea_get_text(blooming_pressure_tf), NULL);
     double newblooming_fill_time = strtod(lv_textarea_get_text(blooming_fill_time_tf), NULL);
     double newblooming_wait_time = strtod(lv_textarea_get_text(blooming_wait_time_tf), NULL);
@@ -311,6 +316,11 @@ static void setButtonClicked(lv_event_t* e) {
     state->steamSetPoint = newSteamSetPoint;
     state->steam_max_pressure = newSteamMaxPress;
     state->steam_pump_output_percent = newSteamPumpOutput;
+    if (newSteamShot != state->steam_shot_s || newSteamGap != state->steam_gap_s) {
+      state->steam_shot_s = newSteamShot;
+      state->steam_gap_s = newSteamGap;
+      advancedSettings->sendToController = true;  // the timings travel in TUNE
+    }
     state->blooming_pressure = newblooming_pressure;
     state->blooming_fill_time = newblooming_fill_time;
     state->blooming_wait_time = newblooming_wait_time;
@@ -922,6 +932,12 @@ void updateSettings() {
 
     sprintf(t, "%g", state->steam_pump_output_percent);
     lv_textarea_set_text(steam_pump_output_perc_tf, t);
+
+    sprintf(t, "%g", state->steam_shot_s);
+    lv_textarea_set_text(steam_shot_tf, t);
+
+    sprintf(t, "%g", state->steam_gap_s);
+    lv_textarea_set_text(steam_gap_tf, t);
 
     sprintf(t, "%g", state->blooming_pressure);
     lv_textarea_set_text(blooming_pressure_tf, t);
@@ -1548,7 +1564,7 @@ static lv_obj_t* field_create(lv_obj_t* group, const char* text, lv_obj_t* kb) {
   lv_obj_t* row = lv_obj_create(group);
   lv_obj_remove_style_all(row);
   lv_obj_set_width(row, LV_PCT(100));
-  lv_obj_set_height(row, 40);
+  lv_obj_set_height(row, FIELD_H);
   lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
   lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
@@ -1561,7 +1577,8 @@ static lv_obj_t* field_create(lv_obj_t* group, const char* text, lv_obj_t* kb) {
   theme_apply_field(tf);
   lv_obj_set_user_data(tf, (void*)text);  // the editor shows it as the title
   lv_textarea_set_one_line(tf, true);
-  lv_obj_set_size(tf, 150, 40);
+  lv_obj_set_size(tf, 150, FIELD_H);
+  lv_obj_set_scrollbar_mode(tf, LV_SCROLLBAR_MODE_OFF);  // one line, no need for the bar the shorter box would show
   lv_obj_add_event_cb(tf, setting_field_changed, LV_EVENT_ALL, kb);
   return tf;
 }
@@ -1622,20 +1639,23 @@ static void settings_create(lv_obj_t* parent) {
   lv_obj_add_event_cb(edit_notes_tf, setting_field_changed, LV_EVENT_ALL, kb2);
   lv_obj_set_grid_cell(edit_notes_tf, LV_GRID_ALIGN_STRETCH, 0, 2, LV_GRID_ALIGN_CENTER, 0, 1);
 
+  // Six fields fit a column; BREW + PRIME on the left, STEAM + AUTO on the right.
   lv_obj_t* left = column_create(parent, 0, 1);
   lv_obj_t* g = group_create(left, "BREW");
   brew_temp_tf = field_create(g, "Temperature °C", kb);
   brew_pressure_tf = field_create(g, "Pressure bar", kb);
-  g = group_create(left, "STEAM");
-  steam_temp_tf = field_create(g, "Temperature °C", kb);
-  steam_max_pressure_tf = field_create(g, "Max pressure bar", kb);
-  steam_pump_output_perc_tf = field_create(g, "Pump %", kb);
-
-  lv_obj_t* right = column_create(parent, 1, 1);
-  g = group_create(right, "PRIME");
+  g = group_create(left, "PRIME");
   blooming_pressure_tf = field_create(g, "Pressure bar", kb);
   blooming_fill_time_tf = field_create(g, "Fill s", kb);
   blooming_wait_time_tf = field_create(g, "Wait s", kb);
+
+  lv_obj_t* right = column_create(parent, 1, 1);
+  g = group_create(right, "STEAM");
+  steam_temp_tf = field_create(g, "Temperature °C", kb);
+  steam_max_pressure_tf = field_create(g, "Max pressure bar", kb);
+  steam_pump_output_perc_tf = field_create(g, "Assist pump %", kb);
+  steam_shot_tf = field_create(g, "Assist shot s", kb);
+  steam_gap_tf = field_create(g, "Assist gap s", kb);
   g = group_create(right, "AUTO");
   brew_timer_tf = field_create(g, "Brew s", kb);
 

@@ -89,7 +89,7 @@ void linkSetCommand(int mode, float tempSet, float pressSet, float pumpPct) {
 }
 
 void linkSendTune() {
-  if (adv == NULL) return;
+  if (adv == NULL || state == NULL) return;
   GpMessage m;
   m.type = GP_TUNE;
   m.tune.bbRange = adv->boiler_bb_range;
@@ -101,10 +101,13 @@ void linkSendTune() {
   m.tune.pumpKp = adv->pump_KP;
   m.tune.pumpKi = adv->pump_KI;
   m.tune.pumpKd = adv->pump_KD;
+  m.tune.steamShotS = state->steam_shot_s;
+  m.tune.steamGapS = state->steam_gap_s;
   sendMessage(m);
-  logEvent("tune bb=%.2f cycle=%.0f kp=%.3f ki=%.3f kd=%.3f step=%.3f pkp=%.3f pki=%.3f pkd=%.3f",
+  logEvent("tune bb=%.2f cycle=%.0f kp=%.3f ki=%.3f kd=%.3f step=%.3f pkp=%.3f pki=%.3f pkd=%.3f shot=%.2f gap=%.2f",
            adv->boiler_bb_range, adv->boiler_PID_cycle, adv->boiler_PID_KP, adv->boiler_PID_KI, adv->boiler_PID_KD,
-           adv->pump_max_step_up, adv->pump_KP, adv->pump_KI, adv->pump_KD);
+           adv->pump_max_step_up, adv->pump_KP, adv->pump_KI, adv->pump_KD, (double)state->steam_shot_s,
+           (double)state->steam_gap_s);
 }
 
 static bool nearlyEqual(float a, float b) { return fabsf(a - b) < 0.006f; }  // two decimals on the wire

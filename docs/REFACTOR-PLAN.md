@@ -338,3 +338,13 @@ via heartbeat and HELLO is demonstrated by the reboot.
   appeared right after a firmware change. All members now have initialisers;
   `STATUS` prints `zc=` (zero crossings seen) so a missing dimmer signal is
   visible on the bench (checklist row 17).
+- 2026-09-05 steam assist, protocol v4: steaming used to run the pump at a fixed
+  percent whenever the pressure was under the max, which either did nothing (the
+  pump's own pulses raise the line pressure and trip the cut) or overfilled the boiler
+  (a 1.4 kW element vaporises about half a gram per second; the pump at 20% delivers
+  more, and the excess comes out of the wand as water). Now `steam_assist.cpp` fires
+  fixed shots (`steam_shot_s` of pump at the steam pump percent) at least
+  `steam_gap_s` apart, only while the pressure is under the max (wand open) and the
+  boiler is within 2 degrees of its setpoint (the element has spare heat to flash the
+  water). Both timings are per profile, edited in the STEAM group of the settings, and
+  travel to the controller in `TUNE` (11 fields). Host test: `tests/test_steam_assist.cpp`.

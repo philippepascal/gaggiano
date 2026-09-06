@@ -2,6 +2,7 @@
 #include "config.h"
 #include "sensors.h"
 #include "outputs.h"
+#include "steam_assist.h"
 #include <AutoPID.h>
 
 double operating_mode = OPERATING_MODE_OFF;
@@ -19,6 +20,10 @@ double pump_KP = 1;
 double pump_KI = 1.7;
 double pump_KD = 0.9;
 double unused1 = 0;
+double steam_shot_s = 0.15;
+double steam_gap_s = 2;
+
+static SteamAssist steamAssist;
 
 // input/output variables passed by reference, so they are updated automatically
 static AutoPID boilerPID(&temperature_smoothed, &temperatureSetPoint, &boiler_relay_output,
@@ -49,6 +54,7 @@ static void setPumpGuarded(double value) {
 
 void updatePump2() {
   double pumpValue;
+  if (operating_mode != OPERATING_MODE_STEAM) steamAssistReset(&steamAssist);
   if (operating_mode == OPERATING_MODE_OFF) {
     setPump(0);
     setValve(false);
@@ -78,13 +84,16 @@ void updatePump2() {
       setValve(false);
     }
   } else if (operating_mode == OPERATING_MODE_STEAM) {
-    if (pressure_smoothed > pressureSetPoint) {
-      pumpValue = 0;
-    } else {
-      float p = pressureOutputPercent;
-      if (p > STEAM_PUMP_MAX_PERCENT) p = STEAM_PUMP_MAX_PERCENT;  // solenoid is closed: keep a guard
-      pumpValue = (p * PUMP_RANGE) / 100;
-    }
+    SteamAssistParams p;
+    p.pumpPct = pressureOutputPercent;
+    p.maxPct = STEAM_PUMP_MAX_PERCENT;
+    p.maxPressure = pressureSetPoint;
+    p.shotS = steam_shot_s;
+    p.gapS = steam_gap_s;
+    p.tempMargin = STEAM_ASSIST_TEMP_MARGIN;
+    p.blankS = STEAM_ASSIST_BLANK_S;
+    pumpValue = steamAssistStep(&steamAssist, &p, millis(), temperature_smoothed, temperatureSetPoint,
+                                pressure_smoothed, PUMP_RANGE);
     setPumpGuarded(pumpValue);
   } else {
     // safety. should not happen

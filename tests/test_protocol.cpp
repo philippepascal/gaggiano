@@ -28,7 +28,7 @@ int main() {
   GpMessage ho = roundtrip(h, &r);
   CHECK(r == GP_OK);
   CHECK(ho.type == GP_HELLO);
-  CHECK(ho.hello.version == 3);
+  CHECK(ho.hello.version == 4);
   CHECK_EQ_STR(ho.hello.firmware, "controller-2026-09-01");
 
   // --- STAT
@@ -79,11 +79,24 @@ int main() {
   t.type = GP_TUNE;
   t.tune.bbRange = 10; t.tune.pidCycle = 200; t.tune.kp = 5; t.tune.ki = 0.1f; t.tune.kd = 0.04f;
   t.tune.pumpStepUp = 0.4f; t.tune.pumpKp = 1; t.tune.pumpKi = 1.7f; t.tune.pumpKd = 0.9f;
+  t.tune.steamShotS = 0.15f; t.tune.steamGapS = 2;
   GpMessage to = roundtrip(t, &r);
   CHECK(r == GP_OK);
   CHECK(to.type == GP_TUNE);
   CHECK_NEAR(to.tune.kd, 0.04, 0.0005);
   CHECK_NEAR(to.tune.pumpKi, 1.7, 0.0005);
+  CHECK_NEAR(to.tune.steamShotS, 0.15, 0.0005);
+  CHECK_NEAR(to.tune.steamGapS, 2, 0.0005);
+  // a v3 TUNE (9 fields) is rejected on field count, never half-applied
+  {
+    const char *l = "$TUNE,10.00,200.00,5.000,0.100,0.040,0.400,1.000,1.700,0.900*";
+    char buf[GP_LINE_MAX];
+    size_t n = std::strlen(l);
+    std::memcpy(buf, l, n);
+    n += (size_t)std::snprintf(buf + n, sizeof(buf) - n, "%02X\n", gp_checksum(l + 1, n - 2));
+    GpMessage m;
+    CHECK(gp_decode(buf, n, &m) == GP_ERR_FIELDS);
+  }
 
   // --- checksum by hand on a tiny payload
   CHECK(gp_checksum("A", 1) == 'A');
